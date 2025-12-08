@@ -4,6 +4,11 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   # Check PR title format
   pr-title:
@@ -52,24 +57,3 @@ jobs:
           npm run lint
           npm run format:check
           npm run test -- --watchAll=false --passWithNoTests
-
-      - name: Comment PR
-        uses: actions/github-script@v7
-        if: always()
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const output = `#### Code Quality Check 🎨
-            - TypeScript: ✅
-            - ESLint: ✅
-            - Prettier: ✅
-            - Tests: ✅
-
-            *All checks passed! Ready for review.*`;
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: output
-            })
