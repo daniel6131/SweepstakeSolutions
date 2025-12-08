@@ -23,6 +23,7 @@ jobs:
             refactor
             test
             chore
+            ci
           requireScope: false
 
   # Lint PR
