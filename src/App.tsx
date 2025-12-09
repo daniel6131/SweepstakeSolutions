@@ -3,6 +3,7 @@ import { ThemeProvider } from 'styled-components';
 
 import { Header } from './components/Header';
 import { Navigation } from './components/Navigation';
+import { FixturesPage } from './pages/Fixtures';
 import { HomePage } from './pages/Home';
 import { TeamPicksPage } from './pages/TeamPicks';
 import { GlobalStyles } from './styles/GlobalStyles';
@@ -18,6 +19,7 @@ const App = () => {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/team-picks" element={<TeamPicksPage />} />
+          <Route path="/fixtures" element={<FixturesPage />} />
         </Routes>
       </Router>
     </ThemeProvider>
