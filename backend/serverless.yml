@@ -1,0 +1,60 @@
+service: sweepstake-api
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 30
+
+  environment:
+    API_FOOTBALL_KEY: ${env:API_FOOTBALL_KEY}
+    STAGE: ${self:provider.stage}
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: '*'
+
+functions:
+  health:
+    handler: handler.health
+    events:
+      - http:
+          path: /health
+          method: get
+
+  fixtures:
+    handler: handler.fixtures
+    events:
+      - http:
+          path: /api/fixtures
+          method: get
+
+  fixture:
+    handler: handler.fixture
+    events:
+      - http:
+          path: /api/fixture/{id}
+          method: get
+
+  standings:
+    handler: handler.standings
+    events:
+      - http:
+          path: /api/standings
+          method: get
+
+plugins:
+  - serverless-dotenv-plugin
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 3001
