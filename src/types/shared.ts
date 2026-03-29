@@ -25,12 +25,14 @@ export interface GroupStanding {
 }
 
 export interface Fixture {
+  round: string;
   date: string;
   home: string;
   away: string;
   score: string;
+  penalty?: string;
   venue: string;
-  round: string;
+  winner?: 'home' | 'away' | 'draw';
 }
 
 export interface OverallStanding {
