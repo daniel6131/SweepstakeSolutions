@@ -59,7 +59,16 @@ export function useScrollReveal(opts: RevealOptions = {}) {
       tl.scrollTrigger?.kill();
       tl.kill();
     };
-  }, [opts.y, opts.x, opts.rotation, opts.scale, opts.duration, opts.delay, opts.stagger, opts.ease]);
+  }, [
+    opts.y,
+    opts.x,
+    opts.rotation,
+    opts.scale,
+    opts.duration,
+    opts.delay,
+    opts.stagger,
+    opts.ease,
+  ]);
 
   return ref;
 }

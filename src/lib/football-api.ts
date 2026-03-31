@@ -51,7 +51,7 @@ const TEAM_NAME_MAP: Record<string, string> = {
   'Iran, Islamic Republic of': 'Iran',
   'IR Iran': 'Iran',
   'United States': 'USA',
-  'Türkiye': 'Turkey',
+  Türkiye: 'Turkey',
   'New Zealand / Aotearoa': 'New Zealand',
   'Cape Verde': 'Cabo Verde',
   'Congo DR': 'DR Congo',
@@ -207,9 +207,7 @@ export async function fetchLiveStandings(): Promise<Record<string, ApiStandingRo
   if (cached) return cached;
 
   try {
-    const data = await apiFetch<ApiStandingsResponse>(
-      `/competitions/${COMPETITION}/standings`
-    );
+    const data = await apiFetch<ApiStandingsResponse>(`/competitions/${COMPETITION}/standings`);
 
     const standings: Record<string, ApiStandingRow[]> = {};
     for (const group of data.standings) {

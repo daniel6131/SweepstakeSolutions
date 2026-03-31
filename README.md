@@ -116,9 +116,9 @@ Edit `src/data/participants.ts` with your actual names and team assignments.
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `FOOTBALL_DATA_API_KEY` | No | Free API key from [football-data.org](https://www.football-data.org/client/register). Without it, the app uses static data. |
+| Variable                | Required | Description                                                                                                                 |
+| ----------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `FOOTBALL_DATA_API_KEY` | No       | Free API key from [football-data.org](https://www.football-data.org/client/register). Without it, the app uses static data. |
 
 On Vercel: Settings → Environment Variables → add `FOOTBALL_DATA_API_KEY`.
 

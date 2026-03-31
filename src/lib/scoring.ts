@@ -26,11 +26,18 @@ function buildTeamRecords(fixtures: Fixture[]): Map<string, TeamRecord> {
     const r2 = ensure(f.t2);
 
     if (f.s1 > f.s2) {
-      r1.w++; r1.pts += WIN_PTS; r2.l++;
+      r1.w++;
+      r1.pts += WIN_PTS;
+      r2.l++;
     } else if (f.s1 < f.s2) {
-      r2.w++; r2.pts += WIN_PTS; r1.l++;
+      r2.w++;
+      r2.pts += WIN_PTS;
+      r1.l++;
     } else {
-      r1.d++; r1.pts += DRAW_PTS; r2.d++; r2.pts += DRAW_PTS;
+      r1.d++;
+      r1.pts += DRAW_PTS;
+      r2.d++;
+      r2.pts += DRAW_PTS;
     }
   }
 
@@ -45,11 +52,19 @@ export function computeLeaderboard(fixtures: Fixture[]): LeaderboardEntry[] {
   const records = buildTeamRecords(fixtures);
 
   return PARTICIPANTS.map((p) => {
-    let pts = 0, w = 0, d = 0, l = 0;
+    let pts = 0,
+      w = 0,
+      d = 0,
+      l = 0;
 
     for (const team of p.teams) {
       const r = records.get(team);
-      if (r) { pts += r.pts; w += r.w; d += r.d; l += r.l; }
+      if (r) {
+        pts += r.pts;
+        w += r.w;
+        d += r.d;
+        l += r.l;
+      }
     }
 
     return { name: p.name, teams: p.teams, pts, w, d, l };
@@ -66,7 +81,14 @@ export function computeGroupStandings(fixtures: Fixture[]): Record<GroupId, Grou
     const groupFixtures = fixtures.filter((f) => f.group === group);
 
     const rows: GroupStanding[] = teams.map((team) => ({
-      team, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0,
+      team,
+      p: 0,
+      w: 0,
+      d: 0,
+      l: 0,
+      gf: 0,
+      ga: 0,
+      pts: 0,
     }));
 
     for (const f of groupFixtures) {
@@ -76,22 +98,33 @@ export function computeGroupStandings(fixtures: Fixture[]): Record<GroupId, Grou
       const r2 = rows.find((r) => r.team === f.t2);
       if (!r1 || !r2) continue;
 
-      r1.p++; r2.p++;
-      r1.gf += f.s1; r1.ga += f.s2;
-      r2.gf += f.s2; r2.ga += f.s1;
+      r1.p++;
+      r2.p++;
+      r1.gf += f.s1;
+      r1.ga += f.s2;
+      r2.gf += f.s2;
+      r2.ga += f.s1;
 
       if (f.s1 > f.s2) {
-        r1.w++; r1.pts += WIN_PTS; r2.l++;
+        r1.w++;
+        r1.pts += WIN_PTS;
+        r2.l++;
       } else if (f.s1 < f.s2) {
-        r2.w++; r2.pts += WIN_PTS; r1.l++;
+        r2.w++;
+        r2.pts += WIN_PTS;
+        r1.l++;
       } else {
-        r1.d++; r1.pts += DRAW_PTS; r2.d++; r2.pts += DRAW_PTS;
+        r1.d++;
+        r1.pts += DRAW_PTS;
+        r2.d++;
+        r2.pts += DRAW_PTS;
       }
     }
 
     rows.sort((a, b) => {
       if (b.pts !== a.pts) return b.pts - a.pts;
-      const gdA = a.gf - a.ga, gdB = b.gf - b.ga;
+      const gdA = a.gf - a.ga,
+        gdB = b.gf - b.ga;
       if (gdB !== gdA) return gdB - gdA;
       if (b.gf !== a.gf) return b.gf - a.gf;
       return a.team.localeCompare(b.team);

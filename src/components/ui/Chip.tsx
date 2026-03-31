@@ -1,4 +1,10 @@
-type ChipProps = { label: string; active: boolean; accent: string; bg: string; onClick: () => void };
+type ChipProps = {
+  label: string;
+  active: boolean;
+  accent: string;
+  bg: string;
+  onClick: () => void;
+};
 
 export function Chip({ label, active, accent, bg, onClick }: ChipProps) {
   return (
@@ -9,8 +15,7 @@ export function Chip({ label, active, accent, bg, onClick }: ChipProps) {
         border: `1.5px solid ${active ? accent : 'rgba(255,255,255,0.06)'}`,
         background: active ? accent : 'transparent',
         color: active ? bg : 'rgba(255,255,255,0.3)',
-      }}
-    >
+      }}>
       {label}
     </button>
   );

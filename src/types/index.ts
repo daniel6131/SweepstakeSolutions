@@ -7,9 +7,7 @@ export type ThemeColors = {
   card: string;
 };
 
-export type GroupId =
-  | 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
-  | 'G' | 'H' | 'I' | 'J' | 'K' | 'L';
+export type GroupId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L';
 
 export type Participant = {
   name: string;
