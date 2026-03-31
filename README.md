@@ -1,428 +1,176 @@
-# World Cup 2026 Sweepstake Tracker
+# World Cup Sweepstake 2026 ⚽
 
-Professional React TypeScript application with clean folder-based architecture.
+A sleek, dark-themed web app for tracking your World Cup 2026 sweepstake between 12 friends.
 
-## 🚀 Quick Start
+## How the Sweepstake Works
+
+- **12 participants**, each assigned **4 national teams**
+- Points accumulate from every game your teams play:
+  - **Win** = 3 points
+  - **Draw** = 1 point
+  - **Loss** = 0 points
+- Combined points across all 4 teams determine your leaderboard position
+
+## Features
+
+- **Leaderboard** — Live standings with podium display and full table
+- **Fixtures** — All group stage matches with scores, venues, and team owners
+- **Groups** — Complete group stage tables (A–L) with filtering
+- **Teams** — Each participant's 4 teams with individual breakdowns
+- Per-tab colour themes with smooth transitions
+- Floating background blobs and staggered entry animations
+- Fully responsive (mobile-first)
+- **Live scores** via football-data.org with ISR (auto-refreshes every 60s)
+
+## Tech Stack
+
+- **Next.js 15** (App Router, ISR)
+- **React 19**
+- **TypeScript**
+- **Tailwind CSS 4**
+- **football-data.org** API (free tier, 10 req/min)
+- Deployed on **Vercel**
+
+## Getting Started
 
 ```bash
-# Install
+# 1. Install dependencies
 npm install
 
-# Start development
-npm start
+# 2. Set up your API key (optional — app works without it)
+cp .env.local.example .env.local
+# Edit .env.local and add your football-data.org API key
 
-# Before pushing to git
-npm run prepare-push
+# 3. Run dev server
+npm run dev
 ```
 
----
+Open [http://localhost:3000](http://localhost:3000).
 
-## 📁 Project Structure
-
-### Folder-Based Architecture
-
-Each component and page has its own folder with organized files:
+## Architecture
 
 ```
-src/
-├── types/
-│   └── shared.ts              # Shared TypeScript interfaces
-│
-├── components/
-│   ├── StatCard/
-│   │   ├── index.tsx          # Component logic
-│   │   ├── styles.ts          # Styled components
-│   │   └── types.ts           # Component types
-│   │
-│   └── Header/
-│       ├── index.tsx
-│       ├── styles.ts
-│       └── data.ts            # Component data (when needed)
-│
-└── pages/
-    ├── Home/
-    │   ├── index.tsx          # Page component
-    │   ├── styles.ts          # Page styles
-    │   └── data.ts            # Page data
-    │
-    └── TeamPicks/
-        ├── index.tsx
-        ├── styles.ts
-        └── data.ts
-```
-
-### File Responsibilities
-
-#### `index.tsx`
-
-Component logic and JSX. Always the default export.
-
-```typescript
-import { playerData } from './data';
-import { Container, Title } from './styles';
-
-export const TeamPicks = () => {
-  return (
-    <Container>
-      <Title>{playerData.title}</Title>
-    </Container>
-  );
-};
-```
-
-#### `styles.ts`
-
-All styled components for this component/page.
-
-```typescript
-import styled from 'styled-components';
-
-export const Container = styled.div`
-  padding: 20px;
-`;
-
-export const Title = styled.h1`
-  color: ${theme.colors.primary};
-`;
-```
-
-#### `types.ts`
-
-Component-specific TypeScript interfaces.
-
-```typescript
-import type { Player } from '../../types/shared';
-
-export interface PlayerCardProps {
-  player: Player;
-}
-```
-
-#### `data.ts` (when needed)
-
-Static data for the component/page.
-
-```typescript
-export const players: Player[] = [
-  { name: "Daniel", teams: [...] },
-  { name: "Adam", teams: [...] }
-];
-```
-
-## 🎯 Development Workflow
-
-### Daily Development
-
-```bash
-# 1. Start dev server
-npm start
-
-# 2. Make changes (files auto-format on save in VS Code)
-
-# 3. Before commit
-npm run pre-commit
-git add .
-git commit -m "Add feature"
-
-# 4. Before push
-npm run prepare-push
-git push
-```
-
-### Available Commands
-
-#### Development
-
-```bash
-npm start                # Dev server (localhost:3000)
-npm run build           # Production build
-npm test                # Run tests (watch mode)
-```
-
-#### Git Workflow
-
-```bash
-npm run prepare-push    # ⭐ Run before every push
-npm run pre-commit      # Quick cleanup before commit
-npm run pre-push        # Validation only (no auto-fix)
-npm run check-all       # Full validation + build
-```
-
-#### Code Quality
-
-```bash
-npm run lint            # Check for errors
-npm run lint:fix        # Auto-fix errors
-npm run format          # Format all code
-npm run format:check    # Check formatting
-npm run type-check      # TypeScript validation
-```
-
-### Script Details
-
-**`npm run prepare-push`** (Main Script)
-
-1. Auto-fixes lint errors
-2. Formats all code
-3. Validates TypeScript
-4. Runs all tests
-
-**`npm run pre-commit`** (Quick)
-
-1. Auto-fixes lint errors
-2. Formats code
-
-**`npm run pre-push`** (Validation)
-
-1. Checks TypeScript
-2. Checks lint (no fix)
-3. Checks format (no fix)
-4. Runs tests
-
-**`npm run check-all`** (Complete)
-
-1. Everything in pre-push
-2. Plus production build
-
----
-
-## 📝 Editing the Project
-
-### Creating a New Component
-
-```bash
-# 1. Create folder
-mkdir src/components/MyComponent
-
-# 2. Create files
-touch src/components/MyComponent/index.tsx
-touch src/components/MyComponent/styles.ts
-touch src/components/MyComponent/types.ts
-```
-
-**index.tsx:**
-
-```typescript
-import type { MyComponentProps } from './types';
-import { Container } from './styles';
-
-export const MyComponent: React.FC<MyComponentProps> = ({ title }) => {
-  return <Container>{title}</Container>;
-};
-```
-
-**styles.ts:**
-
-```typescript
-import styled from 'styled-components';
-
-export const Container = styled.div`
-  padding: 20px;
-`;
-```
-
-**types.ts:**
-
-```typescript
-export interface MyComponentProps {
-  title: string;
-}
-```
-
-### Creating a New Page
-
-Same as component, but in `src/pages/` folder. Add route to `App.tsx`:
-
-```typescript
-import { MyPage } from './pages/MyPage';
-
-<Route path="/my-page" element={<MyPage />} />
-```
-
----
-
-## 🎨 Customization
-
-### Colors
-
-Edit `src/styles/theme.ts`:
-
-```typescript
-colors: {
-  primary: '#1a4d2e',      // Change primary color
-  secondary: '#ffd700',    // Change secondary color
-  accent: '#ff6b35'        // Change accent color
-}
-```
-
-### Fonts
-
-1. Update Google Fonts in `public/index.html`
-2. Edit `src/styles/typography.ts`:
-
-```typescript
-fonts: {
-  display: 'Bebas Neue',   // Display font
-  heading: 'Oswald',       // Heading font
-  body: 'Inter'            // Body font
-}
-```
-
----
-
-## 🧪 Testing
-
-### Run Tests
-
-```bash
-npm test                           # Watch mode
-npm run test -- --watchAll=false   # Run once
-```
-
-### Before Push
-
-```bash
-npm run prepare-push               # Includes test run
-```
-
----
-
-## 🚀 Deployment
-
-### Build for Production
-
-```bash
-npm run build
-```
-
-Output in `build/` folder.
-
----
-
-## 📖 Key Concepts
-
-### Component Structure
-
-```
-ComponentName/
-├── index.tsx          # Logic & JSX
-├── styles.ts          # All styles
-├── types.ts           # Interfaces
-└── data.ts            # Static data (optional)
-```
-
-### Import Patterns
-
-```typescript
-// Component imports its own files
-import { myData } from './data';
-import { Container } from './styles';
-import type { MyProps } from './types';
-
-// Component imports shared types
-import type { Player } from '../../types/shared';
-
-// Clean folder imports (index.tsx is automatic)
-import { StatCard } from './components/StatCard';
+Browser request
+      │
+      ▼
+┌──────────────────────────────────────────┐
+│  Next.js Server (Vercel Edge)            │
+│                                          │
+│  page.tsx (Server Component)             │
+│    │                                     │
+│    ├─ loadSweepstakeData()               │
+│    │    │                                │
+│    │    ├─ football-data.org API ← live  │
+│    │    │   (if FOOTBALL_DATA_API_KEY)    │
+│    │    │                                │
+│    │    └─ src/data/fixtures.ts ← static │
+│    │        (fallback)                   │
+│    │                                     │
+│    ├─ computeLeaderboard(fixtures)       │
+│    ├─ computeGroupStandings(fixtures)    │
+│    │                                     │
+│    └─ Passes all computed data to ───────┤
+│                                          │
+│  HomeClient.tsx (Client Component)       │
+│    └─ Interactive tabs, animations, etc  │
+│                                          │
+│  revalidate: 60 (ISR)                   │
+│    → Page rebuilds every 60s with fresh  │
+│      scores from the API                 │
+└──────────────────────────────────────────┘
 ```
 
 ### Data Flow
 
+1. **Server component** (`page.tsx`) runs on every request (cached for 60s via ISR)
+2. It calls `loadSweepstakeData()` which tries the football-data.org API first
+3. If the API key isn't set or the request fails, it falls back to static `fixtures.ts`
+4. The scoring engine computes leaderboard + group standings from whichever fixtures are available
+5. All computed data is passed as props to the client component
+6. The client component renders the interactive tabbed UI
+
+### API Routes (for debugging)
+
+- `GET /api/matches` — Returns current fixtures (live or static)
+- `GET /api/matches?source=live` — Force live API (errors if not configured)
+- `GET /api/matches?source=static` — Force static data
+- `GET /api/standings` — Group standings from football-data.org
+
+## Updating Scores Manually
+
+If you prefer not to use the API, edit `src/data/fixtures.ts`:
+
+```ts
+// Before (upcoming match)
+{ group: 'A', t1: 'Mexico', t2: 'South Africa', ..., s1: null, s2: null },
+
+// After (Mexico wins 2-1)
+{ group: 'A', t1: 'Mexico', t2: 'South Africa', ..., s1: 2, s2: 1 },
 ```
-types/shared.ts
-└── Defines: interface Player { ... }
 
-pages/TeamPicks/data.ts
-└── Uses: const players: Player[] = [...]
+Commit and push — Vercel redeploys automatically. Everything recalculates.
 
-pages/TeamPicks/index.tsx
-└── Imports: import { players } from './data';
+## Updating Participants
 
-components/PlayerCard/types.ts
-└── Imports: import type { Player } from '../../types/shared';
+Edit `src/data/participants.ts` with your actual names and team assignments.
+
+## Environment Variables
+
+| Variable                | Required | Description                                                                                                                 |
+| ----------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `FOOTBALL_DATA_API_KEY` | No       | Free API key from [football-data.org](https://www.football-data.org/client/register). Without it, the app uses static data. |
+
+On Vercel: Settings → Environment Variables → add `FOOTBALL_DATA_API_KEY`.
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── globals.css          # Tailwind + animations + theme vars
+│   ├── layout.tsx           # Root layout, fonts, metadata
+│   ├── page.tsx             # Server component (ISR, data loading)
+│   ├── HomeClient.tsx       # Client component (interactive UI)
+│   └── api/
+│       ├── matches/route.ts # Debug endpoint for fixture data
+│       └── standings/route.ts
+├── components/
+│   ├── layout/              # Header, Nav, BackgroundBlobs
+│   ├── ui/                  # Flag, SectionHeading, Chip
+│   ├── leaderboard/         # Podium, LeaderboardTable, LeaderboardTab
+│   ├── fixtures/            # FixtureCard, NationMarquee, FixturesTab
+│   ├── groups/              # GroupTable, GroupsTab
+│   └── teams/               # ParticipantCard, TeamsTab
+├── data/                    # Static data (groups, participants, fixtures, themes)
+├── lib/
+│   ├── football-api.ts      # football-data.org API client + caching
+│   ├── load-data.ts         # Server-side data orchestration
+│   ├── scoring.ts           # Points calculation engine
+│   └── utils.ts             # Helpers
+└── types/
+    └── index.ts             # Shared TypeScript types
 ```
 
----
+## ISR Tuning
 
-## ✅ Pre-Push Checklist
+In `src/app/page.tsx`, adjust the `revalidate` value:
 
-Before pushing to git:
+```ts
+// During live matches — update every 30 seconds
+export const revalidate = 30;
+
+// Between match days — update every 5 minutes
+export const revalidate = 300;
+
+// Pre-tournament — update once per hour
+export const revalidate = 3600;
+```
+
+## Deployment
 
 ```bash
-npm run prepare-push
+npm run build
+npx vercel
 ```
 
-This ensures:
-
-- ✅ Code is formatted
-- ✅ No lint errors
-- ✅ TypeScript validates
-- ✅ Tests pass
-
-If it passes, you're ready to push!
-
----
-
-## 🔧 Troubleshooting
-
-### npm install fails
-
-```bash
-rm -rf node_modules package-lock.json
-npm cache clean --force
-npm install
-```
-
-### TypeScript errors
-
-```bash
-npm run type-check    # See all errors
-```
-
-### Lint errors
-
-```bash
-npm run lint:fix      # Auto-fix
-npm run lint          # Check remaining
-```
-
-### Format errors
-
-```bash
-npm run format        # Auto-format
-```
-
-## 💡 Best Practices
-
-### Code Quality
-
-- Always run `prepare-push` before pushing
-- Let scripts auto-fix what they can
-- Fix remaining errors manually
-
-### Git Workflow
-
-- Commit often with clear messages
-- Run `pre-commit` before committing
-- Run `prepare-push` before pushing
-- Never push without validation
-
----
-
-## 🎯 Quick Reference
-
-```bash
-# Development
-npm start                    # Start dev
-
-# Before git push (MOST IMPORTANT!)
-npm run prepare-push         # Auto-fix + validate + test
-
-# Quick cleanup
-npm run pre-commit           # Auto-fix + format
-
-# Production
-npm run build                # Build for deploy
-```
-
----
+Or connect your GitHub repo to Vercel for automatic deployments on push.

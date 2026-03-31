@@ -10,13 +10,11 @@ permissions:
   issues: write
 
 jobs:
-  # Check PR title format
   pr-title:
     name: Check PR Title
     runs-on: ubuntu-latest
     steps:
-      - name: Check PR title format
-        uses: amannn/action-semantic-pull-request@v5
+      - uses: amannn/action-semantic-pull-request@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -31,29 +29,16 @@ jobs:
             ci
           requireScope: false
 
-  # Lint PR
   pr-lint:
     name: PR Validation
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run all checks
-        run: |
-          npm run type-check
-          npm run lint
-          npm run format:check
-          npm run test -- --watchAll=false --passWithNoTests
+      - run: npm ci
+      - run: npm run pre-push
