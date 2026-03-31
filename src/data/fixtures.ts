@@ -1,0 +1,34 @@
+import type { Fixture } from '@/types';
+
+/**
+ * World Cup 2026 Group Stage Fixtures
+ *
+ * Scores are null until the match is played.
+ * Update s1/s2 with actual results as games complete.
+ */
+export const FIXTURES: Fixture[] = [
+  { group: 'A', t1: 'Mexico', t2: 'South Africa', date: 'Jun 11', time: '17:00', venue: 'Estadio Azteca', s1: null, s2: null },
+  { group: 'C', t1: 'Brazil', t2: 'Morocco', date: 'Jun 11', time: '20:00', venue: 'AT&T Stadium', s1: null, s2: null },
+  { group: 'A', t1: 'South Korea', t2: 'Denmark', date: 'Jun 11', time: '14:00', venue: 'SoFi Stadium', s1: null, s2: null },
+  { group: 'B', t1: 'Canada', t2: 'Italy', date: 'Jun 12', time: '18:00', venue: 'BMO Field', s1: null, s2: null },
+  { group: 'D', t1: 'USA', t2: 'Paraguay', date: 'Jun 12', time: '21:00', venue: 'SoFi Stadium', s1: null, s2: null },
+  { group: 'B', t1: 'Switzerland', t2: 'Qatar', date: 'Jun 12', time: '15:00', venue: 'Gillette Stadium', s1: null, s2: null },
+  { group: 'E', t1: 'Germany', t2: 'Curaçao', date: 'Jun 13', time: '18:00', venue: 'Lincoln Financial', s1: null, s2: null },
+  { group: 'C', t1: 'Scotland', t2: 'Haiti', date: 'Jun 13', time: '15:00', venue: 'Hard Rock Stadium', s1: null, s2: null },
+  { group: 'F', t1: 'Netherlands', t2: 'Sweden', date: 'Jun 13', time: '21:00', venue: 'MetLife Stadium', s1: null, s2: null },
+  { group: 'D', t1: 'Australia', t2: 'Turkey', date: 'Jun 13', time: '12:00', venue: 'NRG Stadium', s1: null, s2: null },
+  { group: 'G', t1: 'Belgium', t2: 'Egypt', date: 'Jun 14', time: '18:00', venue: 'Lumen Field', s1: null, s2: null },
+  { group: 'F', t1: 'Japan', t2: 'Tunisia', date: 'Jun 14', time: '15:00', venue: 'BC Place', s1: null, s2: null },
+  { group: 'H', t1: 'Spain', t2: 'Cabo Verde', date: 'Jun 14', time: '21:00', venue: 'Hard Rock Stadium', s1: null, s2: null },
+  { group: 'G', t1: 'Iran', t2: 'New Zealand', date: 'Jun 14', time: '12:00', venue: "Levi's Stadium", s1: null, s2: null },
+  { group: 'I', t1: 'France', t2: 'Jamaica', date: 'Jun 15', time: '18:00', venue: 'Lincoln Financial', s1: null, s2: null },
+  { group: 'H', t1: 'Uruguay', t2: 'Saudi Arabia', date: 'Jun 15', time: '15:00', venue: 'Estadio BBVA', s1: null, s2: null },
+  { group: 'J', t1: 'Argentina', t2: 'Algeria', date: 'Jun 15', time: '21:00', venue: 'MetLife Stadium', s1: null, s2: null },
+  { group: 'I', t1: 'Senegal', t2: 'Norway', date: 'Jun 15', time: '12:00', venue: 'Mercedes-Benz', s1: null, s2: null },
+  { group: 'K', t1: 'Portugal', t2: 'DR Congo', date: 'Jun 16', time: '18:00', venue: 'Gillette Stadium', s1: null, s2: null },
+  { group: 'J', t1: 'Austria', t2: 'Jordan', date: 'Jun 16', time: '15:00', venue: 'AT&T Stadium', s1: null, s2: null },
+  { group: 'L', t1: 'England', t2: 'Ghana', date: 'Jun 16', time: '21:00', venue: 'NRG Stadium', s1: null, s2: null },
+  { group: 'K', t1: 'Colombia', t2: 'Uzbekistan', date: 'Jun 16', time: '12:00', venue: 'Estadio Akron', s1: null, s2: null },
+  { group: 'E', t1: 'Ecuador', t2: 'Ivory Coast', date: 'Jun 17', time: '18:00', venue: 'BMO Field', s1: null, s2: null },
+  { group: 'L', t1: 'Croatia', t2: 'Panama', date: 'Jun 17', time: '15:00', venue: 'Arrowhead Stadium', s1: null, s2: null },
+];

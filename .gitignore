@@ -6,6 +6,10 @@ node_modules
 # Testing
 /coverage
 
+# next.js
+/.next/
+/out/
+
 # Production
 /build
 /dist
