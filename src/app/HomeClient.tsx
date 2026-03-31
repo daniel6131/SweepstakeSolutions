@@ -201,8 +201,7 @@ export default function HomeClient({ data }: Props) {
           style={{
             background: theme.bg,
             transition: 'background 0.6s cubic-bezier(0.32, 0.72, 0, 1)',
-          }}
-        >
+          }}>
           {/* Soft edge gradient that bleeds up into the hero */}
           <div
             className="pointer-events-none absolute inset-x-0 z-10 h-24 md:h-36"
@@ -223,8 +222,7 @@ export default function HomeClient({ data }: Props) {
 
           <div
             ref={contentRef}
-            className="mx-auto max-w-285 px-4 pt-8 pb-20 md:px-6 md:pt-12 md:pb-28 lg:px-8"
-          >
+            className="mx-auto max-w-285 px-4 pt-8 pb-20 md:px-6 md:pt-12 md:pb-28 lg:px-8">
             {tab === 'Leaderboard' && <LeaderboardTab entries={data.leaderboard} theme={theme} />}
             {tab === 'Fixtures' && <FixturesTab fixtures={data.fixtures} theme={theme} />}
             {tab === 'Groups' && <GroupsTab standings={data.standings} theme={theme} />}
@@ -244,14 +242,12 @@ export default function HomeClient({ data }: Props) {
             </div>
             <div
               className="font-heading text-[10px] font-medium tracking-[3px] md:text-[11px]"
-              style={{ color: 'rgba(255,255,255,0.1)' }}
-            >
+              style={{ color: 'rgba(255,255,255,0.1)' }}>
               USA · MEXICO · CANADA
             </div>
             <div
               className="mt-5 text-[8px] uppercase tracking-[3px]"
-              style={{ color: 'rgba(255,255,255,0.06)' }}
-            >
+              style={{ color: 'rgba(255,255,255,0.06)' }}>
               {data.dataSource === 'live' ? '● LIVE' : '○ STATIC'} ·{' '}
               {new Date(data.fetchedAt).toLocaleTimeString()}
             </div>

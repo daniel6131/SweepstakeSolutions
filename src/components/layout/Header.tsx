@@ -40,8 +40,7 @@ function SplitChars({
             animationDelay: `${delay + i * stagger}s`,
             willChange: 'transform, opacity',
             ...charStyle,
-          }}
-        >
+          }}>
           {char === ' ' ? '\u00A0' : char}
         </span>
       ))}
@@ -72,8 +71,7 @@ function ClipReveal({
           animationDelay: `${delay}s`,
           willChange: 'transform, opacity',
           ...style,
-        }}
-      >
+        }}>
         {children}
       </span>
     </span>
@@ -99,8 +97,7 @@ function LeaderboardHero({ theme }: { theme: ThemeColors }) {
           letterSpacing: '-0.04em',
           userSelect: 'none',
         }}
-        data-parallax-layer="bg"
-      >
+        data-parallax-layer="bg">
         2026
       </div>
 
@@ -126,8 +123,7 @@ function LeaderboardHero({ theme }: { theme: ThemeColors }) {
       <div
         className="relative font-heading text-[11px] font-semibold uppercase tracking-[6px] md:text-sm md:tracking-[8px]"
         style={{ color: `${theme.accent}35`, animation: 'hero-fade-in 0.8s ease 1.1s both' }}
-        data-parallax-layer="front"
-      >
+        data-parallax-layer="front">
         AWAITS
       </div>
 
@@ -160,16 +156,14 @@ function FixturesHero({ theme }: { theme: ThemeColors }) {
           letterSpacing: '-0.02em',
           userSelect: 'none',
         }}
-        data-parallax-layer="bg"
-      >
+        data-parallax-layer="bg">
         MATCH
       </div>
 
       {/* Main words */}
       <div
         className="relative flex flex-col items-center gap-1 md:flex-row md:gap-4"
-        data-parallax-layer="mid"
-      >
+        data-parallax-layer="mid">
         <ClipReveal
           delay={0.3}
           className="font-display"
@@ -177,8 +171,7 @@ function FixturesHero({ theme }: { theme: ThemeColors }) {
             fontSize: 'clamp(56px, 15vw, 140px)',
             color: theme.accent,
             letterSpacing: '-0.02em',
-          }}
-        >
+          }}>
           EVERY
         </ClipReveal>
 
@@ -200,8 +193,7 @@ function FixturesHero({ theme }: { theme: ThemeColors }) {
             fontSize: 'clamp(56px, 15vw, 140px)',
             color: theme.accent,
             letterSpacing: '-0.02em',
-          }}
-        >
+          }}>
           GOAL
         </ClipReveal>
       </div>
@@ -210,8 +202,7 @@ function FixturesHero({ theme }: { theme: ThemeColors }) {
       <div
         className="relative mt-2 font-heading text-[11px] font-semibold uppercase tracking-[6px] md:mt-3 md:text-sm md:tracking-[8px]"
         style={{ color: `${theme.accent}35`, animation: 'hero-fade-in 0.8s ease 1s both' }}
-        data-parallax-layer="front"
-      >
+        data-parallax-layer="front">
         COUNTS
       </div>
     </div>
@@ -235,8 +226,7 @@ function GroupsHero({ theme }: { theme: ThemeColors }) {
           letterSpacing: '-0.02em',
           userSelect: 'none',
         }}
-        data-parallax-layer="bg"
-      >
+        data-parallax-layer="bg">
         DRAW
       </div>
 
@@ -261,8 +251,7 @@ function GroupsHero({ theme }: { theme: ThemeColors }) {
       {/* Badges */}
       <div
         className="relative flex flex-wrap items-center justify-center gap-2 md:gap-3"
-        data-parallax-layer="front"
-      >
+        data-parallax-layer="front">
         {groups.map((g, i) => (
           <div
             key={g}
@@ -275,8 +264,7 @@ function GroupsHero({ theme }: { theme: ThemeColors }) {
               color: theme.accent,
               animation: `badge-pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.6 + i * 0.04}s both, badge-glow 2.5s ease-in-out ${1.6 + i * 0.12}s 1`,
               willChange: 'transform, opacity',
-            }}
-          >
+            }}>
             {g}
           </div>
         ))}
@@ -328,8 +316,7 @@ function TeamsHero({ theme }: { theme: ThemeColors }) {
           letterSpacing: '-0.02em',
           userSelect: 'none',
         }}
-        data-parallax-layer="bg"
-      >
+        data-parallax-layer="bg">
         SQUAD
       </div>
 
@@ -350,8 +337,7 @@ function TeamsHero({ theme }: { theme: ThemeColors }) {
                   animation: 'text-shimmer 2s ease-out both',
                 }
               : { color: theme.accent }),
-        }}
-      >
+        }}>
         {count}
       </div>
 
@@ -359,8 +345,7 @@ function TeamsHero({ theme }: { theme: ThemeColors }) {
       <div
         className="relative mt-2 font-heading text-[11px] font-semibold uppercase tracking-[6px] md:mt-3 md:text-sm md:tracking-[8px]"
         style={{ color: `${theme.accent}35`, animation: 'hero-fade-in 0.7s ease 1.5s both' }}
-        data-parallax-layer="front"
-      >
+        data-parallax-layer="front">
         NATIONS · 1 LEGEND
       </div>
     </div>
@@ -376,8 +361,7 @@ function ScrollIndicator({ theme }: { theme: ThemeColors }) {
     <div className="flex flex-col items-center gap-2">
       <div
         className="font-heading text-[8px] font-semibold uppercase tracking-[4px] md:text-[9px]"
-        style={{ color: `${theme.accent}30` }}
-      >
+        style={{ color: `${theme.accent}30` }}>
         SCROLL
       </div>
       <div className="scroll-chevron" style={{ color: `${theme.accent}40` }}>
@@ -475,8 +459,7 @@ export function Header({ theme, visible, tab }: HeaderProps) {
         style={{
           opacity: visible ? 1 : 0,
           transition: visible ? undefined : 'opacity 0.9s cubic-bezier(0.19, 1, 0.22, 1)',
-        }}
-      >
+        }}>
         {/* Everything in a single centered column — no absolute gaps */}
         <div className="flex flex-col items-center text-center px-5">
           {/* Title */}
@@ -488,8 +471,7 @@ export function Header({ theme, visible, tab }: HeaderProps) {
                 color: theme.accent,
                 lineHeight: 0.9,
                 transition: 'color 0.6s',
-              }}
-            >
+              }}>
               WORLD CUP
             </h1>
             <div
@@ -499,8 +481,7 @@ export function Header({ theme, visible, tab }: HeaderProps) {
                 color: `${theme.accent}20`,
                 lineHeight: 1,
                 transition: 'color 0.6s',
-              }}
-            >
+              }}>
               SWEEPSTAKE 2026
             </div>
           </div>
@@ -518,8 +499,7 @@ export function Header({ theme, visible, tab }: HeaderProps) {
         <div
           ref={indicatorRef}
           className="absolute bottom-8 left-1/2 -translate-x-1/2 md:bottom-10"
-          style={{ willChange: 'opacity' }}
-        >
+          style={{ willChange: 'opacity' }}>
           <ScrollIndicator theme={theme} />
         </div>
       </div>

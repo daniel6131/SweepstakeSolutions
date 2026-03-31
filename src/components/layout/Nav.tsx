@@ -50,14 +50,12 @@ export function Nav({ activeTab, onTabChange, theme, menuOpen, setMenuOpen }: Na
           WebkitBackdropFilter: scrolled && !menuOpen ? 'blur(16px) saturate(1.4)' : 'none',
           borderBottom:
             scrolled && !menuOpen ? `1px solid ${theme.accent}08` : '1px solid transparent',
-        }}
-      >
+        }}>
         <div className="mx-auto flex h-14 max-w-300 items-center justify-between px-5 md:h-16 md:px-8">
           {/* Wordmark — left */}
           <div
             className="font-display text-[13px] tracking-[1px] md:text-[15px]"
-            style={{ color: theme.accent }}
-          >
+            style={{ color: theme.accent }}>
             WC 2026
           </div>
 
@@ -71,8 +69,7 @@ export function Nav({ activeTab, onTabChange, theme, menuOpen, setMenuOpen }: Na
                   key={tab}
                   onClick={() => handleDesktopSelect(tab)}
                   className="font-heading group relative cursor-pointer px-4 py-2 text-[12px] font-semibold uppercase tracking-[2.5px] transition-colors duration-300"
-                  style={{ color: active ? t.accent : 'rgba(255,255,255,0.35)' }}
-                >
+                  style={{ color: active ? t.accent : 'rgba(255,255,255,0.35)' }}>
                   {tab}
                   {/* Active underline indicator */}
                   <span
@@ -98,8 +95,7 @@ export function Nav({ activeTab, onTabChange, theme, menuOpen, setMenuOpen }: Na
               />
               <span
                 className="font-heading text-[10px] font-semibold uppercase tracking-[2px]"
-                style={{ color: `${theme.accent}55` }}
-              >
+                style={{ color: `${theme.accent}55` }}>
                 12 Players
               </span>
             </div>
@@ -109,8 +105,7 @@ export function Nav({ activeTab, onTabChange, theme, menuOpen, setMenuOpen }: Na
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="relative flex h-10 w-10 items-center justify-center md:hidden"
-            aria-label="Toggle menu"
-          >
+            aria-label="Toggle menu">
             <span
               className="absolute block h-[1.5px] w-5 rounded-full transition-all duration-400"
               style={{
@@ -149,8 +144,7 @@ export function Nav({ activeTab, onTabChange, theme, menuOpen, setMenuOpen }: Na
                   transform: menuOpen ? 'translateY(0)' : 'translateY(20px)',
                   opacity: menuOpen ? 1 : 0,
                   transitionTimingFunction: 'cubic-bezier(0.19, 1, 0.22, 1)',
-                }}
-              >
+                }}>
                 {tab}
               </button>
             );
@@ -160,8 +154,7 @@ export function Nav({ activeTab, onTabChange, theme, menuOpen, setMenuOpen }: Na
         {/* Bottom info in mobile menu */}
         <div
           className="font-heading absolute bottom-10 text-[10px] font-semibold uppercase tracking-[3px]"
-          style={{ color: 'rgba(255,255,255,0.15)' }}
-        >
+          style={{ color: 'rgba(255,255,255,0.15)' }}>
           World Cup Sweepstake 2026
         </div>
       </div>
