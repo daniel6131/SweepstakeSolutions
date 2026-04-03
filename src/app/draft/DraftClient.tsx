@@ -1,6 +1,7 @@
 'use client';
 
 import { COUNTRY_CODES } from '@/data/countryCodes';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -313,13 +314,13 @@ function DraftCeremony({
           <div
             className="absolute inset-0 flex flex-col items-center justify-center"
             style={{ animation: 'reveal-scale 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both' }}>
-            <img
+            <Image
               src={flagUrl(revealed.team, 160)}
               alt={revealed.team}
+              width={80}
+              height={52}
               className="rounded-lg"
               style={{
-                width: 80,
-                height: 52,
                 objectFit: 'cover',
                 boxShadow: `0 0 30px ${C.accent}40, 0 8px 32px rgba(0,0,0,0.5)`,
                 border: `2px solid ${C.accent}30`,
@@ -373,12 +374,14 @@ function DraftCeremony({
                 </div>
                 <div className="mt-1 flex flex-wrap justify-center gap-0.5">
                   {teams.map((t) => (
-                    <img
+                    <Image
                       key={t.team}
                       src={flagUrl(t.team, 40)}
                       alt={t.team}
+                      width={18}
+                      height={12}
                       className="rounded-sm"
-                      style={{ width: 18, height: 12, objectFit: 'cover' }}
+                      style={{ objectFit: 'cover' }}
                     />
                   ))}
                 </div>
@@ -517,13 +520,13 @@ function TradingFloor({
                             ? `3px solid ${C.danger}40`
                             : '3px solid transparent',
                       }}>
-                      <img
+                      <Image
                         src={flagUrl(t.team, 80)}
                         alt={t.team}
+                        width={28}
+                        height={18}
                         className="rounded"
                         style={{
-                          width: 28,
-                          height: 18,
                           objectFit: 'cover',
                           boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
                         }}
@@ -611,11 +614,13 @@ function LockedScreen({ state }: { state: DraftState }) {
                       key={t.team}
                       className="flex items-center gap-1.5 rounded px-2 py-1"
                       style={{ background: `${C.accent}08`, border: `1px solid ${C.accent}10` }}>
-                      <img
+                      <Image
                         src={flagUrl(t.team, 40)}
                         alt={t.team}
+                        width={18}
+                        height={12}
                         className="rounded-sm"
-                        style={{ width: 18, height: 12, objectFit: 'cover' }}
+                        style={{ objectFit: 'cover' }}
                       />
                       <span
                         className="text-[11px] font-semibold"

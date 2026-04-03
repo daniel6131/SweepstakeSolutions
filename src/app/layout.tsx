@@ -1,3 +1,4 @@
+import { Anton, DM_Sans, Space_Grotesk } from 'next/font/google';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './globals.css';
@@ -17,20 +18,34 @@ export const viewport = {
   themeColor: '#002629',
 };
 
+const displayFont = Anton({
+  subsets: ['latin'],
+  weight: '400',
+  variable: '--font-display',
+});
+
+const headingFont = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-heading',
+});
+
+const bodyFont = DM_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-body',
+});
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      className={`${displayFont.variable} ${headingFont.variable} ${bodyFont.variable}`}>
       <head>
         <meta name="format-detection" content="telephone=no" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="theme-color" content="#002629" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
       </head>
       <body suppressHydrationWarning>{children}</body>
     </html>
