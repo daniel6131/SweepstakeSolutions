@@ -379,3 +379,183 @@
   opacity: 1;
   pointer-events: auto;
 }
+
+/* ── The Orb ── */
+.draft-orb {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  position: relative;
+  background: radial-gradient(circle at 35% 35%, #94ffe430, #001214 70%);
+  box-shadow:
+    0 0 40px #94ffe420,
+    0 0 80px #94ffe410,
+    inset 0 0 30px #94ffe415;
+  border: 1.5px solid #94ffe425;
+}
+
+.draft-orb::before,
+.draft-orb::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid #94ffe418;
+}
+.draft-orb::before {
+  inset: -12px;
+  animation: orb-ring-rotate 8s linear infinite;
+  border-top-color: #94ffe440;
+}
+.draft-orb::after {
+  inset: -24px;
+  animation: orb-ring-rotate 12s linear infinite reverse;
+  border-bottom-color: #06d6a030;
+}
+
+/* Orb states */
+.draft-orb--pulse {
+  animation: orb-pulse 2.5s ease-in-out infinite;
+}
+.draft-orb--spin {
+  animation: orb-spin 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.draft-orb--spin::before {
+  animation: orb-ring-collapse 0.8s ease-in forwards;
+}
+.draft-orb--spin::after {
+  animation: orb-ring-collapse 0.6s ease-in 0.1s forwards;
+}
+.draft-orb--burst {
+  animation: orb-burst 0.5s ease-out forwards;
+}
+.draft-orb--burst::before,
+.draft-orb--burst::after {
+  animation: orb-burst 0.4s ease-out forwards;
+}
+
+/* ── Orb keyframes ── */
+@keyframes orb-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 40px #94ffe420,
+      0 0 80px #94ffe410,
+      inset 0 0 30px #94ffe415;
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow:
+      0 0 60px #94ffe430,
+      0 0 120px #94ffe418,
+      inset 0 0 40px #94ffe420;
+  }
+}
+
+@keyframes orb-ring-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes orb-spin {
+  0% {
+    transform: rotate(0) scale(1);
+    filter: brightness(1);
+  }
+  60% {
+    transform: rotate(540deg) scale(0.85);
+    filter: brightness(1.8);
+  }
+  100% {
+    transform: rotate(720deg) scale(0.6);
+    filter: brightness(2.5);
+    opacity: 0.5;
+  }
+}
+
+@keyframes orb-ring-collapse {
+  0% {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.3) rotate(180deg);
+  }
+}
+
+@keyframes orb-burst {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+    filter: blur(0);
+  }
+  50% {
+    transform: scale(2);
+    opacity: 0.5;
+    filter: blur(4px);
+  }
+  100% {
+    transform: scale(3);
+    opacity: 0;
+    filter: blur(12px);
+  }
+}
+
+/* ── Reveal animation ── */
+@keyframes reveal-scale {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+    filter: blur(8px);
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ── Particle burst ── */
+@keyframes particle-fly {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--px), var(--py)) scale(0);
+    opacity: 0;
+  }
+}
+
+/* ── Draft text pulse ── */
+@keyframes draft-fade-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@media (min-width: 768px) {
+  .draft-orb {
+    width: 160px;
+    height: 160px;
+  }
+  .draft-orb::before {
+    inset: -16px;
+  }
+  .draft-orb::after {
+    inset: -32px;
+  }
+}
