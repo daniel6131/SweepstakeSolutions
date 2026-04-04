@@ -3,7 +3,7 @@
 import { COUNTRY_CODES } from '@/data/countryCodes';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 /* ═══════════════════════════════════════════════════════════
    Types
@@ -23,7 +23,7 @@ type DraftState = {
   lastDrawn?: Assignment;
 };
 
-type DrawPhase = 'idle' | 'spinning' | 'revealing' | 'dealt';
+type DrawPhase = 'idle' | 'spinning' | 'charging' | 'locking' | 'revealing' | 'dealt';
 
 /* ═══════════════════════════════════════════════════════════
    Helpers
@@ -60,6 +60,25 @@ function mulberry32(seed: number): () => number {
     return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
   };
 }
+
+function shuffleWithSeed<T>(list: T[], seed: number): T[] {
+  const rand = mulberry32(seed);
+  const arr = [...list];
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rand() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function teaseName(team: string): string {
+  if (!team) return '';
+  const trimmed = team.trim();
+  if (trimmed.length <= 2) return `${trimmed}...`;
+  return `${trimmed.slice(0, 2).toUpperCase()}...`;
+}
+
+const FLAG_STYLE = { width: 'auto', height: 'auto', objectFit: 'cover' } as const;
 
 /* ═══════════════════════════════════════════════════════════
    API calls
@@ -190,42 +209,121 @@ function DraftCeremony({
   state,
   onDraw,
   roundTransition,
+  onCommitDraw,
 }: {
   state: DraftState;
   onDraw: () => Promise<Assignment | null>;
   roundTransition: boolean;
+  onCommitDraw: () => void;
 }) {
   const [drawPhase, setDrawPhase] = useState<DrawPhase>('idle');
   const [revealed, setRevealed] = useState<Assignment | null>(null);
   const [burstSeed, setBurstSeed] = useState(1);
+  const [teaseIndex, setTeaseIndex] = useState(0);
+  const rollStartRef = useRef<number | null>(null);
+  const rollTotalRef = useRef(0);
+  const teaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentPlayer = state.playerOrder[state.currentPick] || '';
+  const isBuildingSuspense = drawPhase === 'spinning' || drawPhase === 'charging';
+  const isLocking = drawPhase === 'locking';
+  const showReveal = drawPhase === 'revealing';
+
+  const teaseTeams = useMemo(() => {
+    if ((!isBuildingSuspense && !isLocking) || state.availableTeams.length === 0) return [];
+    const seed = (state.currentRound + 1) * 1000 + (state.currentPick + 1) * 37 + burstSeed;
+    const list = shuffleWithSeed(state.availableTeams, seed).slice(0, 12);
+    if (isLocking && revealed && !list.includes(revealed.team)) {
+      list[0] = revealed.team;
+    }
+    return list;
+  }, [
+    isBuildingSuspense,
+    isLocking,
+    revealed,
+    state.availableTeams,
+    state.currentPick,
+    state.currentRound,
+    burstSeed,
+  ]);
+
+  useEffect(() => {
+    if (!isBuildingSuspense || teaseTeams.length === 0) return;
+
+    const tick = () => {
+      setTeaseIndex((idx) => (idx + 1) % teaseTeams.length);
+
+      const start = rollStartRef.current ?? Date.now();
+      const total = rollTotalRef.current || 1;
+      const elapsed = Date.now() - start;
+      const t = Math.min(elapsed / total, 1);
+      const ease = t < 0.7 ? (t / 0.7) ** 2 * 0.35 : 0.35 + ((t - 0.7) / 0.3) ** 4 * 0.65;
+      const minDelay = 30;
+      const maxDelay = 1800;
+      const delay = minDelay + (maxDelay - minDelay) * ease;
+
+      teaseTimerRef.current = setTimeout(tick, delay);
+    };
+
+    teaseTimerRef.current = setTimeout(tick, 30);
+
+    return () => {
+      if (teaseTimerRef.current) {
+        clearTimeout(teaseTimerRef.current);
+      }
+    };
+  }, [isBuildingSuspense, teaseTeams.length]);
+
+  const reelReady = (isBuildingSuspense || isLocking) && teaseTeams.length > 0;
+  const lockIndex = isLocking && revealed ? teaseTeams.indexOf(revealed.team) : -1;
+  const reelIndex =
+    teaseTeams.length > 0 ? (lockIndex >= 0 ? lockIndex : teaseIndex % teaseTeams.length) : 0;
+  const getTeaseTeam = (offset: number) =>
+    teaseTeams.length > 0
+      ? teaseTeams[(reelIndex + offset + teaseTeams.length) % teaseTeams.length]
+      : '';
+  const teaseOffsets = [-2, -1, 0, 1, 2];
 
   const handleDraw = async () => {
     if (drawPhase !== 'idle') return;
 
+    const spinMs = 2400;
+    const chargeMs = 2800;
+    const lockMs = 2000;
+    const revealMs = 3200;
+    const idleDelayMs = 900;
+
     // Phase 1: Spinning
+    rollStartRef.current = Date.now();
+    rollTotalRef.current = spinMs + chargeMs + lockMs;
+    setTeaseIndex(0);
     setDrawPhase('spinning');
 
     // Phase 2: Reveal after spin
-    setTimeout(async () => {
-      const drawn = await onDraw();
-      if (drawn) {
-        setBurstSeed((seed) => seed + 1);
-        setRevealed(drawn);
-        setDrawPhase('revealing');
+    setTimeout(() => {
+      setDrawPhase('charging');
+      setTimeout(async () => {
+        const drawn = await onDraw();
+        if (drawn) {
+          setRevealed(drawn);
+          setDrawPhase('locking');
 
-        // Phase 3: Dealt
-        setTimeout(() => {
-          setDrawPhase('dealt');
-          // Reset for next pick
           setTimeout(() => {
-            setDrawPhase('idle');
-            setRevealed(null);
-          }, 800);
-        }, 2000);
-      }
-    }, 1200);
+            setBurstSeed((seed) => seed + 1);
+            setDrawPhase('revealing');
+            setTimeout(() => {
+              setDrawPhase('dealt');
+              onCommitDraw();
+              // Reset for next pick
+              setTimeout(() => {
+                setDrawPhase('idle');
+                setRevealed(null);
+              }, idleDelayMs);
+            }, revealMs);
+          }, lockMs);
+        }
+      }, chargeMs);
+    }, spinMs);
   };
 
   // Round transition overlay
@@ -273,7 +371,15 @@ function DraftCeremony({
   }
 
   return (
-    <div className="relative flex min-h-[100svh] flex-col items-center px-4 pt-20 pb-6 md:pt-24">
+    <div className="relative flex min-h-[100svh] flex-col items-center px-4 pt-14 pb-4 md:pt-16">
+      <div className="draft-arena">
+        <div className="draft-mesh" />
+        <div className="draft-confetti" />
+        <div className="draft-aurora" />
+        <div className={`draft-vignette ${isBuildingSuspense ? 'is-active' : ''}`} />
+        <div className={`draft-scanlines ${drawPhase === 'charging' ? 'is-active' : ''}`} />
+      </div>
+
       {/* Round + Pick indicator */}
       <div
         className="font-heading text-[10px] font-bold uppercase tracking-[5px] md:text-xs"
@@ -292,67 +398,104 @@ function DraftCeremony({
         {currentPlayer}
       </div>
 
-      {/* The Orb — center stage */}
-      <div
-        className="relative mt-8 flex items-center justify-center md:mt-12"
-        style={{ width: 180, height: 180 }}>
-        {/* Orb */}
+      <div className="draft-status">
+        <div className={`draft-suspense ${isBuildingSuspense ? 'is-active' : ''}`}>
+          <div className="draft-suspense__label">THE DRAW IS LOADING</div>
+          <div className="draft-suspense__meter">
+            <span />
+            <span />
+            <span />
+            <span />
+          </div>
+        </div>
+        <div className={`draft-idle ${drawPhase === 'idle' ? 'is-active' : ''}`}>
+          TAP TO OPEN THE PACK
+        </div>
+      </div>
+
+      {/* The Pack — center stage */}
+      <div className={`draft-stage ${reelReady || showReveal ? 'is-rolling' : ''}`}>
         <div
-          className={`draft-orb ${
-            drawPhase === 'idle'
-              ? 'draft-orb--pulse'
+          className={`draft-pack ${
+            drawPhase === 'idle' || drawPhase === 'dealt'
+              ? 'is-idle'
               : drawPhase === 'spinning'
-                ? 'draft-orb--spin'
-                : 'draft-orb--burst'
+                ? 'is-spinning'
+                : drawPhase === 'charging'
+                  ? 'is-charging'
+                  : drawPhase === 'locking'
+                    ? 'is-locking'
+                    : 'is-revealing'
           }`}
           onClick={handleDraw}
-          style={{ cursor: drawPhase === 'idle' ? 'pointer' : 'default' }}
-        />
+          style={{ cursor: drawPhase === 'idle' ? 'pointer' : 'default' }}>
+          <div className="draft-pack__frame" />
+          <div className="draft-pack__core" />
+          <div className="draft-pack__sweep" />
+          <div className="draft-pack__pulse" />
+        </div>
+
+        <div
+          className={`draft-card-stack ${
+            reelReady ? (drawPhase === 'charging' ? 'is-charging' : 'is-spinning') : 'is-idle'
+          }`}>
+          {reelReady &&
+            teaseOffsets.map((offset) => {
+              const team = getTeaseTeam(offset);
+              const hue = team ? (team.charCodeAt(0) * 17 + team.length * 13) % 360 : 180;
+              return (
+                <div
+                  key={`${team}-${offset}`}
+                  className={`draft-card draft-card--${offset}`}
+                  style={{ ['--hue' as string]: `${hue}` }}>
+                  <div className="draft-card__glow" />
+                  <div className="draft-card__content">
+                    <Image
+                      src={flagUrl(team, 80)}
+                      alt={team}
+                      width={36}
+                      height={24}
+                      style={FLAG_STYLE}
+                    />
+                    <div className="draft-card__name">{offset === 0 ? team : teaseName(team)}</div>
+                    <div className="draft-card__tag">
+                      {offset === 0 ? 'LOCKING IN' : 'POSSIBLE'}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          <div className="draft-card-stack__frame" />
+        </div>
 
         {/* Reveal overlay */}
-        {drawPhase === 'revealing' && revealed && (
-          <div
-            className="absolute inset-0 flex flex-col items-center justify-center"
-            style={{ animation: 'reveal-scale 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both' }}>
+        {showReveal && revealed && (
+          <div className={`draft-reveal ${isLocking ? 'is-locking' : 'is-revealed'}`}>
+            <div className="draft-reveal__veil">
+              <span />
+              <span />
+              <span />
+            </div>
             <Image
               src={flagUrl(revealed.team, 160)}
               alt={revealed.team}
-              width={80}
-              height={52}
-              className="rounded-lg"
-              style={{
-                objectFit: 'cover',
-                boxShadow: `0 0 30px ${C.accent}40, 0 8px 32px rgba(0,0,0,0.5)`,
-                border: `2px solid ${C.accent}30`,
-              }}
+              width={96}
+              height={62}
+              className="draft-reveal__flag"
+              style={FLAG_STYLE}
             />
-            <div
-              className="font-display mt-3 text-center"
-              style={{ fontSize: 'clamp(20px, 5vw, 32px)', color: C.accent }}>
-              {revealed.team}
+            <div className="draft-reveal__name">
+              {isLocking ? teaseName(revealed.team) : revealed.team}
             </div>
-            <div
-              className="font-heading mt-1 text-[10px] font-bold uppercase tracking-[3px]"
-              style={{ color: `${C.accent}40` }}>
-              GROUP {revealed.group}
-            </div>
+            <div className="draft-reveal__meta">GROUP {revealed.group}</div>
           </div>
         )}
 
         <BurstParticles active={drawPhase === 'revealing'} seed={burstSeed} />
       </div>
 
-      {/* Tap prompt */}
-      {drawPhase === 'idle' && (
-        <div
-          className="font-heading mt-6 text-[10px] font-semibold uppercase tracking-[4px] md:text-xs"
-          style={{ color: `${C.accent}30`, animation: 'draft-fade-pulse 2s ease-in-out infinite' }}>
-          TAP THE ORB TO DRAW
-        </div>
-      )}
-
       {/* Player roster — bottom */}
-      <div className="mt-auto w-full max-w-2xl pt-8">
+      <div className="mt-auto w-full max-w-2xl pt-4">
         <div className="grid grid-cols-3 gap-2 md:grid-cols-4 md:gap-3">
           {state.playerOrder.map((name, i) => {
             const teams = getPlayerTeams(state.assignments, name);
@@ -381,7 +524,7 @@ function DraftCeremony({
                       width={18}
                       height={12}
                       className="rounded-sm"
-                      style={{ objectFit: 'cover' }}
+                      style={FLAG_STYLE}
                     />
                   ))}
                 </div>
@@ -527,7 +670,7 @@ function TradingFloor({
                         height={18}
                         className="rounded"
                         style={{
-                          objectFit: 'cover',
+                          ...FLAG_STYLE,
                           boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
                         }}
                       />
@@ -620,7 +763,7 @@ function LockedScreen({ state }: { state: DraftState }) {
                         width={18}
                         height={12}
                         className="rounded-sm"
-                        style={{ objectFit: 'cover' }}
+                        style={FLAG_STYLE}
                       />
                       <span
                         className="text-[11px] font-semibold"
@@ -661,6 +804,8 @@ export default function DraftClient() {
   const [loading, setLoading] = useState(true);
   const [roundTransition, setRoundTransition] = useState(false);
   const roundTransitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingStateRef = useRef<DraftState | null>(null);
+  const pendingRoundTransitionRef = useRef(false);
 
   // Fetch state on mount
   useEffect(() => {
@@ -697,12 +842,23 @@ export default function DraftClient() {
     const prevRound = state?.currentRound ?? 0;
     const prevStatus = state?.status;
     const s = await api('draw');
-    setState(s);
+    pendingStateRef.current = s;
     if (prevStatus === 'drafting' && s.status === 'drafting' && s.currentRound > prevRound) {
-      triggerRoundTransition();
+      pendingRoundTransitionRef.current = true;
     }
     return (s as DraftState & { lastDrawn?: Assignment }).lastDrawn || null;
-  }, [state, triggerRoundTransition]);
+  }, [state]);
+
+  const commitPendingDraw = useCallback(() => {
+    if (pendingStateRef.current) {
+      setState(pendingStateRef.current);
+      pendingStateRef.current = null;
+    }
+    if (pendingRoundTransitionRef.current) {
+      pendingRoundTransitionRef.current = false;
+      triggerRoundTransition();
+    }
+  }, [triggerRoundTransition]);
 
   const handleTrade = useCallback(async (p1: string, t1: string, p2: string, t2: string) => {
     const s = await api('trade', { player1: p1, team1: t1, player2: p2, team2: t2 });
@@ -751,7 +907,12 @@ export default function DraftClient() {
 
       {state.status === 'pending' && <IntroScreen onStart={handleStart} />}
       {state.status === 'drafting' && (
-        <DraftCeremony state={state} onDraw={handleDraw} roundTransition={roundTransition} />
+        <DraftCeremony
+          state={state}
+          onDraw={handleDraw}
+          roundTransition={roundTransition}
+          onCommitDraw={commitPendingDraw}
+        />
       )}
       {state.status === 'trading' && (
         <TradingFloor state={state} onTrade={handleTrade} onLock={handleLock} />

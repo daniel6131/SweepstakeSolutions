@@ -1,70 +1,206 @@
 {
   "status": "drafting",
-  "currentRound": 0,
-  "currentPick": 0,
+  "currentRound": 2,
+  "currentPick": 3,
   "playerOrder": [
-    "Jamie",
+    "Taylor",
+    "Reese",
     "Drew",
-    "Alex",
+    "Casey",
     "Sam",
     "Morgan",
-    "Jordan",
     "Avery",
-    "Reese",
-    "Taylor",
     "Riley",
     "Quinn",
-    "Casey"
+    "Alex",
+    "Jordan",
+    "Jamie"
   ],
-  "assignments": [],
+  "assignments": [
+    {
+      "player": "Casey",
+      "team": "USA",
+      "group": "D",
+      "round": 0
+    },
+    {
+      "player": "Avery",
+      "team": "New Zealand",
+      "group": "G",
+      "round": 0
+    },
+    {
+      "player": "Taylor",
+      "team": "Brazil",
+      "group": "C",
+      "round": 0
+    },
+    {
+      "player": "Reese",
+      "team": "Saudi Arabia",
+      "group": "H",
+      "round": 0
+    },
+    {
+      "player": "Sam",
+      "team": "Ecuador",
+      "group": "E",
+      "round": 0
+    },
+    {
+      "player": "Jordan",
+      "team": "Qatar",
+      "group": "B",
+      "round": 0
+    },
+    {
+      "player": "Drew",
+      "team": "Egypt",
+      "group": "G",
+      "round": 0
+    },
+    {
+      "player": "Riley",
+      "team": "Croatia",
+      "group": "L",
+      "round": 0
+    },
+    {
+      "player": "Morgan",
+      "team": "Belgium",
+      "group": "G",
+      "round": 0
+    },
+    {
+      "player": "Quinn",
+      "team": "Denmark",
+      "group": "A",
+      "round": 0
+    },
+    {
+      "player": "Alex",
+      "team": "Italy",
+      "group": "B",
+      "round": 0
+    },
+    {
+      "player": "Jamie",
+      "team": "Panama",
+      "group": "L",
+      "round": 0
+    },
+    {
+      "player": "Riley",
+      "team": "Ivory Coast",
+      "group": "E",
+      "round": 1
+    },
+    {
+      "player": "Alex",
+      "team": "Ghana",
+      "group": "L",
+      "round": 1
+    },
+    {
+      "player": "Reese",
+      "team": "Austria",
+      "group": "J",
+      "round": 1
+    },
+    {
+      "player": "Taylor",
+      "team": "Jordan",
+      "group": "J",
+      "round": 1
+    },
+    {
+      "player": "Morgan",
+      "team": "Germany",
+      "group": "E",
+      "round": 1
+    },
+    {
+      "player": "Jamie",
+      "team": "Senegal",
+      "group": "I",
+      "round": 1
+    },
+    {
+      "player": "Quinn",
+      "team": "Turkey",
+      "group": "D",
+      "round": 1
+    },
+    {
+      "player": "Casey",
+      "team": "England",
+      "group": "L",
+      "round": 1
+    },
+    {
+      "player": "Sam",
+      "team": "Portugal",
+      "group": "K",
+      "round": 1
+    },
+    {
+      "player": "Drew",
+      "team": "Netherlands",
+      "group": "F",
+      "round": 1
+    },
+    {
+      "player": "Jordan",
+      "team": "Paraguay",
+      "group": "D",
+      "round": 1
+    },
+    {
+      "player": "Avery",
+      "team": "Iran",
+      "group": "G",
+      "round": 1
+    },
+    {
+      "player": "Taylor",
+      "team": "Uruguay",
+      "group": "H",
+      "round": 2
+    },
+    {
+      "player": "Reese",
+      "team": "Jamaica",
+      "group": "I",
+      "round": 2
+    },
+    {
+      "player": "Drew",
+      "team": "South Korea",
+      "group": "A",
+      "round": 2
+    }
+  ],
   "availableTeams": [
     "Mexico",
-    "South Korea",
     "South Africa",
-    "Denmark",
     "Canada",
     "Switzerland",
-    "Qatar",
-    "Italy",
-    "Brazil",
     "Morocco",
     "Scotland",
     "Haiti",
-    "USA",
     "Australia",
-    "Paraguay",
-    "Turkey",
-    "Germany",
-    "Ecuador",
-    "Ivory Coast",
     "Curaçao",
-    "Netherlands",
     "Japan",
     "Tunisia",
     "Sweden",
-    "Belgium",
-    "Egypt",
-    "Iran",
-    "New Zealand",
     "Spain",
-    "Uruguay",
-    "Saudi Arabia",
     "Cabo Verde",
     "France",
-    "Senegal",
     "Norway",
-    "Jamaica",
     "Argentina",
-    "Austria",
     "Algeria",
-    "Jordan",
-    "Portugal",
     "Colombia",
     "Uzbekistan",
-    "DR Congo",
-    "England",
-    "Croatia",
-    "Ghana",
-    "Panama"
+    "DR Congo"
   ]
 }
