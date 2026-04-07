@@ -164,10 +164,10 @@ async function api(action?: string, params?: Record<string, string>): Promise<Dr
 }
 
 /* ═══════════════════════════════════════════════════════════
-   BurstParticles
+   ConfettiBurst — full-screen celebration particles
    ═══════════════════════════════════════════════════════════ */
 
-function BurstParticles({
+function ConfettiBurst({
   active,
   seed,
   hue = 160,
@@ -179,36 +179,42 @@ function BurstParticles({
   if (!active) return null;
   const rand = mulberry32(seed);
   const palette = [
-    `hsl(${hue} 100% 65%)`,
-    `hsl(${(hue + 120) % 360} 100% 65%)`,
-    `hsl(${(hue + 240) % 360} 100% 65%)`,
+    `hsl(${hue} 100% 68%)`,
+    `hsl(${(hue + 90) % 360} 100% 68%)`,
+    `hsl(${(hue + 180) % 360} 100% 68%)`,
+    `hsl(${(hue + 270) % 360} 100% 68%)`,
     '#fff',
     C.gold,
     C.accent,
+    '#FF6EC7',
   ];
+
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-visible">
-      {Array.from({ length: 32 }, (_, i) => {
-        const angle = (i / 32) * 360 + rand() * 11;
-        const dist = 80 + rand() * 180;
+    <div className="pointer-events-none fixed inset-0 z-[70] overflow-hidden">
+      {Array.from({ length: 60 }, (_, i) => {
+        const angle = (i / 60) * 360 + rand() * 20;
+        const dist = 120 + rand() * 400;
         const px = Math.cos((angle * Math.PI) / 180) * dist;
-        const py = Math.sin((angle * Math.PI) / 180) * dist;
-        const size = 4 + rand() * 10;
+        const py = Math.sin((angle * Math.PI) / 180) * dist - 100;
+        const size = 4 + rand() * 12;
         const color = palette[Math.floor(rand() * palette.length)];
+        const isRect = rand() > 0.5;
         return (
           <div
             key={i}
-            className="absolute left-1/2 top-1/2 rounded-full"
+            className="absolute left-1/2 top-1/2"
             style={{
-              width: size,
+              width: isRect ? size * 2.5 : size,
               height: size,
               background: color,
+              borderRadius: isRect ? '2px' : '50%',
               marginLeft: -size / 2,
               marginTop: -size / 2,
-              animation: `particle-fly ${0.5 + rand() * 0.7}s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards`,
-              animationDelay: `${i * 0.012}s`,
-              ['--px' as string]: `${px}px`,
-              ['--py' as string]: `${py}px`,
+              animation: `confetti-burst ${0.6 + rand() * 0.8}s cubic-bezier(0.22, 0.61, 0.36, 1) forwards`,
+              animationDelay: `${i * 0.01}s`,
+              ['--cx' as string]: `${px}px`,
+              ['--cy' as string]: `${py}px`,
+              ['--rot' as string]: `${rand() * 720 - 360}deg`,
             }}
           />
         );
@@ -218,7 +224,7 @@ function BurstParticles({
 }
 
 /* ═══════════════════════════════════════════════════════════
-   RevealOverlay — full-screen reveal
+   RevealOverlay — cinematic full-screen reveal
    ═══════════════════════════════════════════════════════════ */
 
 function RevealOverlay({
@@ -234,55 +240,59 @@ function RevealOverlay({
   const hue = teamHue(assignment.team);
 
   return (
-    <div className="reveal-overlay">
-      <div
-        className="reveal-overlay__bg"
-        style={{
-          background: `radial-gradient(ellipse 90% 70% at 50% 40%,
-            hsl(${hue} 74% 18%) 0%,
-            hsl(${hue} 48% 10%) 45%,
-            ${C.bg} 80%)`,
-        }}
-      />
-      <div
-        className="reveal-overlay__beam"
-        style={{
-          background: `conic-gradient(
-            from 120deg at 50% 50%,
-            transparent 0deg,
-            hsl(${hue} 100% 64% / 0.1) 70deg,
-            transparent 160deg,
-            hsl(${(hue + 140) % 360} 100% 64% / 0.08) 250deg,
-            transparent 360deg
-          )`,
-        }}
-      />
-      <div className="reveal-overlay__content">
-        <div className="reveal-overlay__eyebrow">Now Drawn For</div>
-        <div className="reveal-overlay__player">{assignment.player}</div>
-        <div className="reveal-overlay__flag-wrap">
-          <div
-            className="reveal-overlay__flag-glow"
-            style={{
-              background: `radial-gradient(circle, hsl(${hue} 100% 58%) 0%, transparent 65%)`,
-            }}
-          />
-          <DraftFlag
-            team={assignment.team}
-            width={240}
-            height={160}
-            size={512}
-            fit="cover"
-            className="reveal-overlay__flag"
-          />
-          <BurstParticles active hue={hue} seed={burstSeed} />
+    <>
+      <div className="reveal-flash" />
+      <div className="reveal-overlay" style={{ ['--reveal-hue' as string]: hue }}>
+        <div
+          className="reveal-overlay__bg"
+          style={{
+            background: `radial-gradient(ellipse 100% 80% at 50% 35%,
+              hsl(${hue} 80% 20%) 0%,
+              hsl(${hue} 50% 10%) 40%,
+              ${C.bg} 75%)`,
+          }}
+        />
+        <div
+          className="reveal-overlay__beam"
+          style={{
+            background: `conic-gradient(
+              from 140deg at 50% 50%,
+              transparent 0deg,
+              hsl(${hue} 100% 64% / 0.12) 60deg,
+              transparent 140deg,
+              hsl(${(hue + 140) % 360} 100% 64% / 0.08) 240deg,
+              transparent 360deg
+            )`,
+          }}
+        />
+        <div className="reveal-overlay__content">
+          <div className="reveal-overlay__eyebrow">Drawn For</div>
+          <div className="reveal-overlay__player">{assignment.player}</div>
+          <div className="reveal-overlay__flag-wrap">
+            <div
+              className="reveal-overlay__flag-glow"
+              style={{
+                background: `radial-gradient(circle, hsl(${hue} 100% 55%) 0%, transparent 60%)`,
+              }}
+            />
+            <DraftFlag
+              team={assignment.team}
+              width={300}
+              height={195}
+              size={640}
+              fit="cover"
+              className="reveal-overlay__flag"
+              style={{ width: '100%', height: '100%', borderRadius: '20px' }}
+            />
+          </div>
+          <div className="reveal-overlay__team" style={{ color: `hsl(${hue} 90% 78%)` }}>
+            {assignment.team}
+          </div>
+          <div className="reveal-overlay__group">Group {assignment.group}</div>
         </div>
-        <div className="reveal-overlay__team" style={{ color: `hsl(${hue} 90% 80%)` }}>
-          {assignment.team}
-        </div>
-        <div className="reveal-overlay__group">Group {assignment.group}</div>
+        <ConfettiBurst active hue={hue} seed={burstSeed} />
       </div>
-    </div>
+    </>
   );
 }
 
@@ -365,7 +375,7 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   DraftCeremony — Card Roulette
+   DraftCeremony — Full-Screen Draw Experience
    ═══════════════════════════════════════════════════════════ */
 
 function DraftCeremony({
@@ -383,38 +393,52 @@ function DraftCeremony({
   const [revealed, setRevealed] = useState<Assignment | null>(null);
   const [burstSeed, setBurstSeed] = useState(1);
   const [reelSeed, setReelSeed] = useState(42);
+  const [tickFlash, setTickFlash] = useState(false);
 
-  // Timer-controlled cycling index
   const [teaseIdx, setTeaseIdx] = useState(0);
   const teaseIdxRef = useRef(0);
   const cycleRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const decelRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  // Stable tease list captured at draw start
   const teaseTeamsRef = useRef<string[]>([]);
 
   const currentPlayer = state.playerOrder[state.currentPick] || '';
   const isActive = drawPhase !== 'idle' && drawPhase !== 'dealt';
   const showReveal = drawPhase === 'revealing' || drawPhase === 'dealt';
 
-  // Build tease list for display (12 shuffled teams)
+  /* ── Tease teams ─────────────────────────────────────────── */
   const teaseTeams = useMemo(() => {
-    return shuffleWithSeed(state.availableTeams, reelSeed).slice(0, 12);
+    return shuffleWithSeed(state.availableTeams, reelSeed).slice(0, 14);
   }, [state.availableTeams, reelSeed]);
 
-  // Get team at offset from current center
-  const getTeamAt = useCallback(
-    (offset: number) => {
+  const getReelTeam = useCallback(
+    (absIdx: number) => {
       const list = teaseTeamsRef.current.length > 0 ? teaseTeamsRef.current : teaseTeams;
       const len = list.length;
       if (len === 0) return '';
-      return list[(teaseIdx + offset + len * 100) % len];
+      return list[((absIdx % len) + len) % len];
     },
-    [teaseIdx, teaseTeams]
+    [teaseTeams]
   );
 
-  // Cleanup
+  const centerTeam = getReelTeam(teaseIdx);
+  const centerHue = teamHue(centerTeam || 'x');
+  const stageHue = teamHue(revealed?.team || centerTeam || 'x');
+  const stageHot =
+    drawPhase === 'spinning' ||
+    drawPhase === 'charging' ||
+    drawPhase === 'decelerating' ||
+    drawPhase === 'locking';
+
+  /* ── Flag preloading ────────────────────────────────────── */
+  useEffect(() => {
+    state.availableTeams.forEach((team) => {
+      const img = new Image();
+      img.src = flagUrl(team, 640);
+    });
+  }, [state.availableTeams]);
+
+  /* ── Cleanup ─────────────────────────────────────────────── */
   useEffect(() => {
     const timers = timersRef.current;
     return () => {
@@ -425,8 +449,7 @@ function DraftCeremony({
   }, []);
 
   const advanceTease = useCallback(() => {
-    const len = teaseTeamsRef.current.length || 12;
-    teaseIdxRef.current = (teaseIdxRef.current + 1) % len;
+    teaseIdxRef.current += 1;
     setTeaseIdx(teaseIdxRef.current);
   }, []);
 
@@ -442,84 +465,80 @@ function DraftCeremony({
   }
 
   /* ── The draw handler ─────────────────────────────────────── */
-
   const handleDraw = async () => {
     if (drawPhase !== 'idle') return;
 
-    // New shuffle for this draw
     setReelSeed((s) => s + 1);
-    const newTeaseList = shuffleWithSeed(state.availableTeams, reelSeed + 1).slice(0, 12);
+    const newTeaseList = shuffleWithSeed(state.availableTeams, reelSeed + 1).slice(0, 14);
     teaseTeamsRef.current = newTeaseList;
     setTease(0);
 
-    // ── Phase 1: Fast spinning ──────────────────────────────
+    // Phase 1: Fast spinning
     setDrawPhase('spinning');
-    cycleRef.current = setInterval(advanceTease, 45);
+    cycleRef.current = setInterval(advanceTease, 55);
 
-    after(1800, () => {
-      // ── Phase 2: Charging (API fires here) ─────────────────
+    after(2000, () => {
+      // Phase 2: Charging
       setDrawPhase('charging');
 
-      after(600, async () => {
+      after(700, async () => {
         const drawn = await onDraw();
         if (!drawn) return;
 
         setRevealed(drawn);
 
-        // Ensure drawn team is in the tease list
-        let targetPos = teaseTeamsRef.current.indexOf(drawn.team);
-        if (targetPos < 0) {
+        let targetSlot = teaseTeamsRef.current.indexOf(drawn.team);
+        if (targetSlot < 0) {
           teaseTeamsRef.current[0] = drawn.team;
-          targetPos = 0;
+          targetSlot = 0;
         }
 
-        // ── Phase 3: Decelerating (roulette slowdown) ────────
+        // Phase 3: Decelerating
         setDrawPhase('decelerating');
 
-        // Stop the fast interval
         if (cycleRef.current) {
           clearInterval(cycleRef.current);
           cycleRef.current = null;
         }
 
-        // Calculate how many ticks to reach target
         const len = teaseTeamsRef.current.length;
-        const currentPos = teaseIdxRef.current % len;
-        let ticksToGo = (targetPos - currentPos + len) % len;
-        const minTicks = 10;
-        while (ticksToGo < minTicks) ticksToGo += len;
+        const currentPos = teaseIdxRef.current;
+        const minTicks = 14;
+        let target = currentPos + ((((targetSlot - (currentPos % len)) % len) + len) % len);
+        while (target - currentPos < minTicks) target += len;
+        const ticksToGo = target - currentPos;
 
-        // Build deceleration intervals: 55ms → 650ms, cubic easing
+        // Deceleration: 55ms → 700ms with t^2.5 easing
         const intervals: number[] = [];
         for (let i = 0; i < ticksToGo; i++) {
           const t = i / Math.max(ticksToGo - 1, 1);
-          intervals.push(55 + t ** 3 * 595);
+          intervals.push(55 + t ** 2.5 * 645);
         }
 
         let step = 0;
         const decelTick = () => {
+          const ms = intervals[step] || 700;
           advanceTease();
           step++;
 
+          setTickFlash(true);
+          after(Math.min(ms * 0.4, 80), () => setTickFlash(false));
+
           if (step >= ticksToGo) {
-            // ── Landed on target! Start wobble ──────────────
             after(300, () => {
               setDrawPhase('wobbling');
 
               after(220, () => {
-                setTease(targetPos);
+                setTease(target);
 
                 after(280, () => {
-                  // ── Phase 4: Lock ──────────────────────────
                   setBurstSeed((s) => s + 1);
                   setDrawPhase('locking');
 
-                  after(550, () => {
-                    // ── Phase 5: Full-screen reveal ──────────
+                  after(800, () => {
                     setDrawPhase('revealing');
 
-                    after(3200, () => {
-                      // ── Phase 6: Dealt ─────────────────────
+                    after(3600, () => {
                       setDrawPhase('dealt');
                       onCommitDraw();
 
@@ -535,7 +554,7 @@ function DraftCeremony({
             return;
           }
 
-          decelRef.current = setTimeout(decelTick, intervals[step] || 650);
+          decelRef.current = setTimeout(decelTick, ms);
         };
 
         decelRef.current = setTimeout(decelTick, intervals[0]);
@@ -543,23 +562,29 @@ function DraftCeremony({
     });
   };
 
-  // ── Round transition overlay ──────────────────────────────
+  // Round transition overlay
   if (roundTransition) {
     return (
-      <div className="flex min-h-svh flex-col items-center justify-center text-center">
-        <div
-          className="font-heading text-xs font-bold uppercase tracking-[6px] md:text-sm"
-          style={{ color: `${C.accent}50`, animation: 'hero-fade-in 0.6s ease both' }}>
-          ROUND {state.currentRound} OF 4
+      <div className="draw-exp draw-exp--center">
+        <div className="draft-arena">
+          <div className="draft-mesh" />
+          <div className="draft-aurora" />
         </div>
-        <div
-          className="font-display mt-3 tracking-[-0.02em]"
-          style={{
-            fontSize: 'clamp(40px, 10vw, 80px)',
-            color: C.accent,
-            animation: 'hero-fade-in 0.8s ease 0.2s both',
-          }}>
-          {state.currentRound < 4 ? 'NEXT ROUND' : 'TRADING TIME'}
+        <div className="relative z-10 text-center">
+          <div
+            className="font-heading text-xs font-bold uppercase tracking-[6px] md:text-sm"
+            style={{ color: `${C.accent}50`, animation: 'hero-fade-in 0.6s ease both' }}>
+            ROUND {state.currentRound} OF 4
+          </div>
+          <div
+            className="font-display mt-3 tracking-[-0.02em]"
+            style={{
+              fontSize: 'clamp(40px, 10vw, 80px)',
+              color: C.accent,
+              animation: 'hero-fade-in 0.8s ease 0.2s both',
+            }}>
+            {state.currentRound < 4 ? 'NEXT ROUND' : 'TRADING TIME'}
+          </div>
         </div>
       </div>
     );
@@ -567,281 +592,224 @@ function DraftCeremony({
 
   if (state.status === 'trading') {
     return (
-      <div className="flex min-h-svh flex-col items-center justify-center text-center">
-        <div
-          className="font-display tracking-[-0.02em]"
-          style={{
-            fontSize: 'clamp(40px, 10vw, 80px)',
-            color: C.accent,
-            animation: 'hero-fade-in 0.8s ease both',
-          }}>
-          DRAFT COMPLETE
+      <div className="draw-exp draw-exp--center">
+        <div className="draft-arena">
+          <div className="draft-mesh" />
+          <div className="draft-aurora" />
         </div>
-        <div
-          className="font-heading mt-4 text-xs font-semibold uppercase tracking-[5px] md:text-sm"
-          style={{ color: `${C.accent}40`, animation: 'hero-fade-in 0.8s ease 0.3s both' }}>
-          TIME TO TRADE
+        <div className="relative z-10 text-center">
+          <div
+            className="font-display tracking-[-0.02em]"
+            style={{
+              fontSize: 'clamp(40px, 10vw, 80px)',
+              color: C.accent,
+              animation: 'hero-fade-in 0.8s ease both',
+            }}>
+            DRAFT COMPLETE
+          </div>
+          <div
+            className="font-heading mt-4 text-xs font-semibold uppercase tracking-[5px] md:text-sm"
+            style={{ color: `${C.accent}40`, animation: 'hero-fade-in 0.8s ease 0.3s both' }}>
+            TIME TO TRADE
+          </div>
         </div>
       </div>
     );
   }
 
-  /* ── Card fan data ───────────────────────────────────────── */
-  const offsets = [-2, -1, 0, 1, 2];
-  const showCards = isActive;
-  const centerTeam = getTeamAt(0);
-  const centerHue = teamHue(centerTeam || 'x');
-  const stageHue = teamHue(revealed?.team || centerTeam || 'x');
-  const stageHot =
-    drawPhase === 'spinning' ||
-    drawPhase === 'charging' ||
-    drawPhase === 'decelerating' ||
-    drawPhase === 'locking';
+  /* ═════════════════════════════════════════════════════════
+     RENDER — Full-Screen Draw Experience
+     ═════════════════════════════════════════════════════════ */
 
   return (
-    <div className="relative flex h-svh items-center justify-center overflow-hidden px-3 py-3 md:px-5 md:py-5">
-      {/* Arena bg */}
+    <div
+      className="draw-exp"
+      style={{ ['--stage-hue' as string]: stageHue }}
+      onClick={drawPhase === 'idle' ? handleDraw : undefined}>
+      {/* Atmospheric background */}
+      <div
+        className="draw-exp__bg"
+        style={{
+          background: stageHot
+            ? `radial-gradient(ellipse 120% 80% at 50% 40%, hsl(${stageHue} 80% 12% / 0.7), ${C.bg} 70%)`
+            : `radial-gradient(ellipse 100% 70% at 50% 30%, rgba(148, 255, 228, 0.04), ${C.bg} 60%)`,
+        }}
+      />
+      {stageHot && (
+        <div
+          className="draw-exp__pulse"
+          style={{
+            background: `radial-gradient(circle at 50% 45%, hsl(${stageHue} 100% 50% / 0.08), transparent 50%)`,
+          }}
+        />
+      )}
+
       <div className="draft-arena">
         <div className="draft-mesh" />
-        <div className="draft-confetti" />
         <div className="draft-aurora" />
         <div className={`draft-vignette ${stageHot ? 'is-active' : ''}`} />
       </div>
 
-      <div className="draft-ceremony relative z-10 w-full max-w-6xl">
-        <div className="draft-ceremony__shell draft-ceremony__shell--screen">
-          <div className="draft-ceremony__topline">
-            <div className="draft-ceremony__chip">Round {state.currentRound + 1} of 4</div>
-            <div className="draft-ceremony__chip">
-              Pick {state.currentPick + 1} of {state.playerOrder.length}
-            </div>
-            <div className="draft-ceremony__chip">{state.availableTeams.length} teams live</div>
-          </div>
-          <div className="draft-ceremony__header">
-            <div className="draft-ceremony__eyebrow">Current Drawer</div>
-            <div
-              className="font-display draft-ceremony__player"
-              style={{
-                color: C.accent,
-                textShadow: `0 0 36px ${C.accent}2b`,
-              }}>
-              {currentPlayer}
-            </div>
+      {/* Top info bar */}
+      <div className="draw-topbar">
+        <div className="draw-topbar__pill">Round {state.currentRound + 1}/4</div>
+        <div className="draw-topbar__pill">
+          Pick {state.currentPick + 1}/{state.playerOrder.length}
+        </div>
+        <div className="draw-topbar__pill">{state.availableTeams.length} left</div>
+      </div>
 
-            <div className="draft-ceremony__status">
-              {drawPhase === 'idle' && (
-                <div
-                  className="font-heading text-[10px] font-semibold uppercase tracking-[4px]"
-                  style={{
-                    color: `${C.accent}40`,
-                    animation: 'draft-fade-pulse 2s ease-in-out infinite',
-                  }}>
-                  Tap to spin
-                </div>
-              )}
-              {(drawPhase === 'spinning' || drawPhase === 'charging') && (
-                <div className="draft-suspense is-active" style={{ position: 'relative' }}>
-                  <div className="draft-suspense__label">Drawing...</div>
-                  <div className="draft-suspense__meter">
-                    <span />
-                    <span />
-                    <span />
-                    <span />
-                  </div>
-                </div>
-              )}
-              {drawPhase === 'decelerating' && (
-                <div
-                  className="font-heading text-[10px] font-semibold uppercase tracking-[4px]"
-                  style={{ color: `${C.gold}92` }}>
-                  Slowing down...
-                </div>
-              )}
-              {drawPhase === 'wobbling' && (
-                <div
-                  className="font-heading text-[10px] font-bold uppercase tracking-[4px]"
-                  style={{
-                    color: '#fff',
-                    animation: 'draft-fade-pulse 0.3s ease-in-out infinite',
-                  }}>
-                  ...
-                </div>
-              )}
-              {drawPhase === 'locking' && (
-                <div
-                  className="font-heading text-[10px] font-bold uppercase tracking-[4px]"
-                  style={{ color: C.accent }}>
-                  Locked in
-                </div>
-              )}
-              {showReveal && revealed && (
-                <div
-                  className="font-heading text-[10px] font-semibold uppercase tracking-[4px]"
-                  style={{ color: `${C.accent}50` }}>
-                  Reveal complete
-                </div>
-              )}
-            </div>
-          </div>
-
+      {/* Main centered content */}
+      <div className="draw-main">
+        {/* Player name */}
+        <div className="draw-for">
+          <div className="draw-for__eyebrow">Drawing for</div>
           <div
-            className={`draft-ceremony__stage ${drawPhase === 'idle' ? 'is-idle' : ''}`}
-            onClick={handleDraw}
-            style={{
-              cursor: drawPhase === 'idle' ? 'pointer' : 'default',
-              ['--stage-hue' as string]: `${stageHue}`,
-            }}>
-            <div className="draft-ceremony__stage-bg" />
-            <div className={`draft-ceremony__stage-glow ${stageHot ? 'is-live' : ''}`} />
-            <div className="draft-ceremony__stage-edge" />
+            className="font-display draw-for__name"
+            style={{ color: C.accent, textShadow: `0 0 60px ${C.accent}30` }}>
+            {currentPlayer}
+          </div>
+        </div>
 
-            <div className="roulette-stage relative z-10">
-              {!showCards && (
-                <div className="draft-idol" style={{ margin: '0 auto' }}>
-                  <div className="draft-idol__glow" />
-                  <div className="draft-idol__pitch" />
-                  <div className="draft-idol__ball">
-                    <div className="draft-idol__ball-core" />
-                    <div className="draft-idol__ball-panel draft-idol__ball-panel--center" />
-                    <div className="draft-idol__ball-panel draft-idol__ball-panel--top" />
-                    <div className="draft-idol__ball-panel draft-idol__ball-panel--left" />
-                    <div className="draft-idol__ball-panel draft-idol__ball-panel--right" />
-                    <div className="draft-idol__ball-panel draft-idol__ball-panel--bottom" />
-                  </div>
+        {/* The stage — mystery card OR flag carousel */}
+        <div className="draw-stage">
+          {/* IDLE: Mystery Card */}
+          {!isActive && (
+            <div className="mystery-card" style={{ cursor: 'pointer' }}>
+              <div className="mystery-card__glow" />
+              <div className="mystery-card__body">
+                <div className="mystery-card__shimmer" />
+                <div className="mystery-card__inner-border" />
+                <div className="mystery-card__content">
+                  <div className="mystery-card__icon">?</div>
+                  <div className="mystery-card__cta">TAP TO DRAW</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ACTIVE: Flag display cycling through teams */}
+          {isActive && (
+            <div
+              className={[
+                'flag-show',
+                tickFlash ? 'is-tick' : '',
+                drawPhase === 'locking' ? 'is-locked' : '',
+                drawPhase === 'wobbling' ? 'is-wobble' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}>
+              <div
+                className="flag-show__frame"
+                style={{
+                  borderColor: `hsl(${centerHue} 70% 55% / 0.4)`,
+                  boxShadow:
+                    drawPhase === 'locking'
+                      ? `0 0 80px hsl(${centerHue} 100% 50% / 0.4), 0 30px 60px rgba(0,0,0,0.5), inset 0 0 40px hsl(${centerHue} 100% 50% / 0.1)`
+                      : `0 30px 80px rgba(0,0,0,0.5), 0 0 40px hsl(${centerHue} 80% 50% / 0.15)`,
+                }}>
+                <DraftFlag
+                  team={centerTeam}
+                  width={320}
+                  height={208}
+                  size={640}
+                  fit="cover"
+                  style={{ width: '100%', height: '100%', borderRadius: '16px' }}
+                />
+                <div className="flag-show__shine" />
+              </div>
+              <div
+                className="flag-show__edge"
+                style={{
+                  background: `radial-gradient(ellipse at center, hsl(${centerHue} 100% 55% / 0.3), transparent 60%)`,
+                }}
+              />
+              <div className="flag-show__name" style={{ color: `hsl(${centerHue} 80% 82%)` }}>
+                {centerTeam}
+              </div>
+              {(drawPhase === 'locking' || showReveal) && revealed && (
+                <div className="flag-show__group" style={{ color: `${C.accent}70` }}>
+                  Group {revealed.group}
                 </div>
               )}
-
-              {showCards &&
-                offsets.map((offset) => {
-                  const team = getTeamAt(offset);
-                  const hue = teamHue(team || 'x');
-                  const isCenter = offset === 0;
-                  const isWobbling = isCenter && drawPhase === 'wobbling';
-                  const isLocking = isCenter && drawPhase === 'locking';
-
-                  return (
-                    <div
-                      key={offset}
-                      className={[
-                        'roulette-card',
-                        `roulette-card--${offset < 0 ? 'n' : ''}${Math.abs(offset)}`,
-                        isWobbling ? 'is-wobbling' : '',
-                        isLocking ? 'is-locked' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      style={{
-                        ['--hue' as string]: hue,
-                        background: `linear-gradient(135deg,
-                          hsl(${hue} 76% 20%) 0%,
-                          hsl(${(hue + 42) % 360} 48% 11%) 52%,
-                          rgba(7, 20, 24, 0.96) 100%)`,
-                        border: `1px solid ${
-                          isCenter ? `hsl(${hue} 78% 62% / 0.42)` : 'rgba(255,255,255,0.05)'
-                        }`,
-                        boxShadow: isCenter
-                          ? `0 0 42px hsl(${hue} 78% 44% / 0.26),
-                             0 22px 42px rgba(0,0,0,0.5),
-                             inset 0 1px 0 rgba(255,255,255,0.08)`
-                          : '0 10px 28px rgba(0,0,0,0.38)',
-                      }}>
-                      {isCenter && <div className="roulette-card__glow" />}
-
-                      <div className="roulette-card__content">
-                        {Math.abs(offset) <= 1 && team && (
-                          <Flag team={team} size={isCenter ? 44 : 26} />
-                        )}
-
-                        {isCenter && (
-                          <div className="roulette-card__info">
-                            <div
-                              className="roulette-card__name"
-                              style={{ color: `hsl(${hue} 96% 86%)` }}>
-                              {team}
-                            </div>
-                            <div className="roulette-card__group">
-                              {revealed && (drawPhase === 'locking' || showReveal)
-                                ? `Group ${revealed.group}`
-                                : 'Live draw'}
-                            </div>
-                          </div>
-                        )}
-
-                        {Math.abs(offset) === 1 && team && (
-                          <span className="roulette-card__hint">
-                            {team.slice(0, 3).toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-
-              {drawPhase === 'locking' && (
-                <BurstParticles active seed={burstSeed} hue={centerHue} />
-              )}
             </div>
-          </div>
+          )}
+        </div>
 
-          <div className="draft-ceremony__actions">
-            {drawPhase === 'idle' ? (
-              <button
-                onClick={handleDraw}
-                className="font-heading relative z-10 cursor-pointer rounded-full px-8 py-3 text-[11px] font-bold uppercase tracking-[4px] transition-all duration-500 hover:scale-105 md:px-10 md:py-3.5 md:text-xs"
-                style={{
-                  background: `linear-gradient(135deg, ${C.accent}18, rgba(255, 214, 10, 0.14))`,
-                  border: `1.5px solid ${C.accent}40`,
-                  color: C.accent,
-                  boxShadow: `0 0 36px ${C.accent}18`,
-                }}>
-                Spin the wheel
-              </button>
-            ) : (
-              <div className="draft-ceremony__actions-spacer" />
-            )}
-          </div>
-
-          <div className="draft-roster">
-            <div className="draft-roster__header">
-              <span className="draft-roster__title">Board</span>
-              <span className="draft-roster__caption">Assigned teams update live</span>
+        {/* Status text */}
+        <div className="draw-status">
+          {drawPhase === 'idle' && (
+            <div
+              className="draw-status__text"
+              style={{
+                color: `${C.accent}40`,
+                animation: 'draft-fade-pulse 2s ease-in-out infinite',
+              }}>
+              TAP ANYWHERE TO DRAW
             </div>
-
-            <div className="grid grid-cols-3 gap-2 md:grid-cols-4 md:gap-2">
-              {state.playerOrder.map((name, i) => {
-                const teams = getPlayerTeams(state.assignments, name);
-                const isCurrent = i === state.currentPick;
-                const isDone = i < state.currentPick;
-                return (
-                  <div
-                    key={name}
-                    className="draft-roster__card"
-                    style={{
-                      background: isCurrent ? `${C.accent}12` : 'rgba(255,255,255,0.03)',
-                      border: isCurrent
-                        ? `1.5px solid ${C.accent}35`
-                        : '1px solid rgba(255,255,255,0.06)',
-                      opacity: isDone ? 0.52 : 1,
-                      boxShadow: isCurrent ? `0 0 26px ${C.accent}12` : 'none',
-                    }}>
-                    <div
-                      className="font-heading text-[10px] font-bold md:text-[11px]"
-                      style={{ color: isCurrent ? C.accent : `${C.accent}68` }}>
-                      {name}
-                    </div>
-                    <div className="draft-roster__flags">
-                      {teams.map((t) => (
-                        <Flag key={t.team} team={t.team} size={16} />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+          )}
+          {(drawPhase === 'spinning' || drawPhase === 'charging') && (
+            <div className="draft-suspense is-active" style={{ position: 'relative' }}>
+              <div className="draft-suspense__label">Shuffling nations...</div>
+              <div className="draft-suspense__meter">
+                <span />
+                <span />
+                <span />
+                <span />
+              </div>
             </div>
-          </div>
+          )}
+          {drawPhase === 'decelerating' && (
+            <div className="draw-status__text" style={{ color: `${C.gold}92` }}>
+              Slowing down...
+            </div>
+          )}
+          {drawPhase === 'wobbling' && (
+            <div
+              className="draw-status__text"
+              style={{
+                color: '#fff',
+                animation: 'draft-fade-pulse 0.3s ease-in-out infinite',
+              }}>
+              ...
+            </div>
+          )}
+          {drawPhase === 'locking' && (
+            <div className="draw-status__text draw-status__text--lock" style={{ color: C.accent }}>
+              LOCKED IN
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Bottom roster */}
+      <div className="draw-roster">
+        {state.playerOrder.map((name, i) => {
+          const teams = getPlayerTeams(state.assignments, name);
+          const isCurrent = i === state.currentPick;
+          const isDone = i < state.currentPick;
+          return (
+            <div
+              key={name}
+              className={[
+                'draw-roster__item',
+                isCurrent ? 'is-current' : '',
+                isDone ? 'is-done' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}>
+              <div className="draw-roster__name">{name}</div>
+              <div className="draw-roster__flags">
+                {teams.map((t) => (
+                  <Flag key={t.team} team={t.team} size={14} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {drawPhase === 'locking' && <ConfettiBurst active seed={burstSeed} hue={centerHue} />}
       <RevealOverlay assignment={revealed} active={showReveal} burstSeed={burstSeed} />
     </div>
   );

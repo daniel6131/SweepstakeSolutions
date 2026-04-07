@@ -1,7 +1,7 @@
 {
   "status": "drafting",
   "currentRound": 0,
-  "currentPick": 1,
+  "currentPick": 8,
   "playerOrder": [
     "Avery",
     "Sam",
@@ -22,26 +22,64 @@
       "team": "Jordan",
       "group": "J",
       "round": 0
+    },
+    {
+      "player": "Sam",
+      "team": "Panama",
+      "group": "L",
+      "round": 0
+    },
+    {
+      "player": "Taylor",
+      "team": "Italy",
+      "group": "B",
+      "round": 0
+    },
+    {
+      "player": "Reese",
+      "team": "Cabo Verde",
+      "group": "H",
+      "round": 0
+    },
+    {
+      "player": "Riley",
+      "team": "Morocco",
+      "group": "C",
+      "round": 0
+    },
+    {
+      "player": "Jordan",
+      "team": "Germany",
+      "group": "E",
+      "round": 0
+    },
+    {
+      "player": "Casey",
+      "team": "Jamaica",
+      "group": "I",
+      "round": 0
+    },
+    {
+      "player": "Quinn",
+      "team": "South Korea",
+      "group": "A",
+      "round": 0
     }
   ],
   "availableTeams": [
     "Mexico",
-    "South Korea",
     "South Africa",
     "Denmark",
     "Canada",
     "Switzerland",
     "Qatar",
-    "Italy",
     "Brazil",
-    "Morocco",
     "Scotland",
     "Haiti",
     "USA",
     "Australia",
     "Paraguay",
     "Turkey",
-    "Germany",
     "Ecuador",
     "Ivory Coast",
     "Curaçao",
@@ -56,11 +94,9 @@
     "Spain",
     "Uruguay",
     "Saudi Arabia",
-    "Cabo Verde",
     "France",
     "Senegal",
     "Norway",
-    "Jamaica",
     "Argentina",
     "Austria",
     "Algeria",
@@ -70,7 +106,6 @@
     "DR Congo",
     "England",
     "Croatia",
-    "Ghana",
-    "Panama"
+    "Ghana"
   ]
 }

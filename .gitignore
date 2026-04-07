@@ -62,3 +62,4 @@ lerna-debug.log*
 next-env.d.ts
 
 .claude
+CLAUDE.md
