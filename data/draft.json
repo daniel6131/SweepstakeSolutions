@@ -1,20 +1,20 @@
 {
   "status": "drafting",
-  "currentRound": 0,
-  "currentPick": 8,
+  "currentRound": 2,
+  "currentPick": 4,
   "playerOrder": [
-    "Avery",
-    "Sam",
-    "Taylor",
-    "Reese",
     "Riley",
-    "Jordan",
-    "Casey",
-    "Quinn",
-    "Alex",
+    "Drew",
+    "Sam",
     "Morgan",
     "Jamie",
-    "Drew"
+    "Taylor",
+    "Quinn",
+    "Reese",
+    "Avery",
+    "Casey",
+    "Alex",
+    "Jordan"
   ],
   "assignments": [
     {
@@ -64,48 +64,148 @@
       "team": "South Korea",
       "group": "A",
       "round": 0
+    },
+    {
+      "player": "Alex",
+      "team": "Uruguay",
+      "group": "H",
+      "round": 0
+    },
+    {
+      "player": "Morgan",
+      "team": "South Africa",
+      "group": "A",
+      "round": 0
+    },
+    {
+      "player": "Jamie",
+      "team": "Portugal",
+      "group": "K",
+      "round": 0
+    },
+    {
+      "player": "Drew",
+      "team": "Norway",
+      "group": "I",
+      "round": 0
+    },
+    {
+      "player": "Reese",
+      "team": "DR Congo",
+      "group": "K",
+      "round": 1
+    },
+    {
+      "player": "Riley",
+      "team": "Mexico",
+      "group": "A",
+      "round": 1
+    },
+    {
+      "player": "Casey",
+      "team": "Brazil",
+      "group": "C",
+      "round": 1
+    },
+    {
+      "player": "Jamie",
+      "team": "Tunisia",
+      "group": "F",
+      "round": 1
+    },
+    {
+      "player": "Quinn",
+      "team": "Colombia",
+      "group": "K",
+      "round": 1
+    },
+    {
+      "player": "Morgan",
+      "team": "Paraguay",
+      "group": "D",
+      "round": 1
+    },
+    {
+      "player": "Avery",
+      "team": "Austria",
+      "group": "J",
+      "round": 1
+    },
+    {
+      "player": "Taylor",
+      "team": "Qatar",
+      "group": "B",
+      "round": 1
+    },
+    {
+      "player": "Sam",
+      "team": "Australia",
+      "group": "D",
+      "round": 1
+    },
+    {
+      "player": "Jordan",
+      "team": "Turkey",
+      "group": "D",
+      "round": 1
+    },
+    {
+      "player": "Drew",
+      "team": "Belgium",
+      "group": "G",
+      "round": 1
+    },
+    {
+      "player": "Alex",
+      "team": "Uzbekistan",
+      "group": "K",
+      "round": 1
+    },
+    {
+      "player": "Riley",
+      "team": "Haiti",
+      "group": "C",
+      "round": 2
+    },
+    {
+      "player": "Drew",
+      "team": "Algeria",
+      "group": "J",
+      "round": 2
+    },
+    {
+      "player": "Sam",
+      "team": "Ghana",
+      "group": "L",
+      "round": 2
+    },
+    {
+      "player": "Morgan",
+      "team": "Denmark",
+      "group": "A",
+      "round": 2
     }
   ],
   "availableTeams": [
-    "Mexico",
-    "South Africa",
-    "Denmark",
     "Canada",
     "Switzerland",
-    "Qatar",
-    "Brazil",
     "Scotland",
-    "Haiti",
     "USA",
-    "Australia",
-    "Paraguay",
-    "Turkey",
     "Ecuador",
     "Ivory Coast",
     "Curaçao",
     "Netherlands",
     "Japan",
-    "Tunisia",
     "Sweden",
-    "Belgium",
     "Egypt",
     "Iran",
     "New Zealand",
     "Spain",
-    "Uruguay",
     "Saudi Arabia",
     "France",
     "Senegal",
-    "Norway",
     "Argentina",
-    "Austria",
-    "Algeria",
-    "Portugal",
-    "Colombia",
-    "Uzbekistan",
-    "DR Congo",
     "England",
-    "Croatia",
-    "Ghana"
+    "Croatia"
   ]
 }

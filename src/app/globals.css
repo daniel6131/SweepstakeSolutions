@@ -1303,110 +1303,329 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   FLAG SHOW — slot-machine flag carousel
+   SLOT REEL — premium gacha-style vertical slot machine
    ══════════════════════════════════════════════════════════════════ */
 
-.flag-show {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  animation: flag-show-in 0.4s cubic-bezier(0.19, 1, 0.22, 1) both;
+.slot-reel {
+  --card-h: 110px;
+  --visible: 3;
+  position: relative;
+  width: min(92vw, 360px);
+  height: calc(var(--card-h) * var(--visible));
+  border-radius: 26px;
+  overflow: hidden;
+  isolation: isolate;
+  border: 2px solid rgba(148, 255, 228, 0.28);
+  background: linear-gradient(180deg, #061821 0%, #030d10 50%, #061821 100%), #030d10;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.7),
+    0 0 60px rgba(148, 255, 228, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 60px rgba(148, 255, 228, 0.04);
+  animation: slot-reel-in 0.45s cubic-bezier(0.19, 1, 0.22, 1) both;
+  transition:
+    border-color 0.4s ease,
+    box-shadow 0.4s ease;
+}
+@media (min-width: 768px) {
+  .slot-reel {
+    --card-h: 140px;
+    width: 460px;
+  }
 }
 
-@keyframes flag-show-in {
+@keyframes slot-reel-in {
   from {
     opacity: 0;
-    transform: scale(0.94);
+    transform: scale(0.92) translateY(8px);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
   }
 }
 
-.flag-show__frame {
-  position: relative;
-  width: 280px;
-  height: 182px;
-  border-radius: 20px;
-  overflow: hidden;
-  border: 2px solid rgba(148, 255, 228, 0.3);
-  transition:
-    border-color 0.1s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
-  will-change: border-color, box-shadow;
-}
-@media (min-width: 768px) {
-  .flag-show__frame {
-    width: 340px;
-    height: 220px;
-  }
-}
-
-.flag-show__shine {
+.slot-reel__bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    135deg,
-    transparent 35%,
-    rgba(255, 255, 255, 0.08) 50%,
-    transparent 65%
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 50%,
+    rgba(148, 255, 228, 0.06),
+    transparent 70%
   );
   pointer-events: none;
-  border-radius: 16px;
+  z-index: 0;
 }
 
-.flag-show__edge {
+.slot-reel__rays {
   position: absolute;
-  left: -10%;
-  right: -10%;
-  bottom: 22px;
-  height: 50px;
-  filter: blur(20px);
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 14px,
+    rgba(148, 255, 228, 0.025) 15px,
+    rgba(148, 255, 228, 0.025) 16px
+  );
   pointer-events: none;
-  z-index: -1;
+  z-index: 1;
+  mix-blend-mode: screen;
 }
 
-.flag-show__name {
+.slot-reel__strip {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  will-change: transform, filter;
+  transform: translateZ(0);
+}
+
+.slot-reel__card {
+  flex-shrink: 0;
+  width: 100%;
+  height: var(--card-h);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 22px;
+  border-bottom: 1px solid rgba(148, 255, 228, 0.04);
+  background: linear-gradient(
+    90deg,
+    hsl(var(--card-hue, 160) 55% 14% / 0.35) 0%,
+    hsl(var(--card-hue, 160) 50% 10% / 0.1) 50%,
+    transparent 100%
+  );
+}
+
+.slot-reel__card-flag {
+  position: relative;
+  width: 100px;
+  height: 66px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow:
+    0 6px 18px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+@media (min-width: 768px) {
+  .slot-reel__card-flag {
+    width: 130px;
+    height: 86px;
+  }
+}
+
+.slot-reel__card-name {
   font-family: var(--font-display);
-  font-size: clamp(26px, 6vw, 44px);
-  letter-spacing: 0.5px;
+  font-size: clamp(22px, 4.4vw, 32px);
+  letter-spacing: -0.01em;
   text-transform: uppercase;
-  text-align: center;
   line-height: 1;
-  text-shadow: 0 4px 24px currentColor;
-  transition: color 0.1s ease;
-  min-height: 1em;
+  color: hsl(var(--card-hue, 160) 70% 82%);
+  text-shadow: 0 2px 14px hsl(var(--card-hue, 160) 80% 50% / 0.25);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.flag-show__group {
+/* Selection window — the glowing band centered on the reel */
+.slot-reel__window {
+  position: absolute;
+  top: 50%;
+  left: -3px;
+  right: -3px;
+  height: var(--card-h);
+  margin-top: calc(var(--card-h) / -2);
+  pointer-events: none;
+  z-index: 5;
+  border-top: 2px solid rgba(148, 255, 228, 0.85);
+  border-bottom: 2px solid rgba(148, 255, 228, 0.85);
+  background: linear-gradient(
+    180deg,
+    rgba(148, 255, 228, 0.09) 0%,
+    rgba(148, 255, 228, 0.02) 50%,
+    rgba(148, 255, 228, 0.09) 100%
+  );
+  box-shadow:
+    0 0 36px rgba(148, 255, 228, 0.3),
+    inset 0 0 24px rgba(148, 255, 228, 0.1);
+  transition:
+    border-color 0.4s ease,
+    box-shadow 0.4s ease,
+    background 0.4s ease;
+}
+
+.slot-reel__window-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(148, 255, 228, 0.15), transparent 70%);
+  opacity: 0.6;
+  animation: slot-window-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes slot-window-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* Top/bottom dark fades — make the moving cards "dissolve" into shadow */
+.slot-reel__fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--card-h);
+  pointer-events: none;
+  z-index: 4;
+}
+.slot-reel__fade--top {
+  top: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(3, 13, 16, 0.96) 0%,
+    rgba(3, 13, 16, 0.7) 40%,
+    rgba(3, 13, 16, 0.2) 80%,
+    transparent 100%
+  );
+}
+.slot-reel__fade--bottom {
+  bottom: 0;
+  background: linear-gradient(
+    0deg,
+    rgba(3, 13, 16, 0.96) 0%,
+    rgba(3, 13, 16, 0.7) 40%,
+    rgba(3, 13, 16, 0.2) 80%,
+    transparent 100%
+  );
+}
+
+/* Side chevrons pointing at the selection window */
+.slot-reel__chevron {
+  position: absolute;
+  top: 50%;
   font-family: var(--font-heading);
-  font-size: 11px;
+  font-size: 22px;
   font-weight: 700;
-  letter-spacing: 5px;
-  text-transform: uppercase;
-  margin-top: -6px;
-  animation: hero-fade-in 0.4s ease both;
+  color: rgba(148, 255, 228, 0.95);
+  text-shadow:
+    0 0 12px rgba(148, 255, 228, 0.7),
+    0 0 24px rgba(148, 255, 228, 0.4);
+  margin-top: -14px;
+  z-index: 7;
+  animation: slot-chevron-pulse 0.7s ease-in-out infinite;
+  line-height: 1;
+}
+.slot-reel__chevron--left {
+  left: -22px;
+}
+.slot-reel__chevron--right {
+  right: -22px;
+  animation-delay: 0.35s;
+}
+@media (min-width: 768px) {
+  .slot-reel__chevron {
+    font-size: 26px;
+  }
+  .slot-reel__chevron--left {
+    left: -30px;
+  }
+  .slot-reel__chevron--right {
+    right: -30px;
+  }
 }
 
-/* Tick flash — brief border highlight on each cycle */
-.flag-show.is-tick .flag-show__frame {
-  border-color: rgba(255, 255, 255, 0.6);
-  transform: scale(1.005);
+@keyframes slot-chevron-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.88);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
 }
 
-/* Wobble — bounce when landing on the target */
-.flag-show.is-wobble .flag-show__frame {
-  animation: flag-wobble 0.28s ease-in-out;
+/* Spinning state — extra glow + faster chevron pulse */
+.slot-reel.is-spinning {
+  border-color: rgba(148, 255, 228, 0.55);
+  box-shadow:
+    0 30px 100px rgba(0, 0, 0, 0.75),
+    0 0 90px rgba(148, 255, 228, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 80px rgba(148, 255, 228, 0.06);
+}
+.slot-reel.is-spinning .slot-reel__chevron {
+  animation-duration: 0.4s;
 }
 
-/* Locked — final highlight before reveal */
-.flag-show.is-locked .flag-show__frame {
-  transform: scale(1.05);
-  border-color: rgba(255, 255, 255, 0.7);
-  animation: flag-lock-shake 0.18s ease-in-out infinite;
+/* Locked state — winner card highlighted */
+.slot-reel.is-locked {
+  border-color: rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 30px 100px rgba(0, 0, 0, 0.75),
+    0 0 120px rgba(148, 255, 228, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 0 100px rgba(148, 255, 228, 0.12);
+  animation:
+    slot-reel-in 0.45s cubic-bezier(0.19, 1, 0.22, 1) both,
+    slot-lock-shake 0.16s ease-in-out 3;
+}
+.slot-reel.is-locked .slot-reel__window {
+  border-color: rgba(255, 255, 255, 1);
+  background: linear-gradient(
+    180deg,
+    rgba(148, 255, 228, 0.22) 0%,
+    rgba(148, 255, 228, 0.08) 50%,
+    rgba(148, 255, 228, 0.22) 100%
+  );
+  box-shadow:
+    0 0 80px rgba(148, 255, 228, 0.7),
+    inset 0 0 50px rgba(148, 255, 228, 0.3);
+}
+.slot-reel.is-locked .slot-reel__chevron {
+  animation: slot-chevron-flare 0.5s ease-out forwards;
+}
+
+@keyframes slot-lock-shake {
+  0% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slot-chevron-flare {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.6);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.1);
+    opacity: 0.85;
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -1553,42 +1772,6 @@
   }
 }
 
-@keyframes flag-wobble {
-  0% {
-    transform: scale(1) translateY(0);
-  }
-  20% {
-    transform: scale(1.04) translateY(-5px);
-  }
-  45% {
-    transform: scale(0.98) translateY(3px);
-  }
-  70% {
-    transform: scale(1.02) translateY(-2px);
-  }
-  100% {
-    transform: scale(1) translateY(0);
-  }
-}
-
-@keyframes flag-lock-shake {
-  0% {
-    transform: scale(1.05) translateX(0);
-  }
-  25% {
-    transform: scale(1.05) translateX(2px);
-  }
-  50% {
-    transform: scale(1.05) translateX(-2px);
-  }
-  75% {
-    transform: scale(1.05) translateX(1px);
-  }
-  100% {
-    transform: scale(1.05) translateX(0);
-  }
-}
-
 @keyframes confetti-burst {
   0% {
     transform: translate(0, 0) scale(1) rotate(0deg);
@@ -1614,10 +1797,13 @@
   .mystery-card__glow,
   .mystery-card__cta,
   .draw-exp__pulse,
-  .flag-show.is-locked .flag-show__frame {
+  .slot-reel__chevron,
+  .slot-reel__window-glow,
+  .slot-reel.is-locked {
     animation: none !important;
   }
-  .flag-show__frame {
-    transition-duration: 0.01ms !important;
+  .slot-reel__strip {
+    transition-duration: 800ms !important;
+    filter: none !important;
   }
 }
