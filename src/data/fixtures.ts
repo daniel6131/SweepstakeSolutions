@@ -30,7 +30,7 @@ export const FIXTURES: Fixture[] = [
   {
     group: 'A',
     t1: 'South Korea',
-    t2: 'Denmark',
+    t2: 'Czechia',
     date: 'Jun 11',
     time: '14:00',
     venue: 'SoFi Stadium',
@@ -40,7 +40,7 @@ export const FIXTURES: Fixture[] = [
   {
     group: 'B',
     t1: 'Canada',
-    t2: 'Italy',
+    t2: 'Bosnia and Herzegovina',
     date: 'Jun 12',
     time: '18:00',
     venue: 'BMO Field',
@@ -130,7 +130,7 @@ export const FIXTURES: Fixture[] = [
   {
     group: 'H',
     t1: 'Spain',
-    t2: 'Cabo Verde',
+    t2: 'Cape Verde',
     date: 'Jun 14',
     time: '21:00',
     venue: 'Hard Rock Stadium',
@@ -150,7 +150,7 @@ export const FIXTURES: Fixture[] = [
   {
     group: 'I',
     t1: 'France',
-    t2: 'Jamaica',
+    t2: 'Iraq',
     date: 'Jun 15',
     time: '18:00',
     venue: 'Lincoln Financial',

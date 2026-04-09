@@ -1,0 +1,215 @@
+{
+  "status": "drafting",
+  "currentRound": 2,
+  "currentPick": 0,
+  "playerOrder": [
+    "Michael",
+    "Heather",
+    "Adam",
+    "Big John",
+    "John P",
+    "Steff",
+    "Nick",
+    "Daniel",
+    "Tui",
+    "Abdul",
+    "Little John",
+    "Nathan"
+  ],
+  "assignments": [
+    {
+      "player": "Heather",
+      "team": "Ghana",
+      "group": "L",
+      "round": 0,
+      "pot": 4
+    },
+    {
+      "player": "Tui",
+      "team": "Cape Verde",
+      "group": "H",
+      "round": 0,
+      "pot": 4
+    },
+    {
+      "player": "John P",
+      "team": "DR Congo",
+      "group": "K",
+      "round": 0,
+      "pot": 4
+    },
+    {
+      "player": "Adam",
+      "team": "Curaçao",
+      "group": "E",
+      "round": 0,
+      "pot": 4
+    },
+    {
+      "player": "Little John",
+      "team": "Iraq",
+      "group": "I",
+      "round": 0,
+      "pot": 4
+    },
+    {
+      "player": "Big John",
+      "team": "Haiti",
+      "group": "C",
+      "round": 0,
+      "pot": 4
+    },
+    {
+      "player": "Nathan",
+      "team": "Jordan",
+      "group": "J",
+      "round": 0,
+      "pot": 4
+    },
+    {
+      "player": "Nick",
+      "team": "New Zealand",
+      "group": "G",
+      "round": 0,
+      "pot": 4
+    },
+    {
+      "player": "Steff",
+      "team": "Sweden",
+      "group": "F",
+      "round": 0,
+      "pot": 4
+    },
+    {
+      "player": "Daniel",
+      "team": "Turkey",
+      "group": "D",
+      "round": 0,
+      "pot": 4
+    },
+    {
+      "player": "Michael",
+      "team": "Czechia",
+      "group": "A",
+      "round": 0,
+      "pot": 4
+    },
+    {
+      "player": "Abdul",
+      "team": "Bosnia and Herzegovina",
+      "group": "B",
+      "round": 0,
+      "pot": 4
+    },
+    {
+      "player": "Michael",
+      "team": "South Africa",
+      "group": "A",
+      "round": 1,
+      "pot": 3
+    },
+    {
+      "player": "Tui",
+      "team": "Scotland",
+      "group": "C",
+      "round": 1,
+      "pot": 3
+    },
+    {
+      "player": "Daniel",
+      "team": "Qatar",
+      "group": "B",
+      "round": 1,
+      "pot": 3
+    },
+    {
+      "player": "Heather",
+      "team": "Egypt",
+      "group": "G",
+      "round": 1,
+      "pot": 3
+    },
+    {
+      "player": "Steff",
+      "team": "Norway",
+      "group": "I",
+      "round": 1,
+      "pot": 3
+    },
+    {
+      "player": "Nathan",
+      "team": "Saudi Arabia",
+      "group": "H",
+      "round": 1,
+      "pot": 3
+    },
+    {
+      "player": "Abdul",
+      "team": "Panama",
+      "group": "L",
+      "round": 1,
+      "pot": 3
+    },
+    {
+      "player": "Adam",
+      "team": "Paraguay",
+      "group": "D",
+      "round": 1,
+      "pot": 3
+    },
+    {
+      "player": "John P",
+      "team": "Ivory Coast",
+      "group": "E",
+      "round": 1,
+      "pot": 3
+    },
+    {
+      "player": "Little John",
+      "team": "Uzbekistan",
+      "group": "K",
+      "round": 1,
+      "pot": 3
+    },
+    {
+      "player": "Nick",
+      "team": "Tunisia",
+      "group": "F",
+      "round": 1,
+      "pot": 3
+    },
+    {
+      "player": "Big John",
+      "team": "Algeria",
+      "group": "J",
+      "round": 1,
+      "pot": 3
+    }
+  ],
+  "availableTeams": [
+    "Mexico",
+    "South Korea",
+    "Canada",
+    "Switzerland",
+    "Brazil",
+    "Morocco",
+    "USA",
+    "Australia",
+    "Germany",
+    "Ecuador",
+    "Netherlands",
+    "Japan",
+    "Belgium",
+    "Iran",
+    "Spain",
+    "Uruguay",
+    "France",
+    "Senegal",
+    "Argentina",
+    "Austria",
+    "Portugal",
+    "Colombia",
+    "England",
+    "Croatia"
+  ]
+}

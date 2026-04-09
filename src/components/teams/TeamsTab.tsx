@@ -3,12 +3,17 @@
 import { ParticipantCard } from '@/components/teams/ParticipantCard';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import { getTeamRecords } from '@/lib/scoring';
-import type { Fixture, LeaderboardEntry, ThemeColors } from '@/types';
+import type { Fixture, LeaderboardEntry, ThemeColors, TournamentGroups } from '@/types';
 import { useMemo } from 'react';
 
-type Props = { entries: LeaderboardEntry[]; fixtures: Fixture[]; theme: ThemeColors };
+type Props = {
+  entries: LeaderboardEntry[];
+  fixtures: Fixture[];
+  groups: TournamentGroups;
+  theme: ThemeColors;
+};
 
-export function TeamsTab({ entries, fixtures, theme }: Props) {
+export function TeamsTab({ entries, fixtures, groups, theme }: Props) {
   const teamRecords = useMemo(() => getTeamRecords(fixtures), [fixtures]);
 
   return (
@@ -20,6 +25,7 @@ export function TeamsTab({ entries, fixtures, theme }: Props) {
             key={entry.name}
             entry={entry}
             rank={i + 1}
+            groups={groups}
             teamRecords={teamRecords}
             theme={theme}
           />

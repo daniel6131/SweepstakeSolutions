@@ -1,10 +1,15 @@
 import { Flag } from '@/components/ui/Flag';
-import { getOwner } from '@/data/participants';
 import type { GroupId, GroupStanding, ThemeColors } from '@/types';
 
-type Props = { group: GroupId; teams: string[]; standings: GroupStanding[]; theme: ThemeColors };
+type Props = {
+  group: GroupId;
+  teams: string[];
+  ownerByTeam: Map<string, string>;
+  standings: GroupStanding[];
+  theme: ThemeColors;
+};
 
-export function GroupTable({ group, teams, standings, theme }: Props) {
+export function GroupTable({ group, teams, ownerByTeam, standings, theme }: Props) {
   return (
     <div
       className="overflow-hidden rounded-xl md:rounded-2xl"
@@ -83,7 +88,7 @@ export function GroupTable({ group, teams, standings, theme }: Props) {
               <div>
                 <div className="text-[12px] font-semibold">{row.team}</div>
                 <div className="text-[8px]" style={{ color: `${theme.accent}35` }}>
-                  {getOwner(row.team)}
+                  {ownerByTeam.get(row.team) ?? '—'}
                 </div>
               </div>
             </div>
@@ -115,7 +120,7 @@ export function GroupTable({ group, teams, standings, theme }: Props) {
               <div className="min-w-0">
                 <div className="truncate text-[12px] font-semibold">{row.team}</div>
                 <div className="text-[8px]" style={{ color: `${theme.accent}30` }}>
-                  {getOwner(row.team)}
+                  {ownerByTeam.get(row.team) ?? '—'}
                 </div>
               </div>
             </div>

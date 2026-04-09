@@ -224,10 +224,24 @@ export default function HomeClient({ data }: Props) {
             ref={contentRef}
             className="mx-auto max-w-285 px-4 pt-8 pb-20 md:px-6 md:pt-12 md:pb-28 lg:px-8">
             {tab === 'Leaderboard' && <LeaderboardTab entries={data.leaderboard} theme={theme} />}
-            {tab === 'Fixtures' && <FixturesTab fixtures={data.fixtures} theme={theme} />}
-            {tab === 'Groups' && <GroupsTab standings={data.standings} theme={theme} />}
+            {tab === 'Fixtures' && (
+              <FixturesTab fixtures={data.fixtures} groups={data.groups} theme={theme} />
+            )}
+            {tab === 'Groups' && (
+              <GroupsTab
+                groups={data.groups}
+                participants={data.participants}
+                standings={data.standings}
+                theme={theme}
+              />
+            )}
             {tab === 'Teams' && (
-              <TeamsTab entries={data.leaderboard} fixtures={data.fixtures} theme={theme} />
+              <TeamsTab
+                entries={data.leaderboard}
+                fixtures={data.fixtures}
+                groups={data.groups}
+                theme={theme}
+              />
             )}
           </div>
 
@@ -248,8 +262,8 @@ export default function HomeClient({ data }: Props) {
             <div
               className="mt-5 text-[8px] uppercase tracking-[3px]"
               style={{ color: 'rgba(255,255,255,0.06)' }}>
-              {data.dataSource === 'live' ? '● LIVE' : '○ STATIC'} ·{' '}
-              {new Date(data.fetchedAt).toLocaleTimeString()}
+              {data.dataSource === 'live' ? '● LIVE' : '○ STATIC'} · {data.fetchedAt.slice(11, 19)}{' '}
+              UTC
             </div>
           </footer>
         </div>

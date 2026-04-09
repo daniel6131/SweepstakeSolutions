@@ -3,15 +3,28 @@
 import { GroupTable } from '@/components/groups/GroupTable';
 import { Chip } from '@/components/ui/Chip';
 import { SectionHeading } from '@/components/ui/SectionHeading';
-import { GROUPS } from '@/data/groups';
-import type { GroupId, GroupStanding, ThemeColors } from '@/types';
-import { useState } from 'react';
+import type { GroupId, GroupStanding, Participant, ThemeColors, TournamentGroups } from '@/types';
+import { useMemo, useState } from 'react';
 
-type Props = { standings: Record<GroupId, GroupStanding[]>; theme: ThemeColors };
+type Props = {
+  groups: TournamentGroups;
+  participants: Participant[];
+  standings: Record<GroupId, GroupStanding[]>;
+  theme: ThemeColors;
+};
 
-export function GroupsTab({ standings, theme }: Props) {
+export function GroupsTab({ groups, participants, standings, theme }: Props) {
   const [selected, setSelected] = useState<GroupId | null>(null);
-  const entries = Object.entries(GROUPS).filter(([g]) => !selected || selected === g) as [
+  const ownerByTeam = useMemo(
+    () =>
+      new Map(
+        participants.flatMap((participant) =>
+          participant.teams.map((team) => [team, participant.name] as const)
+        )
+      ),
+    [participants]
+  );
+  const entries = Object.entries(groups).filter(([g]) => !selected || selected === g) as [
     GroupId,
     string[],
   ][];
@@ -30,7 +43,7 @@ export function GroupsTab({ standings, theme }: Props) {
             bg={theme.bg}
             onClick={() => setSelected(null)}
           />
-          {(Object.keys(GROUPS) as GroupId[]).map((g) => (
+          {(Object.keys(groups) as GroupId[]).map((g) => (
             <Chip
               key={g}
               label={g}
@@ -49,6 +62,7 @@ export function GroupsTab({ standings, theme }: Props) {
             key={group}
             group={group}
             teams={teams}
+            ownerByTeam={ownerByTeam}
             standings={standings[group]}
             theme={theme}
           />

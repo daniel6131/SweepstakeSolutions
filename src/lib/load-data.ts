@@ -4,17 +4,27 @@
  * Attempts to fetch live data from football-data.org.
  * Falls back to static fixture data if the API is unavailable.
  *
- * This runs on the server during ISR (Incremental Static Regeneration),
- * so the page rebuilds with fresh scores every `revalidate` seconds.
+ * If the draft ceremony is locked, uses those team assignments
+ * instead of the hardcoded participant data.
  */
 
-import { FIXTURES } from '@/data/fixtures';
-import { fetchLiveFixtures, isApiConfigured } from '@/lib/football-api';
+import { buildGroupsFromFixtures } from '@/data/groups';
+import { PARTICIPANTS } from '@/data/participants';
+import { getLockedAssignments } from '@/lib/draft-db';
+import { loadCurrentTournamentFixtures } from '@/lib/current-tournament';
 import { computeGroupStandings, computeLeaderboard } from '@/lib/scoring';
-import type { Fixture, GroupId, GroupStanding, LeaderboardEntry } from '@/types';
+import type {
+  GroupId,
+  GroupStanding,
+  LeaderboardEntry,
+  Participant,
+  TournamentGroups,
+} from '@/types';
 
 export type SweepstakeData = {
-  fixtures: Fixture[];
+  fixtures: Awaited<ReturnType<typeof loadCurrentTournamentFixtures>>['fixtures'];
+  groups: TournamentGroups;
+  participants: Participant[];
   leaderboard: LeaderboardEntry[];
   standings: Record<GroupId, GroupStanding[]>;
   dataSource: 'live' | 'static';
@@ -22,23 +32,27 @@ export type SweepstakeData = {
 };
 
 export async function loadSweepstakeData(): Promise<SweepstakeData> {
-  let fixtures: Fixture[] = FIXTURES;
-  let dataSource: 'live' | 'static' = 'static';
+  const { fixtures, dataSource } = await loadCurrentTournamentFixtures();
+  const groups = buildGroupsFromFixtures(fixtures);
 
-  // Try live API if configured
-  if (isApiConfigured()) {
-    const live = await fetchLiveFixtures();
-    if (live && live.length > 0) {
-      fixtures = live;
-      dataSource = 'live';
+  // Check for locked draft assignments (overrides hardcoded participants)
+  let participants = PARTICIPANTS;
+  try {
+    const locked = getLockedAssignments();
+    if (locked && locked.length > 0) {
+      participants = locked;
     }
+  } catch {
+    // Draft DB not available — use defaults
   }
 
-  const leaderboard = computeLeaderboard(fixtures);
-  const standings = computeGroupStandings(fixtures);
+  const leaderboard = computeLeaderboard(fixtures, participants);
+  const standings = computeGroupStandings(fixtures, groups);
 
   return {
     fixtures,
+    groups,
+    participants,
     leaderboard,
     standings,
     dataSource,
