@@ -107,9 +107,17 @@ function renderSlot(
         align === 'right' ? 'flex-row-reverse text-right' : ''
       }`}
       style={{
-        background: slot.status === 'confirmed' ? `${theme.accent}14` : `${theme.accent}09`,
+        background: slot.isWinner
+          ? `${theme.accent}18`
+          : slot.status === 'confirmed'
+            ? `${theme.accent}14`
+            : `${theme.accent}09`,
         border: `1px solid ${
-          slot.status === 'confirmed' ? `${theme.accent}28` : `${theme.accent}16`
+          slot.isWinner
+            ? `${theme.accent}34`
+            : slot.status === 'confirmed'
+              ? `${theme.accent}28`
+              : `${theme.accent}16`
         }`,
       }}>
       <Flag team={slot.label} size={18} />
@@ -139,6 +147,13 @@ function renderSlot(
           {owner}
         </div>
       </div>
+      {slot.score !== null ? (
+        <div
+          className="font-display shrink-0 text-[18px] leading-none"
+          style={{ color: slot.isWinner ? theme.accent : '#f9e6c8' }}>
+          {slot.score}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -153,6 +168,12 @@ function MatchCard({
   theme: ThemeColors;
 }) {
   const hasProjection = match.home.status === 'projected' || match.away.status === 'projected';
+  const needsWinnerSelection =
+    match.isReady &&
+    match.homeScore !== null &&
+    match.awayScore !== null &&
+    match.homeScore === match.awayScore &&
+    !match.winner;
 
   return (
     <article
@@ -177,6 +198,12 @@ function MatchCard({
               style={{ color: `${theme.accent}56` }}>
               Projected
             </span>
+          ) : match.isPlayed ? (
+            <span
+              className="font-heading text-[8px] font-bold uppercase tracking-[2px]"
+              style={{ color: `${theme.accent}56` }}>
+              Complete
+            </span>
           ) : null}
         </div>
         <span
@@ -191,10 +218,19 @@ function MatchCard({
         {renderSlot(match.away, ownerByTeam, theme, 'right')}
       </div>
 
-      <div
-        className="font-heading mt-2.5 truncate text-[8px] font-bold uppercase tracking-[2px]"
-        style={{ color: `${theme.accent}38` }}>
-        {match.venue}
+      <div className="mt-2.5 space-y-1">
+        {needsWinnerSelection ? (
+          <div
+            className="font-heading text-[8px] font-bold uppercase tracking-[2px]"
+            style={{ color: '#ffcf8d' }}>
+            Select winner in dev console
+          </div>
+        ) : null}
+        <div
+          className="font-heading truncate text-[8px] font-bold uppercase tracking-[2px]"
+          style={{ color: `${theme.accent}38` }}>
+          {match.venue}
+        </div>
       </div>
     </article>
   );

@@ -17,6 +17,7 @@ A sleek, dark-themed web app for tracking your World Cup 2026 sweepstake between
 - **Fixtures** — All group stage matches with scores, venues, and team owners
 - **Groups** — Complete group stage tables (A–L) with filtering
 - **Teams** — Each participant's 4 teams with individual breakdowns
+- **Protected dev console** — Edit fixture scores, simulate tournament outcomes, and preview recalculated standings locally or behind an env-gated route
 - Per-tab colour themes with smooth transitions
 - Floating background blobs and staggered entry animations
 - Fully responsive (mobile-first)
@@ -96,6 +97,16 @@ Browser request
 - `GET /api/matches?source=static` — Force static data
 - `GET /api/standings` — Group standings from football-data.org
 
+## Dev Console
+
+Use `/dev-console` to override fixture scores, simulate outcomes, and validate the leaderboard, group tables, and projected knockout bracket against the same scoring engine as the main app.
+
+- In local development, the route is enabled automatically.
+- In production or preview deployments, set `ENABLE_DEV_CONSOLE=true` to expose it.
+- Set `DEV_CONSOLE_PASSWORD` to require a password before the route opens.
+
+The console stores score overrides in browser local storage so you can close and reopen it without losing your test state.
+
 ## Updating Scores Manually
 
 If you prefer not to use the API, edit `src/data/fixtures.ts`:
@@ -119,6 +130,8 @@ Edit `src/data/participants.ts` with your actual names and team assignments.
 | Variable                | Required | Description                                                                                                                 |
 | ----------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `FOOTBALL_DATA_API_KEY` | No       | Free API key from [football-data.org](https://www.football-data.org/client/register). Without it, the app uses static data. |
+| `ENABLE_DEV_CONSOLE`    | No       | Set to `true` to expose `/dev-console` outside local development.                                                           |
+| `DEV_CONSOLE_PASSWORD`  | No       | Optional password required to unlock `/dev-console`.                                                                        |
 
 On Vercel: Settings → Environment Variables → add `FOOTBALL_DATA_API_KEY`.
 

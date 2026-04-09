@@ -1,3 +1,4 @@
+import type { ScoringMatch } from '@/lib/scoring';
 import type { GroupId, GroupStanding } from '@/types';
 
 type SeedSlot =
@@ -24,6 +25,8 @@ export type KnockoutSlot = {
   source: 'winner' | 'runnerUp' | 'thirdPlace' | 'winnerMatch';
   group: GroupId | null;
   status: 'confirmed' | 'projected' | 'placeholder';
+  score: number | null;
+  isWinner: boolean;
 };
 
 export type KnockoutMatch = {
@@ -33,6 +36,11 @@ export type KnockoutMatch = {
   venue: string;
   home: KnockoutSlot;
   away: KnockoutSlot;
+  homeScore: number | null;
+  awayScore: number | null;
+  winner: 'home' | 'away' | null;
+  isPlayed: boolean;
+  isReady: boolean;
 };
 
 export type KnockoutRound = {
@@ -58,6 +66,12 @@ export type ProjectedKnockoutBracket = {
   thirdPlaceStandings: ThirdPlaceSummary[];
   completedGroups: number;
   totalGroups: number;
+};
+
+export type KnockoutResult = {
+  homeScore: number | null;
+  awayScore: number | null;
+  winner: 'home' | 'away' | null;
 };
 
 const ROUND_TITLES: Record<KnockoutRoundKey, { title: string; shortTitle: string }> = {
@@ -418,7 +432,8 @@ function resolveSlot(
   standings: Record<GroupId, GroupStanding[]>,
   thirdPlaceStandings: ThirdPlaceSummary[],
   thirdPlaceAssignments: Map<number, GroupId>,
-  currentMatch: number
+  currentMatch: number,
+  resolvedMatches: Map<number, KnockoutMatch>
 ): KnockoutSlot {
   if (slot.kind === 'winner') {
     const row = getGroupPlacement(standings, slot.group, 0);
@@ -430,6 +445,8 @@ function resolveSlot(
       source: 'winner',
       group: slot.group,
       status: isGroupComplete(standings[slot.group]) ? 'confirmed' : 'projected',
+      score: null,
+      isWinner: false,
     };
   }
 
@@ -443,6 +460,8 @@ function resolveSlot(
       source: 'runnerUp',
       group: slot.group,
       status: isGroupComplete(standings[slot.group]) ? 'confirmed' : 'projected',
+      score: null,
+      isWinner: false,
     };
   }
 
@@ -457,6 +476,24 @@ function resolveSlot(
       source: 'thirdPlace',
       group: assignedGroup ?? null,
       status: 'projected',
+      score: null,
+      isWinner: false,
+    };
+  }
+
+  const previousMatch = resolvedMatches.get(slot.match);
+  if (previousMatch?.winner) {
+    const winnerSlot = previousMatch[previousMatch.winner];
+
+    return {
+      label: winnerSlot.label,
+      team: winnerSlot.team,
+      seedLabel: `W${slot.match}`,
+      source: 'winnerMatch',
+      group: winnerSlot.group,
+      status: 'confirmed',
+      score: null,
+      isWinner: false,
     };
   }
 
@@ -467,11 +504,14 @@ function resolveSlot(
     source: 'winnerMatch',
     group: null,
     status: 'placeholder',
+    score: null,
+    isWinner: false,
   };
 }
 
 export function buildProjectedKnockoutBracket(
-  standings: Record<GroupId, GroupStanding[]>
+  standings: Record<GroupId, GroupStanding[]>,
+  results: Partial<Record<number, KnockoutResult>> = {}
 ): ProjectedKnockoutBracket {
   const thirdPlaceStandings = rankThirdPlacedTeams(standings);
   const qualifiedThirdGroups = thirdPlaceStandings
@@ -490,31 +530,71 @@ export function buildProjectedKnockoutBracket(
     'final',
   ];
 
-  const rounds = roundOrder.map((roundKey) => ({
-    key: roundKey,
-    title: ROUND_TITLES[roundKey].title,
-    shortTitle: ROUND_TITLES[roundKey].shortTitle,
-    matches: MATCHES.filter((match) => match.roundKey === roundKey).map((match) => ({
-      match: match.match,
-      roundKey,
-      date: match.date,
-      venue: match.venue,
-      home: resolveSlot(
+  const resolvedMatches = new Map<number, KnockoutMatch>();
+  const rounds = roundOrder.map((roundKey) => {
+    const matches = MATCHES.filter((match) => match.roundKey === roundKey).map((match) => {
+      const home = resolveSlot(
         match.home,
         standings,
         thirdPlaceStandings,
         thirdPlaceAssignments,
-        match.match
-      ),
-      away: resolveSlot(
+        match.match,
+        resolvedMatches
+      );
+      const away = resolveSlot(
         match.away,
         standings,
         thirdPlaceStandings,
         thirdPlaceAssignments,
-        match.match
-      ),
-    })),
-  }));
+        match.match,
+        resolvedMatches
+      );
+      const result = results[match.match];
+      const homeScore = result?.homeScore ?? null;
+      const awayScore = result?.awayScore ?? null;
+      const isReady = Boolean(home.team && away.team);
+      const winner =
+        isReady && homeScore !== null && awayScore !== null
+          ? homeScore > awayScore
+            ? 'home'
+            : awayScore > homeScore
+              ? 'away'
+              : (result?.winner ?? null)
+          : null;
+
+      const builtMatch: KnockoutMatch = {
+        match: match.match,
+        roundKey,
+        date: match.date,
+        venue: match.venue,
+        home: {
+          ...home,
+          score: homeScore,
+          isWinner: winner === 'home',
+        },
+        away: {
+          ...away,
+          score: awayScore,
+          isWinner: winner === 'away',
+        },
+        homeScore,
+        awayScore,
+        winner,
+        isPlayed: winner !== null,
+        isReady,
+      };
+
+      resolvedMatches.set(match.match, builtMatch);
+      return builtMatch;
+    });
+
+    return {
+      key: roundKey,
+      title: ROUND_TITLES[roundKey].title,
+      shortTitle: ROUND_TITLES[roundKey].shortTitle,
+      matches,
+    };
+  });
 
   return {
     rounds,
@@ -522,4 +602,32 @@ export function buildProjectedKnockoutBracket(
     completedGroups,
     totalGroups: 12,
   };
+}
+
+export function getCompletedKnockoutScoringMatches(
+  bracket: ProjectedKnockoutBracket
+): ScoringMatch[] {
+  return bracket.rounds.flatMap((round) =>
+    round.matches.flatMap((match) => {
+      if (
+        !match.isPlayed ||
+        !match.home.team ||
+        !match.away.team ||
+        match.homeScore === null ||
+        match.awayScore === null
+      ) {
+        return [];
+      }
+
+      return [
+        {
+          t1: match.home.team,
+          t2: match.away.team,
+          s1: match.homeScore,
+          s2: match.awayScore,
+          winner: match.winner === 'home' ? 't1' : 't2',
+        } satisfies ScoringMatch,
+      ];
+    })
+  );
 }
