@@ -37,8 +37,10 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - name: Install Linux lightningcss binary
+      - name: Install required Linux native binaries
         run: |
+          TAILWIND_OXIDE_VERSION=$(node -p "require('./node_modules/@tailwindcss/oxide/package.json').optionalDependencies['@tailwindcss/oxide-linux-x64-gnu']")
           LIGHTNINGCSS_VERSION=$(node -p "require('./node_modules/lightningcss/package.json').optionalDependencies['lightningcss-linux-x64-gnu']")
+          npm install --no-save "@tailwindcss/oxide-linux-x64-gnu@${TAILWIND_OXIDE_VERSION}"
           npm install --no-save "lightningcss-linux-x64-gnu@${LIGHTNINGCSS_VERSION}"
       - run: npm run build
