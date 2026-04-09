@@ -316,7 +316,7 @@
   opacity: 0;
 }
 .animate-marquee {
-  animation: marquee 40s linear infinite;
+  animation: marquee 64s linear infinite;
 }
 .animate-float {
   animation: float-slow 10s ease-in-out infinite;
