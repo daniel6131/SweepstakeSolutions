@@ -37,4 +37,8 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
+      - name: Install Linux lightningcss binary
+        run: |
+          LIGHTNINGCSS_VERSION=$(node -p "require('./node_modules/lightningcss/package.json').optionalDependencies['lightningcss-linux-x64-gnu']")
+          npm install --no-save "lightningcss-linux-x64-gnu@${LIGHTNINGCSS_VERSION}"
       - run: npm run build
