@@ -27,7 +27,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - name: Install dependencies
-        run: npm install --include=optional --no-audit --no-fund
+        run: npm ci --include=optional --no-audit --no-fund
       - run: npm run validate
       - run: npm run test --if-present
 
@@ -51,5 +51,5 @@ jobs:
             nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json', 'package.json') }}-
             nextjs-${{ runner.os }}-
       - name: Install dependencies
-        run: npm install --include=optional --no-audit --no-fund
+        run: npm ci --include=optional --no-audit --no-fund
       - run: npm run build
