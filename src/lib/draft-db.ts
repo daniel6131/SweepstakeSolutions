@@ -100,18 +100,18 @@ export function getLockedAssignments(): { name: string; teams: string[] }[] | nu
 /* ── Draft actions ─────────────────────────────────────────── */
 
 const PLAYER_NAMES = [
-  'Alex',
-  'Jordan',
-  'Sam',
-  'Casey',
-  'Riley',
-  'Morgan',
-  'Taylor',
-  'Jamie',
-  'Drew',
-  'Quinn',
-  'Avery',
-  'Reese',
+  'Adam',
+  'Daniel',
+  'Little John',
+  'Abdul',
+  'Michael',
+  'Big John',
+  'Nathan',
+  'Tui',
+  'Steff',
+  'Nick',
+  'Heather',
+  'John P',
 ];
 
 /** Start the draft — move from pending → drafting, shuffle first round order */

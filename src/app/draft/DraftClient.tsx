@@ -3,8 +3,8 @@
 import { Flag } from '@/components/ui/Flag';
 import { COUNTRY_CODES } from '@/data/countryCodes';
 import Link from 'next/link';
-import type { CSSProperties, TransitionEvent } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 /* ═══════════════════════════════════════════════════════════
    Types
@@ -24,7 +24,15 @@ type DraftState = {
   lastDrawn?: Assignment;
 };
 
-type DrawPhase = 'idle' | 'spinning' | 'locking' | 'revealing' | 'dealt';
+type DrawPhase =
+  | 'idle'
+  | 'spinning'
+  | 'charging'
+  | 'decelerating'
+  | 'wobbling'
+  | 'locking'
+  | 'revealing'
+  | 'dealt';
 
 /* ═══════════════════════════════════════════════════════════
    Constants & helpers
@@ -184,13 +192,17 @@ function ConfettiBurst({
   return (
     <div className="pointer-events-none fixed inset-0 z-[70] overflow-hidden">
       {Array.from({ length: 60 }, (_, i) => {
-        const angle = (i / 60) * 360 + rand() * 20;
+        // Fully randomised angle so particles don't form a perfect evenly-spaced ring
+        const angle = rand() * 360;
         const dist = 120 + rand() * 400;
         const px = Math.cos((angle * Math.PI) / 180) * dist;
         const py = Math.sin((angle * Math.PI) / 180) * dist - 100;
         const size = 4 + rand() * 12;
         const color = palette[Math.floor(rand() * palette.length)];
         const isRect = rand() > 0.5;
+        // Small spawn jitter so the burst doesn't look like one pixel exploding
+        const sx = (rand() - 0.5) * 24;
+        const sy = (rand() - 0.5) * 24;
         return (
           <div
             key={i}
@@ -202,8 +214,13 @@ function ConfettiBurst({
               borderRadius: isRect ? '2px' : '50%',
               marginLeft: -size / 2,
               marginTop: -size / 2,
+              // opacity:0 hides each particle while it waits for its animationDelay.
+              // The 0% keyframe restores opacity:1 the moment the animation fires.
+              opacity: 0,
               animation: `confetti-burst ${0.6 + rand() * 0.8}s cubic-bezier(0.22, 0.61, 0.36, 1) forwards`,
               animationDelay: `${i * 0.01}s`,
+              ['--sx' as string]: `${sx}px`,
+              ['--sy' as string]: `${sy}px`,
               ['--cx' as string]: `${px}px`,
               ['--cy' as string]: `${py}px`,
               ['--rot' as string]: `${rand() * 720 - 360}deg`,
@@ -384,20 +401,43 @@ function DraftCeremony({
   const [drawPhase, setDrawPhase] = useState<DrawPhase>('idle');
   const [revealed, setRevealed] = useState<Assignment | null>(null);
   const [burstSeed, setBurstSeed] = useState(1);
-  const [reelTeams, setReelTeams] = useState<string[]>([]);
-  const [stripOffset, setStripOffset] = useState(0);
-  const [phase2Trigger, setPhase2Trigger] = useState(false);
+  const [reelSeed, setReelSeed] = useState(42);
+  const [tickFlash, setTickFlash] = useState(false);
 
+  const [teaseIdx, setTeaseIdx] = useState(0);
+  const teaseIdxRef = useRef(0);
+  const cycleRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const decelRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  const REEL_LENGTH = 42;
-  const WINNER_SLOT = 36;
+  const teaseTeamsRef = useRef<string[]>([]);
 
   const currentPlayer = state.playerOrder[state.currentPick] || '';
   const isActive = drawPhase !== 'idle' && drawPhase !== 'dealt';
   const showReveal = drawPhase === 'revealing' || drawPhase === 'dealt';
-  const stageHue = teamHue(revealed?.team || 'x');
-  const stageHot = drawPhase === 'spinning' || drawPhase === 'locking';
+
+  /* ── Tease teams ─────────────────────────────────────────── */
+  const teaseTeams = useMemo(() => {
+    return shuffleWithSeed(state.availableTeams, reelSeed).slice(0, 14);
+  }, [state.availableTeams, reelSeed]);
+
+  const getReelTeam = useCallback(
+    (absIdx: number) => {
+      const list = teaseTeamsRef.current.length > 0 ? teaseTeamsRef.current : teaseTeams;
+      const len = list.length;
+      if (len === 0) return '';
+      return list[((absIdx % len) + len) % len];
+    },
+    [teaseTeams]
+  );
+
+  const centerTeam = getReelTeam(teaseIdx);
+  const centerHue = teamHue(centerTeam || 'x');
+  const stageHue = teamHue(revealed?.team || centerTeam || 'x');
+  const stageHot =
+    drawPhase === 'spinning' ||
+    drawPhase === 'charging' ||
+    drawPhase === 'decelerating' ||
+    drawPhase === 'locking';
 
   /* ── Flag preloading ────────────────────────────────────── */
   useEffect(() => {
@@ -411,8 +451,20 @@ function DraftCeremony({
   useEffect(() => {
     const timers = timersRef.current;
     return () => {
+      if (cycleRef.current) clearInterval(cycleRef.current);
+      if (decelRef.current) clearTimeout(decelRef.current);
       timers.forEach(clearTimeout);
     };
+  }, []);
+
+  const advanceTease = useCallback(() => {
+    teaseIdxRef.current += 1;
+    setTeaseIdx(teaseIdxRef.current);
+  }, []);
+
+  const setTease = useCallback((idx: number) => {
+    teaseIdxRef.current = idx;
+    setTeaseIdx(idx);
   }, []);
 
   function after(ms: number, fn: () => void) {
@@ -425,70 +477,96 @@ function DraftCeremony({
   const handleDraw = async () => {
     if (drawPhase !== 'idle') return;
 
-    // Resolve the winner upfront so we can plant it inside the reel
-    const drawn = await onDraw();
-    if (!drawn) return;
-    setRevealed(drawn);
+    setReelSeed((s) => s + 1);
+    const newTeaseList = shuffleWithSeed(state.availableTeams, reelSeed + 1).slice(0, 14);
+    teaseTeamsRef.current = newTeaseList;
+    setTease(0);
 
-    // Build the reel: shuffled fillers with the winner planted at WINNER_SLOT
-    const fillerSeed = (Date.now() & 0xffff) ^ (state.currentPick * 7919);
-    const shuffled = shuffleWithSeed(state.availableTeams, fillerSeed);
-    const reel: string[] = [];
-    for (let i = 0; i < REEL_LENGTH; i++) {
-      reel.push(shuffled[i % shuffled.length] || drawn.team);
-    }
-    reel[WINNER_SLOT] = drawn.team;
-    // Avoid the winner appearing immediately adjacent to itself
-    if (reel[WINNER_SLOT - 1] === drawn.team) {
-      reel[WINNER_SLOT - 1] =
-        shuffled[(WINNER_SLOT + 17) % shuffled.length] || reel[WINNER_SLOT - 1];
-    }
-    if (reel[WINNER_SLOT + 1] === drawn.team) {
-      reel[WINNER_SLOT + 1] =
-        shuffled[(WINNER_SLOT + 23) % shuffled.length] || reel[WINNER_SLOT + 1];
-    }
-
-    setReelTeams(reel);
-    setStripOffset(0);
-    setPhase2Trigger(false);
+    // Phase 1: Fast spinning
     setDrawPhase('spinning');
+    cycleRef.current = setInterval(advanceTease, 55);
 
-    // Two RAFs guarantee the initial transform paints before we kick off the transition
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const isDesktop =
-          typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches;
-        const cardHeight = isDesktop ? 140 : 110;
-        // Center the winner card inside the 3-card window
-        const targetOffset = -(WINNER_SLOT - 1) * cardHeight;
-        setStripOffset(targetOffset);
-        setPhase2Trigger(true);
-      });
-    });
-  };
+    after(2000, () => {
+      // Phase 2: Charging
+      setDrawPhase('charging');
 
-  const handleStripTransitionEnd = (e: TransitionEvent<HTMLDivElement>) => {
-    if (e.target !== e.currentTarget) return;
-    if (e.propertyName !== 'transform') return;
-    if (drawPhase !== 'spinning') return;
+      after(700, async () => {
+        const drawn = await onDraw();
+        if (!drawn) return;
 
-    setBurstSeed((s) => s + 1);
-    setDrawPhase('locking');
+        setRevealed(drawn);
 
-    after(750, () => {
-      setDrawPhase('revealing');
+        let targetSlot = teaseTeamsRef.current.indexOf(drawn.team);
+        if (targetSlot < 0) {
+          teaseTeamsRef.current[0] = drawn.team;
+          targetSlot = 0;
+        }
 
-      after(3400, () => {
-        setDrawPhase('dealt');
-        onCommitDraw();
+        // Phase 3: Decelerating
+        setDrawPhase('decelerating');
 
-        after(900, () => {
-          setDrawPhase('idle');
-          setRevealed(null);
-          setReelTeams([]);
-          setStripOffset(0);
-          setPhase2Trigger(false);
-        });
+        if (cycleRef.current) {
+          clearInterval(cycleRef.current);
+          cycleRef.current = null;
+        }
+
+        const len = teaseTeamsRef.current.length;
+        const currentPos = teaseIdxRef.current;
+        const minTicks = 14;
+        let target = currentPos + ((((targetSlot - (currentPos % len)) % len) + len) % len);
+        while (target - currentPos < minTicks) target += len;
+        const ticksToGo = target - currentPos;
+
+        // Deceleration: 55ms → 700ms with t^2.5 easing
+        const intervals: number[] = [];
+        for (let i = 0; i < ticksToGo; i++) {
+          const t = i / Math.max(ticksToGo - 1, 1);
+          intervals.push(55 + t ** 2.5 * 645);
+        }
+
+        let step = 0;
+        const decelTick = () => {
+          const ms = intervals[step] || 700;
+          advanceTease();
+          step++;
+
+          setTickFlash(true);
+          after(Math.min(ms * 0.4, 80), () => setTickFlash(false));
+
+          if (step >= ticksToGo) {
+            after(300, () => {
+              setDrawPhase('wobbling');
+
+              after(220, () => {
+                setTease(target);
+
+                after(280, () => {
+                  setBurstSeed((s) => s + 1);
+                  setDrawPhase('locking');
+
+                  after(800, () => {
+                    setDrawPhase('revealing');
+
+                    after(3600, () => {
+                      setDrawPhase('dealt');
+                      onCommitDraw();
+
+                      after(900, () => {
+                        setDrawPhase('idle');
+                        setRevealed(null);
+                      });
+                    });
+                  });
+                });
+              });
+            });
+            return;
+          }
+
+          decelRef.current = setTimeout(decelTick, ms);
+        };
+
+        decelRef.current = setTimeout(decelTick, intervals[0]);
       });
     });
   };
@@ -619,61 +697,64 @@ function DraftCeremony({
             </div>
           )}
 
-          {/* ACTIVE: Slot Machine Reel */}
+          {/* ACTIVE: Flag fan — 5 cards fanned horizontally (prev2, prev, center, next, next2) */}
           {isActive && (
             <div
               className={[
-                'slot-reel',
-                drawPhase === 'spinning' && phase2Trigger ? 'is-spinning' : '',
-                drawPhase === 'locking' || drawPhase === 'revealing' ? 'is-locked' : '',
+                'flag-show',
+                tickFlash ? 'is-tick' : '',
+                drawPhase === 'locking' ? 'is-locked' : '',
+                drawPhase === 'wobbling' ? 'is-wobble' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}>
-              <div className="slot-reel__bg" />
-              <div className="slot-reel__rays" />
+              {/* Edge glow under the fan — driven by the centre card's hue */}
               <div
-                className="slot-reel__strip"
-                onTransitionEnd={handleStripTransitionEnd}
+                className="flag-show__edge"
                 style={{
-                  transform: `translateY(${stripOffset}px)`,
-                  filter: phase2Trigger ? 'blur(0px)' : 'blur(8px)',
-                  transition: phase2Trigger
-                    ? 'transform 4800ms cubic-bezier(0.05, 0.85, 0.18, 1), filter 4800ms cubic-bezier(0.05, 0.85, 0.18, 1)'
-                    : 'none',
-                }}>
-                {reelTeams.map((team, i) => {
-                  const hue = teamHue(team);
+                  background: `radial-gradient(ellipse at center, hsl(${centerHue} 100% 55% / 0.3), transparent 60%)`,
+                }}
+              />
+              {/* Five-card fan */}
+              <div className="flag-show__fan">
+                {([-2, -1, 0, 1, 2] as const).map((offset) => {
+                  const team = getReelTeam(teaseIdx + offset);
+                  const hue = teamHue(team || 'x');
+                  const isCenter = offset === 0;
                   return (
                     <div
-                      key={`${team}-${i}`}
-                      className="slot-reel__card"
-                      style={{ ['--card-hue' as string]: hue }}>
-                      <div className="slot-reel__card-flag">
-                        <DraftFlag
-                          team={team}
-                          width={130}
-                          height={86}
-                          size={160}
-                          fit="cover"
-                          style={{ width: '100%', height: '100%' }}
-                        />
-                      </div>
-                      <div className="slot-reel__card-name">{team}</div>
+                      key={offset}
+                      className="flag-show__card"
+                      data-offset={String(offset)}
+                      style={{
+                        borderColor: `hsl(${hue} 70% 55% / ${isCenter ? 0.4 : 0.2})`,
+                        boxShadow: isCenter
+                          ? drawPhase === 'locking'
+                            ? `0 0 80px hsl(${hue} 100% 50% / 0.4), 0 30px 60px rgba(0,0,0,0.5), inset 0 0 40px hsl(${hue} 100% 50% / 0.1)`
+                            : `0 30px 80px rgba(0,0,0,0.5), 0 0 40px hsl(${hue} 80% 50% / 0.15)`
+                          : `0 12px 30px rgba(0,0,0,0.4)`,
+                      }}>
+                      <DraftFlag
+                        team={team}
+                        width={320}
+                        height={208}
+                        size={isCenter ? 640 : 160}
+                        fit="cover"
+                        style={{ width: '100%', height: '100%' }}
+                      />
+                      <div className="flag-show__shine" />
                     </div>
                   );
                 })}
               </div>
-              <div className="slot-reel__fade slot-reel__fade--top" />
-              <div className="slot-reel__fade slot-reel__fade--bottom" />
-              <div className="slot-reel__window">
-                <div className="slot-reel__window-glow" />
+              <div className="flag-show__name" style={{ color: `hsl(${centerHue} 80% 82%)` }}>
+                {centerTeam}
               </div>
-              <div className="slot-reel__chevron slot-reel__chevron--left" aria-hidden>
-                ▶
-              </div>
-              <div className="slot-reel__chevron slot-reel__chevron--right" aria-hidden>
-                ◀
-              </div>
+              {(drawPhase === 'locking' || showReveal) && revealed && (
+                <div className="flag-show__group" style={{ color: `${C.accent}70` }}>
+                  Group {revealed.group}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -690,15 +771,30 @@ function DraftCeremony({
               TAP ANYWHERE TO DRAW
             </div>
           )}
-          {drawPhase === 'spinning' && (
+          {(drawPhase === 'spinning' || drawPhase === 'charging') && (
             <div className="draft-suspense is-active" style={{ position: 'relative' }}>
-              <div className="draft-suspense__label">Spinning the reel...</div>
+              <div className="draft-suspense__label">Shuffling nations...</div>
               <div className="draft-suspense__meter">
                 <span />
                 <span />
                 <span />
                 <span />
               </div>
+            </div>
+          )}
+          {drawPhase === 'decelerating' && (
+            <div className="draw-status__text" style={{ color: `${C.gold}92` }}>
+              Slowing down...
+            </div>
+          )}
+          {drawPhase === 'wobbling' && (
+            <div
+              className="draw-status__text"
+              style={{
+                color: '#fff',
+                animation: 'draft-fade-pulse 0.3s ease-in-out infinite',
+              }}>
+              ...
             </div>
           )}
           {drawPhase === 'locking' && (
@@ -736,7 +832,7 @@ function DraftCeremony({
         })}
       </div>
 
-      {drawPhase === 'locking' && <ConfettiBurst active seed={burstSeed} hue={stageHue} />}
+      {drawPhase === 'locking' && <ConfettiBurst active seed={burstSeed} hue={centerHue} />}
       <RevealOverlay assignment={revealed} active={showReveal} burstSeed={burstSeed} />
     </div>
   );
