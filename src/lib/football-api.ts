@@ -24,7 +24,8 @@ const COMPETITION = 'WC'; // FIFA World Cup
 
 type CacheEntry<T> = { data: T; fetchedAt: number };
 const cache = new Map<string, CacheEntry<unknown>>();
-const CACHE_TTL_MS = 55_000; // 55s — just under ISR's 60s revalidate
+const CACHE_TTL_MS = 55_000; // 55s — just under the fetch/page revalidation window
+const FETCH_REVALIDATE_SECONDS = 60;
 
 function getCached<T>(key: string): T | null {
   const entry = cache.get(key) as CacheEntry<T> | undefined;
@@ -88,8 +89,8 @@ async function apiFetch<T>(endpoint: string): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
   const res = await fetch(url, {
     headers: { 'X-Auth-Token': token },
-    // No Next.js cache here — we control caching via ISR + in-memory
-    cache: 'no-store',
+    // Use time-based revalidation so the homepage can stay statically rendered via ISR.
+    next: { revalidate: FETCH_REVALIDATE_SECONDS },
   });
 
   if (!res.ok) {
