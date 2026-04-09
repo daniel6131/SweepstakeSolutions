@@ -37,7 +37,6 @@ lerna-debug.log*
 !.vscode/settings.json
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
@@ -60,3 +59,10 @@ lerna-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+!package-lock.json
+
+# Local AI/tooling files
+.claude
+CLAUDE.md
+AGENTS.md
+.agents

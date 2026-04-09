@@ -8,6 +8,7 @@ export type ThemeColors = {
 };
 
 export type GroupId = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L';
+export type TournamentGroups = Record<GroupId, string[]>;
 
 export type Participant = {
   name: string;

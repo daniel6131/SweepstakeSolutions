@@ -1,6 +1,13 @@
 import { GROUPS } from '@/data/groups';
 import { PARTICIPANTS } from '@/data/participants';
-import type { Fixture, GroupId, GroupStanding, LeaderboardEntry } from '@/types';
+import type {
+  Fixture,
+  GroupId,
+  GroupStanding,
+  LeaderboardEntry,
+  Participant,
+  TournamentGroups,
+} from '@/types';
 
 /* ── Points system ── */
 const WIN_PTS = 3;
@@ -47,37 +54,48 @@ function buildTeamRecords(fixtures: Fixture[]): Map<string, TeamRecord> {
 /**
  * Compute the sweepstake leaderboard from a set of fixtures.
  * Each participant's total = sum of all their teams' points.
+ *
+ * @param participants — optional override (e.g. from draft assignments)
  */
-export function computeLeaderboard(fixtures: Fixture[]): LeaderboardEntry[] {
+export function computeLeaderboard(
+  fixtures: Fixture[],
+  participants?: Participant[]
+): LeaderboardEntry[] {
   const records = buildTeamRecords(fixtures);
+  const roster = participants || PARTICIPANTS;
 
-  return PARTICIPANTS.map((p) => {
-    let pts = 0,
-      w = 0,
-      d = 0,
-      l = 0;
+  return roster
+    .map((p) => {
+      let pts = 0,
+        w = 0,
+        d = 0,
+        l = 0;
 
-    for (const team of p.teams) {
-      const r = records.get(team);
-      if (r) {
-        pts += r.pts;
-        w += r.w;
-        d += r.d;
-        l += r.l;
+      for (const team of p.teams) {
+        const r = records.get(team);
+        if (r) {
+          pts += r.pts;
+          w += r.w;
+          d += r.d;
+          l += r.l;
+        }
       }
-    }
 
-    return { name: p.name, teams: p.teams, pts, w, d, l };
-  }).sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
+      return { name: p.name, teams: p.teams, pts, w, d, l };
+    })
+    .sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
 }
 
 /**
  * Compute group-stage standings for all 12 groups from a set of fixtures.
  */
-export function computeGroupStandings(fixtures: Fixture[]): Record<GroupId, GroupStanding[]> {
+export function computeGroupStandings(
+  fixtures: Fixture[],
+  groups: TournamentGroups = GROUPS
+): Record<GroupId, GroupStanding[]> {
   const standings: Record<string, GroupStanding[]> = {};
 
-  for (const [group, teams] of Object.entries(GROUPS)) {
+  for (const [group, teams] of Object.entries(groups)) {
     const groupFixtures = fixtures.filter((f) => f.group === group);
 
     const rows: GroupStanding[] = teams.map((team) => ({

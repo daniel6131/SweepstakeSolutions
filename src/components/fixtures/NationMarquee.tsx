@@ -1,9 +1,9 @@
 import { Flag } from '@/components/ui/Flag';
-import { GROUPS } from '@/data/groups';
-import type { ThemeColors } from '@/types';
+import { getAllTeams } from '@/data/groups';
+import type { ThemeColors, TournamentGroups } from '@/types';
 
-export function NationMarquee({ theme }: { theme: ThemeColors }) {
-  const allTeams = Object.values(GROUPS).flat();
+export function NationMarquee({ groups, theme }: { groups: TournamentGroups; theme: ThemeColors }) {
+  const allTeams = getAllTeams(groups);
   return (
     <div
       className="mb-8 overflow-hidden py-3 md:mb-10 md:py-4"
