@@ -6,13 +6,13 @@ export const PARTICIPANTS: Participant[] = [
   { name: 'Little John', teams: ['Argentina', 'Netherlands', 'Morocco', 'Turkey'] },
   { name: 'Abdul', teams: ['Spain', 'Germany', 'Croatia', 'Senegal'] },
   { name: 'Michael', teams: ['Portugal', 'Belgium', 'Uruguay', 'Norway'] },
-  { name: 'Big John', teams: ['USA', 'Italy', 'Colombia', 'Egypt'] },
+  { name: 'Big John', teams: ['USA', 'Bosnia and Herzegovina', 'Colombia', 'Egypt'] },
   { name: 'Nathan', teams: ['Mexico', 'Switzerland', 'Austria', 'Tunisia'] },
   { name: 'Tui', teams: ['Canada', 'Iran', 'Scotland', 'Paraguay'] },
-  { name: 'Steff', teams: ['Denmark', 'Australia', 'Ghana', 'Uzbekistan'] },
+  { name: 'Steff', teams: ['Czechia', 'Australia', 'Ghana', 'Uzbekistan'] },
   { name: 'Nick', teams: ['Qatar', 'South Africa', 'Jordan', 'Haiti'] },
-  { name: 'Heather', teams: ['Saudi Arabia', 'Ivory Coast', 'Jamaica', 'Curaçao'] },
-  { name: 'John P', teams: ['Sweden', 'New Zealand', 'Cabo Verde', 'DR Congo'] },
+  { name: 'Heather', teams: ['Saudi Arabia', 'Ivory Coast', 'Iraq', 'Curaçao'] },
+  { name: 'John P', teams: ['Sweden', 'New Zealand', 'Cape Verde', 'DR Congo'] },
 ];
 
 /** Find which participant owns a given team */

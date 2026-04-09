@@ -1074,6 +1074,7 @@
   position: relative;
   z-index: 10;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
   padding: 18px 16px 0;
@@ -1314,6 +1315,10 @@
   animation: flag-show-in 0.4s cubic-bezier(0.19, 1, 0.22, 1) both;
 }
 
+.flag-show--solo {
+  gap: 18px;
+}
+
 @keyframes flag-show-in {
   from {
     opacity: 0;
@@ -1352,6 +1357,20 @@
   will-change: transform, border-color, box-shadow;
   /* Rotate from the bottom-centre so cards fan like a hand of playing cards */
   transform-origin: 50% 110%;
+}
+
+.flag-show__card--solo {
+  position: relative;
+  inset: auto;
+  width: 280px;
+  height: 182px;
+  transform: none;
+}
+@media (min-width: 768px) {
+  .flag-show__card--solo {
+    width: 340px;
+    height: 220px;
+  }
 }
 
 /* Default (centre) position — already offset="0" rule below handles this */

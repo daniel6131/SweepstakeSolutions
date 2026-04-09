@@ -8,14 +8,23 @@
  * instead of the hardcoded participant data.
  */
 
-import { FIXTURES } from '@/data/fixtures';
+import { buildGroupsFromFixtures } from '@/data/groups';
+import { PARTICIPANTS } from '@/data/participants';
 import { getLockedAssignments } from '@/lib/draft-db';
-import { fetchLiveFixtures, isApiConfigured } from '@/lib/football-api';
+import { loadCurrentTournamentFixtures } from '@/lib/current-tournament';
 import { computeGroupStandings, computeLeaderboard } from '@/lib/scoring';
-import type { Fixture, GroupId, GroupStanding, LeaderboardEntry } from '@/types';
+import type {
+  GroupId,
+  GroupStanding,
+  LeaderboardEntry,
+  Participant,
+  TournamentGroups,
+} from '@/types';
 
 export type SweepstakeData = {
-  fixtures: Fixture[];
+  fixtures: Awaited<ReturnType<typeof loadCurrentTournamentFixtures>>['fixtures'];
+  groups: TournamentGroups;
+  participants: Participant[];
   leaderboard: LeaderboardEntry[];
   standings: Record<GroupId, GroupStanding[]>;
   dataSource: 'live' | 'static';
@@ -23,34 +32,27 @@ export type SweepstakeData = {
 };
 
 export async function loadSweepstakeData(): Promise<SweepstakeData> {
-  let fixtures: Fixture[] = FIXTURES;
-  let dataSource: 'live' | 'static' = 'static';
-
-  // Try live API if configured
-  if (isApiConfigured()) {
-    const live = await fetchLiveFixtures();
-    if (live && live.length > 0) {
-      fixtures = live;
-      dataSource = 'live';
-    }
-  }
+  const { fixtures, dataSource } = await loadCurrentTournamentFixtures();
+  const groups = buildGroupsFromFixtures(fixtures);
 
   // Check for locked draft assignments (overrides hardcoded participants)
-  let draftParticipants;
+  let participants = PARTICIPANTS;
   try {
     const locked = getLockedAssignments();
     if (locked && locked.length > 0) {
-      draftParticipants = locked;
+      participants = locked;
     }
   } catch {
     // Draft DB not available — use defaults
   }
 
-  const leaderboard = computeLeaderboard(fixtures, draftParticipants || undefined);
-  const standings = computeGroupStandings(fixtures);
+  const leaderboard = computeLeaderboard(fixtures, participants);
+  const standings = computeGroupStandings(fixtures, groups);
 
   return {
     fixtures,
+    groups,
+    participants,
     leaderboard,
     standings,
     dataSource,

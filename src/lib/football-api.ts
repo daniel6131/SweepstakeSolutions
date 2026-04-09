@@ -51,9 +51,11 @@ const TEAM_NAME_MAP: Record<string, string> = {
   'Iran, Islamic Republic of': 'Iran',
   'IR Iran': 'Iran',
   'United States': 'USA',
+  'Bosnia-Herzegovina': 'Bosnia and Herzegovina',
+  'Bosnia-H.': 'Bosnia and Herzegovina',
   Türkiye: 'Turkey',
   'New Zealand / Aotearoa': 'New Zealand',
-  'Cape Verde': 'Cabo Verde',
+  'Cape Verde': 'Cape Verde',
   'Congo DR': 'DR Congo',
   'Democratic Republic of Congo': 'DR Congo',
   // Add more as the API reveals them
@@ -213,7 +215,13 @@ export async function fetchLiveStandings(): Promise<Record<string, ApiStandingRo
     for (const group of data.standings) {
       if (group.stage === 'GROUP_STAGE') {
         const letter = parseGroup(group.group);
-        standings[letter] = group.table;
+        standings[letter] = group.table.map((row) => ({
+          ...row,
+          team: {
+            ...row.team,
+            name: normalizeTeamName(row.team.shortName ?? row.team.name),
+          },
+        }));
       }
     }
 

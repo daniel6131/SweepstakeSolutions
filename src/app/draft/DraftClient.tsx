@@ -2,15 +2,17 @@
 
 import { Flag } from '@/components/ui/Flag';
 import { COUNTRY_CODES } from '@/data/countryCodes';
+import { getPotForRound, getPotForTeam } from '@/data/draftPots';
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { DraftPot } from '@/data/draftPots';
 
 /* ═══════════════════════════════════════════════════════════
    Types
    ═══════════════════════════════════════════════════════════ */
 
-type Assignment = { player: string; team: string; group: string; round: number };
+type Assignment = { player: string; team: string; group: string; round: number; pot: DraftPot };
 type Conflict = { player: string; conflicts: string[] };
 
 type DraftState = {
@@ -148,6 +150,10 @@ function teamHue(team: string): number {
   let h = 0;
   for (let i = 0; i < team.length; i++) h = (h * 31 + team.charCodeAt(i)) & 0xffff;
   return h % 360;
+}
+
+function formatPotLabel(pot: DraftPot | null): string {
+  return pot ? `Pot ${pot}` : 'Pot TBC';
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -412,13 +418,24 @@ function DraftCeremony({
   const teaseTeamsRef = useRef<string[]>([]);
 
   const currentPlayer = state.playerOrder[state.currentPick] || '';
+  const currentPot = getPotForRound(state.currentRound);
+  const currentPotLabel = formatPotLabel(currentPot);
+  const currentPotTeams = useMemo(() => {
+    if (!currentPot) return [];
+    return state.availableTeams.filter((team) => getPotForTeam(team) === currentPot);
+  }, [currentPot, state.availableTeams]);
+  const teamsLeftInCurrentPot = currentPotTeams.length;
+  const isLastTeamInPot = teamsLeftInCurrentPot === 1;
   const isActive = drawPhase !== 'idle' && drawPhase !== 'dealt';
   const showReveal = drawPhase === 'revealing' || drawPhase === 'dealt';
 
   /* ── Tease teams ─────────────────────────────────────────── */
   const teaseTeams = useMemo(() => {
-    return shuffleWithSeed(state.availableTeams, reelSeed).slice(0, 14);
-  }, [state.availableTeams, reelSeed]);
+    return shuffleWithSeed(currentPotTeams, reelSeed).slice(
+      0,
+      Math.min(14, currentPotTeams.length)
+    );
+  }, [currentPotTeams, reelSeed]);
 
   const getReelTeam = useCallback(
     (absIdx: number) => {
@@ -441,11 +458,11 @@ function DraftCeremony({
 
   /* ── Flag preloading ────────────────────────────────────── */
   useEffect(() => {
-    state.availableTeams.forEach((team) => {
+    currentPotTeams.forEach((team) => {
       const img = new Image();
       img.src = flagUrl(team, 640);
     });
-  }, [state.availableTeams]);
+  }, [currentPotTeams]);
 
   /* ── Cleanup ─────────────────────────────────────────────── */
   useEffect(() => {
@@ -475,12 +492,42 @@ function DraftCeremony({
 
   /* ── The draw handler ─────────────────────────────────────── */
   const handleDraw = async () => {
-    if (drawPhase !== 'idle') return;
+    if (drawPhase !== 'idle' || currentPotTeams.length === 0) return;
 
     setReelSeed((s) => s + 1);
-    const newTeaseList = shuffleWithSeed(state.availableTeams, reelSeed + 1).slice(0, 14);
+    const newTeaseList = shuffleWithSeed(currentPotTeams, reelSeed + 1).slice(
+      0,
+      Math.min(14, currentPotTeams.length)
+    );
     teaseTeamsRef.current = newTeaseList;
     setTease(0);
+
+    if (currentPotTeams.length === 1) {
+      const drawn = await onDraw();
+      if (!drawn) return;
+
+      teaseTeamsRef.current = [drawn.team];
+      setTease(0);
+      setRevealed(drawn);
+      setBurstSeed((s) => s + 1);
+      setDrawPhase('locking');
+
+      after(450, () => {
+        setDrawPhase('revealing');
+
+        after(2200, () => {
+          setDrawPhase('dealt');
+          onCommitDraw();
+
+          after(600, () => {
+            teaseTeamsRef.current = [];
+            setDrawPhase('idle');
+            setRevealed(null);
+          });
+        });
+      });
+      return;
+    }
 
     // Phase 1: Fast spinning
     setDrawPhase('spinning');
@@ -571,6 +618,10 @@ function DraftCeremony({
     });
   };
 
+  const revealPoolSize =
+    teaseTeamsRef.current.length > 0 ? teaseTeamsRef.current.length : teaseTeams.length;
+  const showSoloReveal = isActive && revealPoolSize <= 1;
+
   // Round transition overlay
   if (roundTransition) {
     return (
@@ -583,7 +634,7 @@ function DraftCeremony({
           <div
             className="font-heading text-xs font-bold uppercase tracking-[6px] md:text-sm"
             style={{ color: `${C.accent}50`, animation: 'hero-fade-in 0.6s ease both' }}>
-            ROUND {state.currentRound} OF 4
+            ROUND {state.currentRound + 1} OF 4
           </div>
           <div
             className="font-display mt-3 tracking-[-0.02em]"
@@ -592,7 +643,9 @@ function DraftCeremony({
               color: C.accent,
               animation: 'hero-fade-in 0.8s ease 0.2s both',
             }}>
-            {state.currentRound < 4 ? 'NEXT ROUND' : 'TRADING TIME'}
+            {state.currentRound < 4
+              ? formatPotLabel(getPotForRound(state.currentRound))
+              : 'TRADING TIME'}
           </div>
         </div>
       </div>
@@ -662,10 +715,11 @@ function DraftCeremony({
       {/* Top info bar */}
       <div className="draw-topbar">
         <div className="draw-topbar__pill">Round {state.currentRound + 1}/4</div>
+        <div className="draw-topbar__pill">{currentPotLabel}</div>
         <div className="draw-topbar__pill">
           Pick {state.currentPick + 1}/{state.playerOrder.length}
         </div>
-        <div className="draw-topbar__pill">{state.availableTeams.length} left</div>
+        <div className="draw-topbar__pill">{teamsLeftInCurrentPot} left in pot</div>
       </div>
 
       {/* Main centered content */}
@@ -690,15 +744,57 @@ function DraftCeremony({
                 <div className="mystery-card__shimmer" />
                 <div className="mystery-card__inner-border" />
                 <div className="mystery-card__content">
-                  <div className="mystery-card__icon">?</div>
-                  <div className="mystery-card__cta">TAP TO DRAW</div>
+                  <div className="mystery-card__icon">{isLastTeamInPot ? '1' : '?'}</div>
+                  <div className="mystery-card__cta">
+                    {isLastTeamInPot
+                      ? `FINAL TEAM IN ${currentPotLabel.toUpperCase()}`
+                      : 'TAP TO DRAW'}
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
+          {showSoloReveal && (
+            <div className="flag-show flag-show--solo">
+              <div
+                className="flag-show__edge"
+                style={{
+                  background: `radial-gradient(ellipse at center, hsl(${centerHue} 100% 55% / 0.3), transparent 60%)`,
+                }}
+              />
+              <div
+                className="flag-show__card flag-show__card--solo"
+                style={{
+                  borderColor: `hsl(${centerHue} 70% 55% / 0.4)`,
+                  boxShadow:
+                    drawPhase === 'locking'
+                      ? `0 0 80px hsl(${centerHue} 100% 50% / 0.38), 0 30px 60px rgba(0,0,0,0.5), inset 0 0 40px hsl(${centerHue} 100% 50% / 0.1)`
+                      : `0 30px 80px rgba(0,0,0,0.5), 0 0 40px hsl(${centerHue} 80% 50% / 0.15)`,
+                }}>
+                <DraftFlag
+                  team={centerTeam}
+                  width={340}
+                  height={220}
+                  size={640}
+                  fit="cover"
+                  style={{ width: '100%', height: '100%' }}
+                />
+                <div className="flag-show__shine" />
+              </div>
+              <div className="flag-show__name" style={{ color: `hsl(${centerHue} 80% 82%)` }}>
+                {centerTeam}
+              </div>
+              {revealed && (
+                <div className="flag-show__group" style={{ color: `${C.accent}70` }}>
+                  Group {revealed.group}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ACTIVE: Flag fan — 5 cards fanned horizontally (prev2, prev, center, next, next2) */}
-          {isActive && (
+          {isActive && !showSoloReveal && (
             <div
               className={[
                 'flag-show',
@@ -768,7 +864,9 @@ function DraftCeremony({
                 color: `${C.accent}40`,
                 animation: 'draft-fade-pulse 2s ease-in-out infinite',
               }}>
-              TAP ANYWHERE TO DRAW
+              {isLastTeamInPot
+                ? `TAP TO REVEAL THE FINAL TEAM IN ${currentPotLabel.toUpperCase()}`
+                : `TAP ANYWHERE TO DRAW FROM ${currentPotLabel.toUpperCase()}`}
             </div>
           )}
           {(drawPhase === 'spinning' || drawPhase === 'charging') && (
@@ -799,7 +897,7 @@ function DraftCeremony({
           )}
           {drawPhase === 'locking' && (
             <div className="draw-status__text draw-status__text--lock" style={{ color: C.accent }}>
-              LOCKED IN
+              {isLastTeamInPot ? 'FINAL TEAM REVEALED' : 'LOCKED IN'}
             </div>
           )}
         </div>

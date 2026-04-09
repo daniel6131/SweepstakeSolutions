@@ -1,16 +1,17 @@
 import { Flag } from '@/components/ui/Flag';
 import { getTeamGroup } from '@/data/groups';
 import type { TeamRecord } from '@/lib/scoring';
-import type { LeaderboardEntry, ThemeColors } from '@/types';
+import type { LeaderboardEntry, ThemeColors, TournamentGroups } from '@/types';
 
 type Props = {
   entry: LeaderboardEntry;
   rank: number;
+  groups: TournamentGroups;
   teamRecords: Map<string, TeamRecord>;
   theme: ThemeColors;
 };
 
-export function ParticipantCard({ entry, rank, teamRecords, theme }: Props) {
+export function ParticipantCard({ entry, rank, groups, teamRecords, theme }: Props) {
   return (
     <div
       className="card-lift overflow-hidden rounded-xl md:rounded-2xl"
@@ -42,7 +43,7 @@ export function ParticipantCard({ entry, rank, teamRecords, theme }: Props) {
       {/* Team list */}
       <div className="p-2.5 md:p-3">
         {entry.teams.map((t) => {
-          const group = getTeamGroup(t);
+          const group = getTeamGroup(t, groups);
           const r = teamRecords.get(t) ?? { w: 0, d: 0, l: 0, pts: 0 };
           return (
             <div

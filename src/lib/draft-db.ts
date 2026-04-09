@@ -2,12 +2,15 @@
  * Draft Database — JSON file-based persistence
  *
  * Stores the draft ceremony state in data/draft.json.
- * All 48 teams across 12 groups assigned to 12 players across 4 rounds.
+ * All 48 tournament teams across 12 groups assigned to 12 players across 4 rounds.
  */
 
-import { GROUPS } from '@/data/groups';
+import { getPotForRound, getPotForTeam } from '@/data/draftPots';
+import { GROUPS, getAllTeams } from '@/data/groups';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import type { TournamentGroups } from '@/types';
+import type { DraftPot } from '@/data/draftPots';
 
 const DATA_DIR = join(process.cwd(), 'data');
 const DB_PATH = join(DATA_DIR, 'draft.json');
@@ -17,6 +20,7 @@ export type Assignment = {
   team: string;
   group: string;
   round: number;
+  pot: DraftPot;
 };
 
 export type DraftStatus = 'pending' | 'drafting' | 'trading' | 'locked';
@@ -31,24 +35,45 @@ export type DraftState = {
 };
 
 /** All 48 teams with their group mapping */
-function getAllTeamsWithGroups(): { team: string; group: string }[] {
-  return Object.entries(GROUPS).flatMap(([group, teams]) => teams.map((team) => ({ team, group })));
+function getAllTeamsWithGroups(
+  groups: TournamentGroups = GROUPS
+): { team: string; group: string }[] {
+  return Object.entries(groups).flatMap(([group, teams]) => teams.map((team) => ({ team, group })));
 }
 
 /** All 48 team names */
-function getAllTeamNames(): string[] {
-  return Object.values(GROUPS).flat();
+function getAllTeamNames(groups: TournamentGroups = GROUPS): string[] {
+  return getAllTeams(groups);
+}
+
+function normalizeDraftState(state: DraftState, groups: TournamentGroups): DraftState {
+  const teamToGroup = new Map(
+    getAllTeamsWithGroups(groups).map(({ team, group }) => [team, group])
+  );
+  const assignments = state.assignments.map((assignment) => ({
+    ...assignment,
+    group: teamToGroup.get(assignment.team) ?? assignment.group,
+    pot: getPotForTeam(assignment.team) ?? assignment.pot ?? 1,
+  }));
+  const assignedTeams = new Set(assignments.map((assignment) => assignment.team));
+  const availableTeams = getAllTeamNames(groups).filter((team) => !assignedTeams.has(team));
+
+  return {
+    ...state,
+    assignments,
+    availableTeams,
+  };
 }
 
 /** Default starting state */
-function getDefaultState(): DraftState {
+function getDefaultState(groups: TournamentGroups = GROUPS): DraftState {
   return {
     status: 'pending',
     currentRound: 0,
     currentPick: 0,
     playerOrder: [],
     assignments: [],
-    availableTeams: getAllTeamNames(),
+    availableTeams: getAllTeamNames(groups),
   };
 }
 
@@ -63,12 +88,17 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 /** Read current state from disk */
-export function getDraftState(): DraftState {
-  if (!existsSync(DB_PATH)) return getDefaultState();
+export function getDraftState(groups: TournamentGroups = GROUPS): DraftState {
+  if (!existsSync(DB_PATH)) return getDefaultState(groups);
   try {
-    return JSON.parse(readFileSync(DB_PATH, 'utf-8'));
+    const parsed = JSON.parse(readFileSync(DB_PATH, 'utf-8')) as DraftState;
+    const normalized = normalizeDraftState(parsed, groups);
+    if (JSON.stringify(parsed) !== JSON.stringify(normalized)) {
+      saveDraftState(normalized);
+    }
+    return normalized;
   } catch {
-    return getDefaultState();
+    return getDefaultState(groups);
   }
 }
 
@@ -115,8 +145,8 @@ const PLAYER_NAMES = [
 ];
 
 /** Start the draft — move from pending → drafting, shuffle first round order */
-export function startDraft(): DraftState {
-  const state = getDefaultState();
+export function startDraft(groups: TournamentGroups = GROUPS): DraftState {
+  const state = getDefaultState(groups);
   state.status = 'drafting';
   state.currentRound = 0;
   state.currentPick = 0;
@@ -126,16 +156,27 @@ export function startDraft(): DraftState {
 }
 
 /** Draw the next team — assigns a random available team to the current player */
-export function drawNext(): { state: DraftState; drawn: Assignment } {
-  const state = getDraftState();
+export function drawNext(groups: TournamentGroups = GROUPS): {
+  state: DraftState;
+  drawn: Assignment;
+} {
+  const state = getDraftState(groups);
   if (state.status !== 'drafting') throw new Error('Not in drafting phase');
   if (state.availableTeams.length === 0) throw new Error('No teams left');
 
   const player = state.playerOrder[state.currentPick];
-  const allWithGroups = getAllTeamsWithGroups();
+  const allWithGroups = getAllTeamsWithGroups(groups);
+  const currentPot = getPotForRound(state.currentRound);
 
-  // Pick a random available team
-  const shuffled = shuffle(state.availableTeams);
+  if (!currentPot) throw new Error(`No pot configured for round ${state.currentRound + 1}`);
+
+  const currentPotTeams = state.availableTeams.filter((team) => getPotForTeam(team) === currentPot);
+  if (currentPotTeams.length === 0) {
+    throw new Error(`No teams left in pot ${currentPot}`);
+  }
+
+  // Pick a random available team from the active pot only
+  const shuffled = shuffle(currentPotTeams);
   const teamName = shuffled[0];
   const teamInfo = allWithGroups.find((t) => t.team === teamName)!;
 
@@ -144,6 +185,7 @@ export function drawNext(): { state: DraftState; drawn: Assignment } {
     team: teamInfo.team,
     group: teamInfo.group,
     round: state.currentRound,
+    pot: currentPot,
   };
 
   state.assignments.push(assignment);
@@ -201,8 +243,8 @@ export function lockDraft(): DraftState {
 }
 
 /** Reset draft completely (for testing) */
-export function resetDraft(): DraftState {
-  const state = getDefaultState();
+export function resetDraft(groups: TournamentGroups = GROUPS): DraftState {
+  const state = getDefaultState(groups);
   saveDraftState(state);
   return state;
 }

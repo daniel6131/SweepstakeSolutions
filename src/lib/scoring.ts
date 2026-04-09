@@ -1,6 +1,13 @@
 import { GROUPS } from '@/data/groups';
 import { PARTICIPANTS } from '@/data/participants';
-import type { Fixture, GroupId, GroupStanding, LeaderboardEntry, Participant } from '@/types';
+import type {
+  Fixture,
+  GroupId,
+  GroupStanding,
+  LeaderboardEntry,
+  Participant,
+  TournamentGroups,
+} from '@/types';
 
 /* ── Points system ── */
 const WIN_PTS = 3;
@@ -82,10 +89,13 @@ export function computeLeaderboard(
 /**
  * Compute group-stage standings for all 12 groups from a set of fixtures.
  */
-export function computeGroupStandings(fixtures: Fixture[]): Record<GroupId, GroupStanding[]> {
+export function computeGroupStandings(
+  fixtures: Fixture[],
+  groups: TournamentGroups = GROUPS
+): Record<GroupId, GroupStanding[]> {
   const standings: Record<string, GroupStanding[]> = {};
 
-  for (const [group, teams] of Object.entries(GROUPS)) {
+  for (const [group, teams] of Object.entries(groups)) {
     const groupFixtures = fixtures.filter((f) => f.group === group);
 
     const rows: GroupStanding[] = teams.map((team) => ({
