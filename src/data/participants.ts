@@ -15,7 +15,13 @@ export const PARTICIPANTS: Participant[] = [
   { name: 'John P', teams: ['Sweden', 'New Zealand', 'Cape Verde', 'DR Congo'] },
 ];
 
+const OWNER_BY_TEAM = new Map(
+  PARTICIPANTS.flatMap((participant) =>
+    participant.teams.map((team) => [team, participant.name] as const)
+  )
+);
+
 /** Find which participant owns a given team */
 export function getOwner(team: string): string {
-  return PARTICIPANTS.find((p) => p.teams.includes(team))?.name ?? '—';
+  return OWNER_BY_TEAM.get(team) ?? '—';
 }

@@ -1,7 +1,7 @@
 {
   "status": "drafting",
   "currentRound": 2,
-  "currentPick": 0,
+  "currentPick": 1,
   "playerOrder": [
     "Michael",
     "Heather",
@@ -184,6 +184,13 @@
       "group": "J",
       "round": 1,
       "pot": 3
+    },
+    {
+      "player": "Michael",
+      "team": "Japan",
+      "group": "F",
+      "round": 2,
+      "pot": 2
     }
   ],
   "availableTeams": [
@@ -198,7 +205,6 @@
     "Germany",
     "Ecuador",
     "Netherlands",
-    "Japan",
     "Belgium",
     "Iran",
     "Spain",

@@ -225,7 +225,13 @@ export default function HomeClient({ data }: Props) {
             className="mx-auto max-w-285 px-4 pt-8 pb-20 md:px-6 md:pt-12 md:pb-28 lg:px-8">
             {tab === 'Leaderboard' && <LeaderboardTab entries={data.leaderboard} theme={theme} />}
             {tab === 'Fixtures' && (
-              <FixturesTab fixtures={data.fixtures} groups={data.groups} theme={theme} />
+              <FixturesTab
+                fixtures={data.fixtures}
+                bracket={data.bracket}
+                groups={data.groups}
+                participants={data.participants}
+                theme={theme}
+              />
             )}
             {tab === 'Groups' && (
               <GroupsTab

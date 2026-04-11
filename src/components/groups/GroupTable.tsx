@@ -44,7 +44,7 @@ export function GroupTable({ group, teams, ownerByTeam, standings, theme }: Prop
       <div
         className="font-heading hidden px-4 py-2 text-[9px] font-bold uppercase tracking-[2px] md:grid"
         style={{
-          gridTemplateColumns: '1fr repeat(6,30px) 44px',
+          gridTemplateColumns: 'minmax(0,1fr) repeat(6,30px) 44px',
           borderBottom: `1px solid ${theme.accent}06`,
           color: `${theme.accent}28`,
         }}>
@@ -79,15 +79,20 @@ export function GroupTable({ group, teams, ownerByTeam, standings, theme }: Prop
           <div
             className="row-hover hidden items-center px-4 py-2.5 md:grid"
             style={{
-              gridTemplateColumns: '1fr repeat(6,30px) 44px',
+              gridTemplateColumns: 'minmax(0,1fr) repeat(6,30px) 44px',
               borderBottom: ri < 3 ? `1px solid ${theme.accent}05` : 'none',
               borderLeft: ri < 2 ? `3px solid ${theme.accent}35` : '3px solid transparent',
             }}>
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <Flag team={row.team} size={20} />
-              <div>
-                <div className="text-[12px] font-semibold">{row.team}</div>
-                <div className="text-[8px]" style={{ color: `${theme.accent}35` }}>
+              <div className="min-w-0">
+                <div className="truncate text-[12px] font-semibold" title={row.team}>
+                  {row.team}
+                </div>
+                <div
+                  className="truncate text-[8px]"
+                  title={ownerByTeam.get(row.team) ?? '—'}
+                  style={{ color: `${theme.accent}35` }}>
                   {ownerByTeam.get(row.team) ?? '—'}
                 </div>
               </div>
@@ -118,8 +123,13 @@ export function GroupTable({ group, teams, ownerByTeam, standings, theme }: Prop
             <div className="flex items-center gap-2">
               <Flag team={row.team} size={18} />
               <div className="min-w-0">
-                <div className="truncate text-[12px] font-semibold">{row.team}</div>
-                <div className="text-[8px]" style={{ color: `${theme.accent}30` }}>
+                <div className="truncate text-[12px] font-semibold" title={row.team}>
+                  {row.team}
+                </div>
+                <div
+                  className="truncate text-[8px]"
+                  title={ownerByTeam.get(row.team) ?? '—'}
+                  style={{ color: `${theme.accent}30` }}>
                   {ownerByTeam.get(row.team) ?? '—'}
                 </div>
               </div>
