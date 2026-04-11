@@ -11,7 +11,13 @@
 import { buildGroupsFromFixtures } from '@/data/groups';
 import { PARTICIPANTS } from '@/data/participants';
 import { getLockedAssignments } from '@/lib/draft-db';
-import { loadCurrentTournamentFixtures } from '@/lib/current-tournament';
+import {
+  buildKnockoutResultsFromLiveMatches,
+  buildProjectedKnockoutBracket,
+  getCompletedKnockoutScoringMatches,
+  type ProjectedKnockoutBracket,
+} from '@/lib/knockout';
+import { loadCurrentTournamentData } from '@/lib/current-tournament';
 import { computeGroupStandings, computeLeaderboard } from '@/lib/scoring';
 import type {
   GroupId,
@@ -22,17 +28,19 @@ import type {
 } from '@/types';
 
 export type SweepstakeData = {
-  fixtures: Awaited<ReturnType<typeof loadCurrentTournamentFixtures>>['fixtures'];
+  fixtures: Awaited<ReturnType<typeof loadCurrentTournamentData>>['fixtures'];
   groups: TournamentGroups;
   participants: Participant[];
   leaderboard: LeaderboardEntry[];
   standings: Record<GroupId, GroupStanding[]>;
+  bracket: ProjectedKnockoutBracket;
   dataSource: 'live' | 'static';
   fetchedAt: string; // ISO timestamp
 };
 
 export async function loadSweepstakeData(): Promise<SweepstakeData> {
-  const { fixtures, dataSource } = await loadCurrentTournamentFixtures();
+  const { fixtures, knockoutMatches, extraScoringMatches, dataSource } =
+    await loadCurrentTournamentData();
   const groups = buildGroupsFromFixtures(fixtures);
 
   // Check for locked draft assignments (overrides hardcoded participants)
@@ -46,8 +54,13 @@ export async function loadSweepstakeData(): Promise<SweepstakeData> {
     // Draft DB not available — use defaults
   }
 
-  const leaderboard = computeLeaderboard(fixtures, participants);
   const standings = computeGroupStandings(fixtures, groups);
+  const knockoutResults = buildKnockoutResultsFromLiveMatches(standings, knockoutMatches);
+  const bracket = buildProjectedKnockoutBracket(standings, knockoutResults);
+  const leaderboard = computeLeaderboard(
+    [...fixtures, ...getCompletedKnockoutScoringMatches(bracket), ...extraScoringMatches],
+    participants
+  );
 
   return {
     fixtures,
@@ -55,6 +68,7 @@ export async function loadSweepstakeData(): Promise<SweepstakeData> {
     participants,
     leaderboard,
     standings,
+    bracket,
     dataSource,
     fetchedAt: new Date().toISOString(),
   };

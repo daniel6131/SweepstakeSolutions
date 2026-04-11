@@ -11,10 +11,12 @@
  *   GET /v4/competitions/WC/standings → group stage tables
  */
 
-import type { Fixture, GroupId } from '@/types';
+import type { ScoringMatch } from '@/lib/scoring';
+import type { Fixture, GroupId, KnockoutRoundKey, LiveKnockoutMatch } from '@/types';
 
 const API_BASE = 'https://api.football-data.org/v4';
 const COMPETITION = 'WC'; // FIFA World Cup
+const WORLD_CUP_SEASON = 2026;
 
 /* ── In-memory cache ────────────────────────────────────────────
    Vercel serverless functions have ephemeral memory, so this cache
@@ -26,6 +28,17 @@ type CacheEntry<T> = { data: T; fetchedAt: number };
 const cache = new Map<string, CacheEntry<unknown>>();
 const CACHE_TTL_MS = 55_000; // 55s — just under the fetch/page revalidation window
 const FETCH_REVALIDATE_SECONDS = 60;
+const LIVE_STATUSES = new Set(['IN_PLAY', 'PAUSED', 'SUSPENDED', 'EXTRA_TIME', 'PENALTY_SHOOTOUT']);
+const FINISHED_STATUSES = new Set(['FINISHED', 'AWARDED']);
+const KNOCKOUT_STAGE_MAP: Partial<Record<string, KnockoutRoundKey>> = {
+  LAST_32: 'roundOf32',
+  ROUND_OF_32: 'roundOf32',
+  LAST_16: 'roundOf16',
+  ROUND_OF_16: 'roundOf16',
+  QUARTER_FINALS: 'quarterFinals',
+  SEMI_FINALS: 'semiFinals',
+  FINAL: 'final',
+};
 
 function getCached<T>(key: string): T | null {
   const entry = cache.get(key) as CacheEntry<T> | undefined;
@@ -101,6 +114,73 @@ async function apiFetch<T>(endpoint: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+function formatDateParts(utcDate: string): { date: string; time: string } {
+  const date = new Date(utcDate);
+
+  return {
+    date: date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' }),
+    time: date.toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }),
+  };
+}
+
+function isMatchStarted(status: string): boolean {
+  return LIVE_STATUSES.has(status) || FINISHED_STATUSES.has(status);
+}
+
+function getApiScoreValue(score: ApiScore | undefined, side: 'home' | 'away'): number | null {
+  if (!score) return null;
+
+  if (side === 'home') {
+    return score.home ?? null;
+  }
+
+  return score.away ?? null;
+}
+
+function getFixtureScores(match: ApiMatch): Pick<Fixture, 's1' | 's2'> {
+  if (!isMatchStarted(match.status)) {
+    return { s1: null, s2: null };
+  }
+
+  return {
+    s1: getApiScoreValue(match.score.fullTime, 'home'),
+    s2: getApiScoreValue(match.score.fullTime, 'away'),
+  };
+}
+
+function getKnockoutWinner(
+  match: ApiMatch,
+  s1: number | null,
+  s2: number | null
+): 't1' | 't2' | null {
+  if (!isMatchStarted(match.status)) return null;
+
+  if (s1 !== null && s2 !== null && s1 !== s2) {
+    return s1 > s2 ? 't1' : 't2';
+  }
+
+  if (match.score.winner === 'HOME_TEAM') return 't1';
+  if (match.score.winner === 'AWAY_TEAM') return 't2';
+  return null;
+}
+
+function getKnockoutStatus(match: ApiMatch): LiveKnockoutMatch['status'] {
+  if (FINISHED_STATUSES.has(match.status)) return 'finished';
+  if (LIVE_STATUSES.has(match.status)) return 'live';
+  return 'scheduled';
+}
+
+function normalizeMatchTeams(match: ApiMatch): { t1: string; t2: string } {
+  return {
+    t1: normalizeTeamName(match.homeTeam.shortName ?? match.homeTeam.name),
+    t2: normalizeTeamName(match.awayTeam.shortName ?? match.awayTeam.name),
+  };
+}
+
 /* ── API response types (partial — only what we need) ──────────*/
 
 type ApiScore = {
@@ -120,6 +200,7 @@ type ApiMatch = {
   score: {
     fullTime: ApiScore;
     halfTime: ApiScore;
+    winner?: 'HOME_TEAM' | 'AWAY_TEAM' | 'DRAW' | null;
   };
   venue?: string;
 };
@@ -152,6 +233,67 @@ type ApiStandingsResponse = {
   standings: ApiStandingsGroup[];
 };
 
+export type LiveTournamentData = {
+  fixtures: Fixture[];
+  knockoutMatches: LiveKnockoutMatch[];
+  extraScoringMatches: ScoringMatch[];
+};
+
+export function transformCompetitionMatches(data: ApiMatchesResponse): LiveTournamentData {
+  const fixtures: Fixture[] = [];
+  const knockoutMatches: LiveKnockoutMatch[] = [];
+  const extraScoringMatches: ScoringMatch[] = [];
+
+  for (const match of data.matches) {
+    const { date, time } = formatDateParts(match.utcDate);
+    const { t1, t2 } = normalizeMatchTeams(match);
+
+    if (match.stage === 'GROUP_STAGE' && match.group) {
+      fixtures.push({
+        group: parseGroup(match.group),
+        t1,
+        t2,
+        date,
+        time,
+        utcDate: match.utcDate,
+        venue: match.venue ?? 'TBC',
+        ...getFixtureScores(match),
+      });
+      continue;
+    }
+
+    const { s1, s2 } = getFixtureScores(match);
+    if (match.stage === 'THIRD_PLACE') {
+      extraScoringMatches.push({
+        t1,
+        t2,
+        s1,
+        s2,
+        winner: getKnockoutWinner(match, s1, s2),
+      });
+      continue;
+    }
+
+    const roundKey = KNOCKOUT_STAGE_MAP[match.stage];
+    if (!roundKey) continue;
+
+    knockoutMatches.push({
+      roundKey,
+      t1,
+      t2,
+      date,
+      time,
+      venue: match.venue ?? 'TBC',
+      s1,
+      s2,
+      winner: getKnockoutWinner(match, s1, s2),
+      status: getKnockoutStatus(match),
+    });
+  }
+
+  return { fixtures, knockoutMatches, extraScoringMatches };
+}
+
 /* ── Public functions ──────────────────────────────────────────*/
 
 /**
@@ -160,41 +302,26 @@ type ApiStandingsResponse = {
  * so the caller can fall back to static data.
  */
 export async function fetchLiveFixtures(): Promise<Fixture[] | null> {
+  const cached = getCached<LiveTournamentData>('matches');
+  if (cached) return cached.fixtures;
+
+  const liveData = await fetchLiveTournamentData();
+  return liveData?.fixtures ?? null;
+}
+
+export async function fetchLiveTournamentData(): Promise<LiveTournamentData | null> {
   // Check in-memory cache first
-  const cached = getCached<Fixture[]>('matches');
+  const cached = getCached<LiveTournamentData>('matches');
   if (cached) return cached;
 
   try {
     const data = await apiFetch<ApiMatchesResponse>(
-      `/competitions/${COMPETITION}/matches?stage=GROUP_STAGE`
+      `/competitions/${COMPETITION}/matches?season=${WORLD_CUP_SEASON}`
     );
+    const tournamentData = transformCompetitionMatches(data);
 
-    const fixtures: Fixture[] = data.matches.map((m) => {
-      const date = new Date(m.utcDate);
-      const dateStr = date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric' });
-      const timeStr = date.toLocaleTimeString('en-GB', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      });
-
-      const isFinished = m.status === 'FINISHED' || m.status === 'AWARDED';
-      const isLive = m.status === 'IN_PLAY' || m.status === 'PAUSED';
-
-      return {
-        group: parseGroup(m.group),
-        t1: normalizeTeamName(m.homeTeam.shortName ?? m.homeTeam.name),
-        t2: normalizeTeamName(m.awayTeam.shortName ?? m.awayTeam.name),
-        date: dateStr,
-        time: timeStr,
-        venue: m.venue ?? 'TBC',
-        s1: isFinished || isLive ? m.score.fullTime.home : null,
-        s2: isFinished || isLive ? m.score.fullTime.away : null,
-      };
-    });
-
-    setCache('matches', fixtures);
-    return fixtures;
+    setCache('matches', tournamentData);
+    return tournamentData;
   } catch (err) {
     console.error('[football-api] Failed to fetch matches:', err);
     return null;
@@ -210,7 +337,9 @@ export async function fetchLiveStandings(): Promise<Record<string, ApiStandingRo
   if (cached) return cached;
 
   try {
-    const data = await apiFetch<ApiStandingsResponse>(`/competitions/${COMPETITION}/standings`);
+    const data = await apiFetch<ApiStandingsResponse>(
+      `/competitions/${COMPETITION}/standings?season=${WORLD_CUP_SEASON}`
+    );
 
     const standings: Record<string, ApiStandingRow[]> = {};
     for (const group of data.standings) {

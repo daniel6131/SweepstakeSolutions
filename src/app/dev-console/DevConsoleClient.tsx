@@ -8,12 +8,11 @@ import { GROUP_IDS, buildGroupsFromFixtures } from '@/data/groups';
 import {
   buildProjectedKnockoutBracket,
   getCompletedKnockoutScoringMatches,
-  type KnockoutRoundKey,
   type KnockoutResult,
 } from '@/lib/knockout';
 import { computeGroupStandings, computeLeaderboard, type ScoringMatch } from '@/lib/scoring';
 import type { SweepstakeData } from '@/lib/load-data';
-import type { Fixture, GroupId, Participant, ThemeColors } from '@/types';
+import type { Fixture, GroupId, KnockoutRoundKey, Participant, ThemeColors } from '@/types';
 import { startTransition, useDeferredValue, useEffect, useMemo, useState } from 'react';
 
 type Props = {

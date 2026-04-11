@@ -1,5 +1,5 @@
 import type { ScoringMatch } from '@/lib/scoring';
-import type { GroupId, GroupStanding } from '@/types';
+import type { GroupId, GroupStanding, KnockoutRoundKey, LiveKnockoutMatch } from '@/types';
 
 type SeedSlot =
   | { kind: 'winner'; group: GroupId }
@@ -15,8 +15,6 @@ type MatchConfig = {
   home: SeedSlot;
   away: SeedSlot;
 };
-
-export type KnockoutRoundKey = 'roundOf32' | 'roundOf16' | 'quarterFinals' | 'semiFinals' | 'final';
 
 export type KnockoutSlot = {
   label: string;
@@ -81,6 +79,14 @@ const ROUND_TITLES: Record<KnockoutRoundKey, { title: string; shortTitle: string
   semiFinals: { title: 'Semi-finals', shortTitle: 'SF' },
   final: { title: 'Final', shortTitle: 'Final' },
 };
+
+const ROUND_ORDER: KnockoutRoundKey[] = [
+  'roundOf32',
+  'roundOf16',
+  'quarterFinals',
+  'semiFinals',
+  'final',
+];
 
 const MATCHES: MatchConfig[] = [
   {
@@ -522,16 +528,8 @@ export function buildProjectedKnockoutBracket(
     isGroupComplete(rows)
   ).length;
 
-  const roundOrder: KnockoutRoundKey[] = [
-    'roundOf32',
-    'roundOf16',
-    'quarterFinals',
-    'semiFinals',
-    'final',
-  ];
-
   const resolvedMatches = new Map<number, KnockoutMatch>();
-  const rounds = roundOrder.map((roundKey) => {
+  const rounds = ROUND_ORDER.map((roundKey) => {
     const matches = MATCHES.filter((match) => match.roundKey === roundKey).map((match) => {
       const home = resolveSlot(
         match.home,
@@ -602,6 +600,70 @@ export function buildProjectedKnockoutBracket(
     completedGroups,
     totalGroups: 12,
   };
+}
+
+export function buildKnockoutResultsFromLiveMatches(
+  standings: Record<GroupId, GroupStanding[]>,
+  liveMatches: LiveKnockoutMatch[]
+): Partial<Record<number, KnockoutResult>> {
+  const results: Partial<Record<number, KnockoutResult>> = {};
+  const matchesByRound = new Map<KnockoutRoundKey, LiveKnockoutMatch[]>();
+
+  for (const liveMatch of liveMatches) {
+    const roundMatches = matchesByRound.get(liveMatch.roundKey);
+    if (roundMatches) {
+      roundMatches.push(liveMatch);
+      continue;
+    }
+
+    matchesByRound.set(liveMatch.roundKey, [liveMatch]);
+  }
+
+  for (const roundKey of ROUND_ORDER) {
+    const roundMatches = matchesByRound.get(roundKey);
+    if (!roundMatches || roundMatches.length === 0) continue;
+
+    const bracket = buildProjectedKnockoutBracket(standings, results);
+    const round = bracket.rounds.find((candidate) => candidate.key === roundKey);
+    if (!round) continue;
+
+    for (const liveMatch of roundMatches) {
+      let targetMatch = round.matches.find(
+        (match) => match.home.team === liveMatch.t1 && match.away.team === liveMatch.t2
+      );
+      let reversed = false;
+
+      if (!targetMatch) {
+        targetMatch = round.matches.find(
+          (match) => match.home.team === liveMatch.t2 && match.away.team === liveMatch.t1
+        );
+        reversed = Boolean(targetMatch);
+      }
+
+      if (!targetMatch) continue;
+
+      const homeScore = reversed ? liveMatch.s2 : liveMatch.s1;
+      const awayScore = reversed ? liveMatch.s1 : liveMatch.s2;
+      const winner =
+        liveMatch.winner === null
+          ? null
+          : reversed
+            ? liveMatch.winner === 't1'
+              ? 'away'
+              : 'home'
+            : liveMatch.winner === 't1'
+              ? 'home'
+              : 'away';
+
+      results[targetMatch.match] = {
+        homeScore,
+        awayScore,
+        winner,
+      };
+    }
+  }
+
+  return results;
 }
 
 export function getCompletedKnockoutScoringMatches(

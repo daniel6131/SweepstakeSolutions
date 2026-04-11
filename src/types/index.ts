@@ -21,9 +21,25 @@ export type Fixture = {
   t2: string;
   date: string;
   time: string;
+  utcDate?: string;
   venue: string;
   s1: number | null;
   s2: number | null;
+};
+
+export type KnockoutRoundKey = 'roundOf32' | 'roundOf16' | 'quarterFinals' | 'semiFinals' | 'final';
+
+export type LiveKnockoutMatch = {
+  roundKey: KnockoutRoundKey;
+  t1: string;
+  t2: string;
+  date: string;
+  time: string;
+  venue: string;
+  s1: number | null;
+  s2: number | null;
+  winner: 't1' | 't2' | null;
+  status: 'scheduled' | 'live' | 'finished';
 };
 
 export type LeaderboardEntry = {

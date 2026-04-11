@@ -227,9 +227,9 @@ export default function HomeClient({ data }: Props) {
             {tab === 'Fixtures' && (
               <FixturesTab
                 fixtures={data.fixtures}
+                bracket={data.bracket}
                 groups={data.groups}
                 participants={data.participants}
-                standings={data.standings}
                 theme={theme}
               />
             )}

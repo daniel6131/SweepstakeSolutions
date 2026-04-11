@@ -4,46 +4,19 @@ import { FixtureCard } from '@/components/fixtures/FixtureCard';
 import { KnockoutBracket } from '@/components/fixtures/KnockoutBracket';
 import { NationMarquee } from '@/components/fixtures/NationMarquee';
 import { SectionHeading } from '@/components/ui/SectionHeading';
-import { buildProjectedKnockoutBracket } from '@/lib/knockout';
-import type {
-  Fixture,
-  GroupId,
-  GroupStanding,
-  Participant,
-  ThemeColors,
-  TournamentGroups,
-} from '@/types';
+import type { ProjectedKnockoutBracket } from '@/lib/knockout';
+import { getFixtureDisplayParts, getFixtureSortTimestamp } from '@/lib/match-time';
+import type { Fixture, GroupId, Participant, ThemeColors, TournamentGroups } from '@/types';
 import type { MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from 'react';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 type Props = {
   fixtures: Fixture[];
+  bracket: ProjectedKnockoutBracket;
   groups: TournamentGroups;
   participants: Participant[];
-  standings: Record<GroupId, GroupStanding[]>;
   theme: ThemeColors;
 };
-
-const MONTH_INDEX: Record<string, number> = {
-  Jan: 0,
-  Feb: 1,
-  Mar: 2,
-  Apr: 3,
-  May: 4,
-  Jun: 5,
-  Jul: 6,
-  Aug: 7,
-  Sep: 8,
-  Oct: 9,
-  Nov: 10,
-  Dec: 11,
-};
-
-function fixtureTimestamp(fixture: Fixture): number {
-  const [month, day] = fixture.date.split(' ');
-  const [hours, minutes] = fixture.time.split(':').map(Number);
-  return new Date(2026, MONTH_INDEX[month] ?? 0, Number(day), hours, minutes).getTime();
-}
 
 function scrollToFixtureDay(id: string) {
   const target = document.getElementById(id);
@@ -59,7 +32,7 @@ function scrollToFixtureDay(id: string) {
   });
 }
 
-export function FixturesTab({ fixtures, groups, participants, standings, theme }: Props) {
+export function FixturesTab({ fixtures, bracket, groups, participants, theme }: Props) {
   const [view, setView] = useState<'schedule' | 'knockout'>('schedule');
   const dateRailRef = useRef<HTMLDivElement>(null);
   const dragStateRef = useRef({
@@ -69,20 +42,28 @@ export function FixturesTab({ fixtures, groups, participants, standings, theme }
     moved: false,
   });
   const [dateRailDragging, setDateRailDragging] = useState(false);
+  const timeZone = useSyncExternalStore(
+    () => () => undefined,
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+    () => null
+  );
+
   const groupedFixtures = useMemo(
     () =>
       fixtures
         .slice()
-        .sort((a, b) => fixtureTimestamp(a) - fixtureTimestamp(b))
+        .sort((a, b) => getFixtureSortTimestamp(a) - getFixtureSortTimestamp(b))
         .reduce<
           Array<{
-            date: string;
+            dayKey: string;
+            dateLabel: string;
             fixtures: Fixture[];
             dayGroups: GroupId[];
           }>
         >((acc, fixture) => {
+          const display = getFixtureDisplayParts(fixture, timeZone);
           const currentGroup = acc[acc.length - 1];
-          if (currentGroup && currentGroup.date === fixture.date) {
+          if (currentGroup && currentGroup.dayKey === display.dayKey) {
             currentGroup.fixtures.push(fixture);
             if (!currentGroup.dayGroups.includes(fixture.group)) {
               currentGroup.dayGroups.push(fixture.group);
@@ -92,13 +73,14 @@ export function FixturesTab({ fixtures, groups, participants, standings, theme }
           }
 
           acc.push({
-            date: fixture.date,
+            dayKey: display.dayKey,
+            dateLabel: display.dateLabel,
             fixtures: [fixture],
             dayGroups: [fixture.group],
           });
           return acc;
         }, []),
-    [fixtures]
+    [fixtures, timeZone]
   );
   const ownerByTeam = useMemo(() => {
     const lookup = new Map<string, string>();
@@ -111,10 +93,7 @@ export function FixturesTab({ fixtures, groups, participants, standings, theme }
 
     return lookup;
   }, [participants]);
-  const bracket = useMemo(
-    () => (view === 'knockout' ? buildProjectedKnockoutBracket(standings) : null),
-    [standings, view]
-  );
+  const knockoutBracket = useMemo(() => (view === 'knockout' ? bracket : null), [bracket, view]);
 
   function handleDateRailMouseDown(event: ReactMouseEvent<HTMLDivElement>) {
     const rail = dateRailRef.current;
@@ -205,8 +184,8 @@ export function FixturesTab({ fixtures, groups, participants, standings, theme }
       </div>
 
       {view === 'knockout' ? (
-        bracket ? (
-          <KnockoutBracket bracket={bracket} ownerByTeam={ownerByTeam} theme={theme} />
+        knockoutBracket ? (
+          <KnockoutBracket bracket={knockoutBracket} ownerByTeam={ownerByTeam} theme={theme} />
         ) : null
       ) : (
         <>
@@ -242,9 +221,9 @@ export function FixturesTab({ fixtures, groups, participants, standings, theme }
                   style={{ color: `${theme.accent}45` }}>
                   Jump to
                 </span>
-                {groupedFixtures.map(({ date, fixtures }, index) => (
+                {groupedFixtures.map(({ dateLabel, fixtures }, index) => (
                   <button
-                    key={date}
+                    key={`${dateLabel}-${index}`}
                     type="button"
                     onClick={(event) => {
                       if (dragStateRef.current.moved) {
@@ -258,7 +237,7 @@ export function FixturesTab({ fixtures, groups, participants, standings, theme }
                       color: `${theme.accent}78`,
                       background: 'transparent',
                     }}>
-                    {date}
+                    {dateLabel}
                     <span style={{ color: `${theme.accent}45` }}> · {fixtures.length}</span>
                   </button>
                 ))}
@@ -267,68 +246,71 @@ export function FixturesTab({ fixtures, groups, participants, standings, theme }
           </div>
 
           <div className="space-y-8 md:space-y-10">
-            {groupedFixtures.map(({ date, fixtures: dayFixtures, dayGroups }, index) => {
-              return (
-                <section
-                  key={date}
-                  id={`fixtures-day-${index + 1}`}
-                  className="overflow-hidden rounded-[28px] p-4 md:p-6"
-                  style={{
-                    scrollMarginTop: '92px',
-                    background: `linear-gradient(180deg, ${theme.card}f2 0%, ${theme.card}cc 100%)`,
-                    border: `1px solid ${theme.accent}12`,
-                    boxShadow: `0 24px 80px ${theme.bg}35`,
-                  }}
-                  data-reveal>
-                  <div
-                    className="mb-5 flex flex-col gap-4 border-b pb-4 md:mb-6 md:flex-row md:items-end md:justify-between md:pb-5"
-                    style={{ borderColor: `${theme.accent}10` }}>
-                    <div>
-                      <div
-                        className="font-heading mb-2 text-[10px] font-bold uppercase tracking-[3px] md:text-[11px]"
-                        style={{ color: `${theme.accent}50` }}>
-                        Matchday {index + 1}
+            {groupedFixtures.map(
+              ({ dayKey, dateLabel, fixtures: dayFixtures, dayGroups }, index) => {
+                return (
+                  <section
+                    key={dayKey}
+                    id={`fixtures-day-${index + 1}`}
+                    className="overflow-hidden rounded-[28px] p-4 md:p-6"
+                    style={{
+                      scrollMarginTop: '92px',
+                      background: `linear-gradient(180deg, ${theme.card}f2 0%, ${theme.card}cc 100%)`,
+                      border: `1px solid ${theme.accent}12`,
+                      boxShadow: `0 24px 80px ${theme.bg}35`,
+                    }}
+                    data-reveal>
+                    <div
+                      className="mb-5 flex flex-col gap-4 border-b pb-4 md:mb-6 md:flex-row md:items-end md:justify-between md:pb-5"
+                      style={{ borderColor: `${theme.accent}10` }}>
+                      <div>
+                        <div
+                          className="font-heading mb-2 text-[10px] font-bold uppercase tracking-[3px] md:text-[11px]"
+                          style={{ color: `${theme.accent}50` }}>
+                          Matchday {index + 1}
+                        </div>
+                        <h3
+                          className="font-display text-[28px] leading-none tracking-[-0.03em] md:text-[40px]"
+                          style={{ color: theme.accent }}>
+                          {dateLabel}
+                        </h3>
                       </div>
-                      <h3
-                        className="font-display text-[28px] leading-none tracking-[-0.03em] md:text-[40px]"
-                        style={{ color: theme.accent }}>
-                        {date}
-                      </h3>
+
+                      <div className="flex flex-wrap gap-2">
+                        <div
+                          className="font-heading rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[2px]"
+                          style={{
+                            color: theme.bg,
+                            background: theme.accent,
+                          }}>
+                          {dayFixtures.length} matches
+                        </div>
+                        <div
+                          className="font-heading rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[2px]"
+                          style={{
+                            color: `${theme.accent}78`,
+                            background: `${theme.accent}08`,
+                            border: `1px solid ${theme.accent}14`,
+                          }}>
+                          Groups {dayGroups.join(' · ')}
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
-                      <div
-                        className="font-heading rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[2px]"
-                        style={{
-                          color: theme.bg,
-                          background: theme.accent,
-                        }}>
-                        {dayFixtures.length} matches
-                      </div>
-                      <div
-                        className="font-heading rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[2px]"
-                        style={{
-                          color: `${theme.accent}78`,
-                          background: `${theme.accent}08`,
-                          border: `1px solid ${theme.accent}14`,
-                        }}>
-                        Groups {dayGroups.join(' · ')}
-                      </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(320px,1fr))] md:gap-4">
+                      {dayFixtures.map((fixture) => (
+                        <FixtureCard
+                          key={`${fixture.utcDate ?? fixture.date}-${fixture.t1}-${fixture.t2}`}
+                          fixture={fixture}
+                          theme={theme}
+                          timeZone={timeZone}
+                        />
+                      ))}
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(320px,1fr))] md:gap-4">
-                    {dayFixtures.map((fixture) => (
-                      <FixtureCard
-                        key={`${fixture.date}-${fixture.t1}-${fixture.t2}`}
-                        fixture={fixture}
-                        theme={theme}
-                      />
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
+                  </section>
+                );
+              }
+            )}
           </div>
         </>
       )}
