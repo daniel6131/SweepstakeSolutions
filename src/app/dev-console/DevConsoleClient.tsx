@@ -160,6 +160,10 @@ export function DevConsoleClient({ initialFixtures, participants, sourceLabel }:
       ),
     [participants]
   );
+  const fixtureIndexById = useMemo(
+    () => new Map(fixtures.map((fixture, index) => [fixtureIdentity(fixture), index])),
+    [fixtures]
+  );
 
   const visibleFixtures = useMemo(
     () =>
@@ -504,13 +508,12 @@ export function DevConsoleClient({ initialFixtures, participants, sourceLabel }:
 
             <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
               {visibleFixtures.map((fixture) => {
-                const fixtureIndex = fixtures.findIndex(
-                  (candidate) => fixtureIdentity(candidate) === fixtureIdentity(fixture)
-                );
+                const fixtureId = fixtureIdentity(fixture);
+                const fixtureIndex = fixtureIndexById.get(fixtureId) ?? -1;
 
                 return (
                   <div
-                    key={fixtureIdentity(fixture)}
+                    key={fixtureId}
                     className="rounded-[24px] p-4"
                     style={{
                       background: `${DEV_THEME.accent}06`,

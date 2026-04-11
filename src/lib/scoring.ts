@@ -193,11 +193,13 @@ export function computeLeaderboard(
 ): LeaderboardEntry[] {
   const records = buildTeamRecords(fixtures);
   const roster = participants || PARTICIPANTS;
-  const ownerByTeam = new Map(
-    roster.flatMap((participant) =>
-      participant.teams.map((team) => [team, participant.name] as const)
-    )
-  );
+  const ownerByTeam = new Map<string, string>();
+
+  for (const participant of roster) {
+    for (const team of participant.teams) {
+      ownerByTeam.set(team, participant.name);
+    }
+  }
 
   const aggregated = roster.map((p) => {
     let pts = 0,
@@ -233,10 +235,19 @@ export function computeGroupStandings(
   groups: TournamentGroups = GROUPS
 ): Record<GroupId, GroupStanding[]> {
   const standings: Record<string, GroupStanding[]> = {};
+  const fixturesByGroup = new Map<GroupId, Fixture[]>();
+
+  for (const fixture of fixtures) {
+    const groupFixtures = fixturesByGroup.get(fixture.group);
+    if (groupFixtures) {
+      groupFixtures.push(fixture);
+      continue;
+    }
+
+    fixturesByGroup.set(fixture.group, [fixture]);
+  }
 
   for (const [group, teams] of Object.entries(groups)) {
-    const groupFixtures = fixtures.filter((f) => f.group === group);
-
     const rows: GroupStanding[] = teams.map((team) => ({
       team,
       p: 0,
@@ -247,12 +258,14 @@ export function computeGroupStandings(
       ga: 0,
       pts: 0,
     }));
+    const rowsByTeam = new Map(rows.map((row) => [row.team, row]));
+    const groupFixtures = fixturesByGroup.get(group as GroupId) ?? [];
 
     for (const f of groupFixtures) {
       if (f.s1 === null || f.s2 === null) continue;
 
-      const r1 = rows.find((r) => r.team === f.t1);
-      const r2 = rows.find((r) => r.team === f.t2);
+      const r1 = rowsByTeam.get(f.t1);
+      const r2 = rowsByTeam.get(f.t2);
       if (!r1 || !r2) continue;
 
       r1.p++;

@@ -92,11 +92,7 @@ export function getDraftState(groups: TournamentGroups = GROUPS): DraftState {
   if (!existsSync(DB_PATH)) return getDefaultState(groups);
   try {
     const parsed = JSON.parse(readFileSync(DB_PATH, 'utf-8')) as DraftState;
-    const normalized = normalizeDraftState(parsed, groups);
-    if (JSON.stringify(parsed) !== JSON.stringify(normalized)) {
-      saveDraftState(normalized);
-    }
-    return normalized;
+    return normalizeDraftState(parsed, groups);
   } catch {
     return getDefaultState(groups);
   }

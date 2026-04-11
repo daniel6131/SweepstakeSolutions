@@ -14,7 +14,7 @@ import type {
   TournamentGroups,
 } from '@/types';
 import type { MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from 'react';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 type Props = {
   fixtures: Fixture[];
@@ -69,30 +69,52 @@ export function FixturesTab({ fixtures, groups, participants, standings, theme }
     moved: false,
   });
   const [dateRailDragging, setDateRailDragging] = useState(false);
-  const groupedFixtures = fixtures
-    .slice()
-    .sort((a, b) => fixtureTimestamp(a) - fixtureTimestamp(b))
-    .reduce<
-      Array<{
-        date: string;
-        fixtures: Fixture[];
-      }>
-    >((acc, fixture) => {
-      const currentGroup = acc[acc.length - 1];
-      if (currentGroup && currentGroup.date === fixture.date) {
-        currentGroup.fixtures.push(fixture);
-        return acc;
-      }
+  const groupedFixtures = useMemo(
+    () =>
+      fixtures
+        .slice()
+        .sort((a, b) => fixtureTimestamp(a) - fixtureTimestamp(b))
+        .reduce<
+          Array<{
+            date: string;
+            fixtures: Fixture[];
+            dayGroups: GroupId[];
+          }>
+        >((acc, fixture) => {
+          const currentGroup = acc[acc.length - 1];
+          if (currentGroup && currentGroup.date === fixture.date) {
+            currentGroup.fixtures.push(fixture);
+            if (!currentGroup.dayGroups.includes(fixture.group)) {
+              currentGroup.dayGroups.push(fixture.group);
+              currentGroup.dayGroups.sort();
+            }
+            return acc;
+          }
 
-      acc.push({ date: fixture.date, fixtures: [fixture] });
-      return acc;
-    }, []);
-  const ownerByTeam = new Map(
-    participants.flatMap((participant) =>
-      participant.teams.map((team) => [team, participant.name] as const)
-    )
+          acc.push({
+            date: fixture.date,
+            fixtures: [fixture],
+            dayGroups: [fixture.group],
+          });
+          return acc;
+        }, []),
+    [fixtures]
   );
-  const bracket = buildProjectedKnockoutBracket(standings);
+  const ownerByTeam = useMemo(() => {
+    const lookup = new Map<string, string>();
+
+    for (const participant of participants) {
+      for (const team of participant.teams) {
+        lookup.set(team, participant.name);
+      }
+    }
+
+    return lookup;
+  }, [participants]);
+  const bracket = useMemo(
+    () => (view === 'knockout' ? buildProjectedKnockoutBracket(standings) : null),
+    [standings, view]
+  );
 
   function handleDateRailMouseDown(event: ReactMouseEvent<HTMLDivElement>) {
     const rail = dateRailRef.current;
@@ -183,7 +205,9 @@ export function FixturesTab({ fixtures, groups, participants, standings, theme }
       </div>
 
       {view === 'knockout' ? (
-        <KnockoutBracket bracket={bracket} ownerByTeam={ownerByTeam} theme={theme} />
+        bracket ? (
+          <KnockoutBracket bracket={bracket} ownerByTeam={ownerByTeam} theme={theme} />
+        ) : null
       ) : (
         <>
           <div className="mb-8 md:mb-10" data-reveal>
@@ -243,9 +267,7 @@ export function FixturesTab({ fixtures, groups, participants, standings, theme }
           </div>
 
           <div className="space-y-8 md:space-y-10">
-            {groupedFixtures.map(({ date, fixtures: dayFixtures }, index) => {
-              const dayGroups = [...new Set(dayFixtures.map((fixture) => fixture.group))].sort();
-
+            {groupedFixtures.map(({ date, fixtures: dayFixtures, dayGroups }, index) => {
               return (
                 <section
                   key={date}
