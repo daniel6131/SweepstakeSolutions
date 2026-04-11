@@ -3,6 +3,14 @@ import type { LeaderboardEntry, ThemeColors } from '@/types';
 
 type Props = { entries: LeaderboardEntry[]; theme: ThemeColors };
 
+function formatGoalBalance(entry: LeaderboardEntry): string {
+  return `${entry.gf}-${entry.ga}`;
+}
+
+function formatGoalDifference(goalDifference: number): string {
+  return goalDifference > 0 ? `+${goalDifference}` : `${goalDifference}`;
+}
+
 export function LeaderboardTable({ entries, theme }: Props) {
   return (
     <div
@@ -13,7 +21,7 @@ export function LeaderboardTable({ entries, theme }: Props) {
       <div
         className="font-heading hidden items-center px-5 py-3.5 text-[10px] font-bold uppercase tracking-[3px] md:grid"
         style={{
-          gridTemplateColumns: '40px 1fr 48px 48px 48px 72px',
+          gridTemplateColumns: '40px minmax(0,1fr) 48px 48px 48px 84px 56px 72px',
           borderBottom: `1px solid ${theme.accent}0A`,
           color: `${theme.accent}35`,
         }}>
@@ -22,6 +30,8 @@ export function LeaderboardTable({ entries, theme }: Props) {
         <span className="text-center">W</span>
         <span className="text-center">D</span>
         <span className="text-center">L</span>
+        <span className="text-center">+/-</span>
+        <span className="text-center">GD</span>
         <span className="text-right">PTS</span>
       </div>
 
@@ -44,7 +54,7 @@ export function LeaderboardTable({ entries, theme }: Props) {
           <div
             className="row-hover animate-slide-row hidden items-center px-5 py-4 md:grid"
             style={{
-              gridTemplateColumns: '40px 1fr 48px 48px 48px 72px',
+              gridTemplateColumns: '40px minmax(0,1fr) 48px 48px 48px 84px 56px 72px',
               borderBottom: i < entries.length - 1 ? `1px solid ${theme.accent}06` : 'none',
               animationDelay: `${i * 0.04}s`,
             }}>
@@ -74,6 +84,16 @@ export function LeaderboardTable({ entries, theme }: Props) {
             <span className="text-center text-[13px] font-bold text-[#4CAF50]">{p.w}</span>
             <span className="text-center text-[13px] font-bold text-[#FFB300]">{p.d}</span>
             <span className="text-center text-[13px] font-bold text-[#ef5350]">{p.l}</span>
+            <span
+              className="text-center text-[12px] font-bold"
+              style={{ color: `${theme.accent}70` }}>
+              {formatGoalBalance(p)}
+            </span>
+            <span
+              className="text-center text-[12px] font-bold"
+              style={{ color: p.gd >= 0 ? '#4CAF50' : '#ef5350' }}>
+              {formatGoalDifference(p.gd)}
+            </span>
             <span
               className="font-display text-right text-[32px]"
               style={{ color: p.pts > 0 ? theme.accent : 'rgba(255,255,255,0.08)' }}>
@@ -105,6 +125,10 @@ export function LeaderboardTable({ entries, theme }: Props) {
                 <span className="text-[#4CAF50]">{p.w}W</span>
                 <span className="text-[#FFB300]">{p.d}D</span>
                 <span className="text-[#ef5350]">{p.l}L</span>
+                <span style={{ color: `${theme.accent}70` }}>{formatGoalBalance(p)}</span>
+                <span className={p.gd >= 0 ? 'text-[#4CAF50]' : 'text-[#ef5350]'}>
+                  {formatGoalDifference(p.gd)} GD
+                </span>
               </div>
             </div>
             <span

@@ -12,7 +12,9 @@ export function NationMarquee({ groups, theme }: { groups: TournamentGroups; the
         borderBottom: `1px solid ${theme.accent}10`,
       }}
       data-reveal>
-      <div className="animate-marquee flex w-fit gap-6 whitespace-nowrap md:gap-10">
+      <div
+        className="animate-marquee flex w-fit gap-6 whitespace-nowrap md:gap-10"
+        style={{ animationDuration: '100s' }}>
         {[0, 1].flatMap((rep) =>
           allTeams.map((t, i) => (
             <span

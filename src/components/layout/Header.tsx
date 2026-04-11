@@ -102,7 +102,7 @@ function LeaderboardHero({ theme }: { theme: ThemeColors }) {
       </div>
 
       {/* Main text */}
-      <div className="relative overflow-hidden py-2" data-parallax-layer="mid">
+      <div className="relative overflow-visible py-3 md:py-4" data-parallax-layer="mid">
         <SplitChars
           text="GLORY"
           className="font-display tracking-[-0.04em]"

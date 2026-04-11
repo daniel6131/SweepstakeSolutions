@@ -1,8 +1,10 @@
 'use client';
 
+import { BestThirdPlaceTable } from '@/components/groups/BestThirdPlaceTable';
 import { GroupTable } from '@/components/groups/GroupTable';
 import { Chip } from '@/components/ui/Chip';
 import { SectionHeading } from '@/components/ui/SectionHeading';
+import { buildProjectedKnockoutBracket } from '@/lib/knockout';
 import type { GroupId, GroupStanding, Participant, ThemeColors, TournamentGroups } from '@/types';
 import { useMemo, useState } from 'react';
 
@@ -28,6 +30,7 @@ export function GroupsTab({ groups, participants, standings, theme }: Props) {
     GroupId,
     string[],
   ][];
+  const bracketProjection = useMemo(() => buildProjectedKnockoutBracket(standings), [standings]);
 
   return (
     <div>
@@ -67,6 +70,16 @@ export function GroupsTab({ groups, participants, standings, theme }: Props) {
             theme={theme}
           />
         ))}
+      </div>
+
+      <div className="mt-8 md:mt-10">
+        <BestThirdPlaceTable
+          rows={bracketProjection.thirdPlaceStandings}
+          ownerByTeam={ownerByTeam}
+          completedGroups={bracketProjection.completedGroups}
+          totalGroups={bracketProjection.totalGroups}
+          theme={theme}
+        />
       </div>
     </div>
   );

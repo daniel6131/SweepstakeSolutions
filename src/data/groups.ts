@@ -17,12 +17,41 @@ export const GROUPS: TournamentGroups = {
   L: ['England', 'Croatia', 'Ghana', 'Panama'],
 };
 
+const TEAM_GROUP_CACHE = new WeakMap<TournamentGroups, Map<string, GroupId>>();
+
 function emptyGroups(): TournamentGroups {
   return GROUP_IDS.reduce((acc, group) => {
     acc[group] = [];
     return acc;
   }, {} as TournamentGroups);
 }
+
+function buildTeamGroupLookup(groups: TournamentGroups): Map<string, GroupId> {
+  const lookup = new Map<string, GroupId>();
+
+  for (const group of GROUP_IDS) {
+    for (const team of groups[group]) {
+      lookup.set(team, group);
+    }
+  }
+
+  return lookup;
+}
+
+function getTeamGroupLookup(groups: TournamentGroups): Map<string, GroupId> {
+  if (groups === GROUPS) {
+    return DEFAULT_TEAM_GROUPS;
+  }
+
+  const cached = TEAM_GROUP_CACHE.get(groups);
+  if (cached) return cached;
+
+  const lookup = buildTeamGroupLookup(groups);
+  TEAM_GROUP_CACHE.set(groups, lookup);
+  return lookup;
+}
+
+const DEFAULT_TEAM_GROUPS = buildTeamGroupLookup(GROUPS);
 
 export function buildGroupsFromFixtures(
   fixtures: Fixture[],
@@ -45,13 +74,17 @@ export function buildGroupsFromFixtures(
 
   const groups = emptyGroups();
   for (const group of GROUP_IDS) {
-    groups[group] = [...derived[group]];
+    const teams = [...derived[group]];
+    const groupSeen = new Set(teams);
 
     for (const team of fallback[group]) {
-      if (!groups[group].includes(team)) {
-        groups[group].push(team);
+      if (!groupSeen.has(team)) {
+        groupSeen.add(team);
+        teams.push(team);
       }
     }
+
+    groups[group] = teams;
   }
 
   return groups;
@@ -63,8 +96,5 @@ export function getAllTeams(groups: TournamentGroups = GROUPS): string[] {
 
 /** Find which group a team belongs to */
 export function getTeamGroup(team: string, groups: TournamentGroups = GROUPS): GroupId | '?' {
-  for (const [group, teams] of Object.entries(groups)) {
-    if (teams.includes(team)) return group as GroupId;
-  }
-  return '?';
+  return getTeamGroupLookup(groups).get(team) ?? '?';
 }

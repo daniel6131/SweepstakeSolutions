@@ -1,12 +1,18 @@
 import { Flag } from '@/components/ui/Flag';
 import { getOwner } from '@/data/participants';
+import { getFixtureDisplayParts } from '@/lib/match-time';
 import type { Fixture, ThemeColors } from '@/types';
 import { MapPin } from 'lucide-react';
 
-type Props = { fixture: Fixture; theme: ThemeColors };
+type Props = {
+  fixture: Fixture;
+  theme: ThemeColors;
+  timeZone: string | null;
+};
 
-export function FixtureCard({ fixture: f, theme }: Props) {
+export function FixtureCard({ fixture: f, theme, timeZone }: Props) {
   const hasScore = f.s1 !== null;
+  const display = getFixtureDisplayParts(f, timeZone);
 
   return (
     <div
@@ -28,7 +34,7 @@ export function FixtureCard({ fixture: f, theme }: Props) {
         <span
           className="font-heading text-[10px] font-semibold md:text-[11px]"
           style={{ color: `${theme.accent}55` }}>
-          {f.date} · {f.time}
+          {display.dateLabel} · {display.timeWithZoneLabel}
         </span>
       </div>
 

@@ -13,13 +13,12 @@ import {
   startDraft,
   tradePlayers,
 } from '@/lib/draft-db';
-import { loadCurrentTournamentGroups } from '@/lib/current-tournament';
+import { GROUPS } from '@/data/groups';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const groups = await loadCurrentTournamentGroups();
-    const state = getDraftState(groups);
+    const state = getDraftState(GROUPS);
     const conflicts = getPlayerConflicts(state.assignments);
     return NextResponse.json({ ...state, conflicts });
   } catch (error) {
@@ -31,16 +30,15 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { action } = body;
-    const groups = await loadCurrentTournamentGroups();
 
     switch (action) {
       case 'start': {
-        const state = startDraft(groups);
+        const state = startDraft(GROUPS);
         return NextResponse.json(state);
       }
 
       case 'draw': {
-        const { state, drawn } = drawNext(groups);
+        const { state, drawn } = drawNext(GROUPS);
         const conflicts = getPlayerConflicts(state.assignments);
         return NextResponse.json({ ...state, conflicts, lastDrawn: drawn });
       }
@@ -61,7 +59,7 @@ export async function POST(request: Request) {
       }
 
       case 'reset': {
-        const state = resetDraft(groups);
+        const state = resetDraft(GROUPS);
         return NextResponse.json(state);
       }
 
