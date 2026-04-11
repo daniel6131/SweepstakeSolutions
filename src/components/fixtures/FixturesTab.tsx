@@ -13,7 +13,8 @@ import type {
   ThemeColors,
   TournamentGroups,
 } from '@/types';
-import { useState } from 'react';
+import type { MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from 'react';
+import { useRef, useState } from 'react';
 
 type Props = {
   fixtures: Fixture[];
@@ -60,6 +61,14 @@ function scrollToFixtureDay(id: string) {
 
 export function FixturesTab({ fixtures, groups, participants, standings, theme }: Props) {
   const [view, setView] = useState<'schedule' | 'knockout'>('schedule');
+  const dateRailRef = useRef<HTMLDivElement>(null);
+  const dragStateRef = useRef({
+    active: false,
+    startX: 0,
+    startScrollLeft: 0,
+    moved: false,
+  });
+  const [dateRailDragging, setDateRailDragging] = useState(false);
   const groupedFixtures = fixtures
     .slice()
     .sort((a, b) => fixtureTimestamp(a) - fixtureTimestamp(b))
@@ -84,6 +93,56 @@ export function FixturesTab({ fixtures, groups, participants, standings, theme }
     )
   );
   const bracket = buildProjectedKnockoutBracket(standings);
+
+  function handleDateRailMouseDown(event: ReactMouseEvent<HTMLDivElement>) {
+    const rail = dateRailRef.current;
+    if (!rail) return;
+
+    dragStateRef.current = {
+      active: true,
+      startX: event.clientX,
+      startScrollLeft: rail.scrollLeft,
+      moved: false,
+    };
+    setDateRailDragging(true);
+  }
+
+  function handleDateRailMouseMove(event: ReactMouseEvent<HTMLDivElement>) {
+    const rail = dateRailRef.current;
+    const dragState = dragStateRef.current;
+    if (!rail || !dragState.active) return;
+
+    const deltaX = event.clientX - dragState.startX;
+    if (Math.abs(deltaX) > 3) {
+      dragState.moved = true;
+    }
+
+    rail.scrollLeft = dragState.startScrollLeft - deltaX;
+    event.preventDefault();
+  }
+
+  function handleDateRailMouseUp() {
+    dragStateRef.current.active = false;
+    window.setTimeout(() => {
+      dragStateRef.current.moved = false;
+    }, 0);
+    setDateRailDragging(false);
+  }
+
+  function handleDateRailMouseLeave() {
+    if (!dragStateRef.current.active) return;
+    handleDateRailMouseUp();
+  }
+
+  function handleDateRailWheel(event: ReactWheelEvent<HTMLDivElement>) {
+    const rail = dateRailRef.current;
+    if (!rail || rail.scrollWidth <= rail.clientWidth) return;
+
+    if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+      rail.scrollLeft += event.deltaY;
+      event.preventDefault();
+    }
+  }
 
   return (
     <div>
@@ -127,35 +186,59 @@ export function FixturesTab({ fixtures, groups, participants, standings, theme }
         <KnockoutBracket bracket={bracket} ownerByTeam={ownerByTeam} theme={theme} />
       ) : (
         <>
-          <div
-            className="mb-8 overflow-x-auto pb-2 md:mb-10"
-            style={{ scrollbarWidth: 'none' }}
-            data-reveal>
+          <div className="mb-8 md:mb-10" data-reveal>
             <div
-              className="mx-auto flex w-max min-w-full items-center justify-center gap-2 rounded-full px-3 py-2 md:gap-3 md:px-4"
+              ref={dateRailRef}
+              className={`-mx-5 overflow-x-auto px-5 pb-2 md:mx-0 md:px-0 ${
+                dateRailDragging ? 'cursor-grabbing' : 'cursor-grab'
+              }`}
+              data-lenis-prevent
+              data-lenis-prevent-touch
+              data-lenis-prevent-wheel
+              onMouseDown={handleDateRailMouseDown}
+              onMouseMove={handleDateRailMouseMove}
+              onMouseUp={handleDateRailMouseUp}
+              onMouseLeave={handleDateRailMouseLeave}
+              onWheel={handleDateRailWheel}
               style={{
-                background: `${theme.accent}06`,
-                border: `1px solid ${theme.accent}10`,
+                scrollbarWidth: 'none',
+                WebkitOverflowScrolling: 'touch',
+                overscrollBehaviorX: 'contain',
+                overflowY: 'hidden',
+                touchAction: 'pan-x',
               }}>
-              <span
-                className="font-heading shrink-0 text-[9px] font-bold uppercase tracking-[3px] md:text-[10px]"
-                style={{ color: `${theme.accent}45` }}>
-                Jump to
-              </span>
-              {groupedFixtures.map(({ date, fixtures }, index) => (
-                <button
-                  key={date}
-                  type="button"
-                  onClick={() => scrollToFixtureDay(`fixtures-day-${index + 1}`)}
-                  className="font-heading shrink-0 cursor-pointer rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[2px] transition-colors duration-300 md:px-2.5 md:text-[11px]"
-                  style={{
-                    color: `${theme.accent}78`,
-                    background: 'transparent',
-                  }}>
-                  {date}
-                  <span style={{ color: `${theme.accent}45` }}> · {fixtures.length}</span>
-                </button>
-              ))}
+              <div
+                className="mx-auto inline-flex w-max shrink-0 items-center gap-2 rounded-full px-3 py-2 select-none md:gap-3 md:px-4"
+                style={{
+                  background: `${theme.accent}06`,
+                  border: `1px solid ${theme.accent}10`,
+                }}>
+                <span
+                  className="font-heading shrink-0 text-[9px] font-bold uppercase tracking-[3px] md:text-[10px]"
+                  style={{ color: `${theme.accent}45` }}>
+                  Jump to
+                </span>
+                {groupedFixtures.map(({ date, fixtures }, index) => (
+                  <button
+                    key={date}
+                    type="button"
+                    onClick={(event) => {
+                      if (dragStateRef.current.moved) {
+                        event.preventDefault();
+                        return;
+                      }
+                      scrollToFixtureDay(`fixtures-day-${index + 1}`);
+                    }}
+                    className="font-heading shrink-0 cursor-pointer rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[2px] transition-colors duration-300 md:px-2.5 md:text-[11px]"
+                    style={{
+                      color: `${theme.accent}78`,
+                      background: 'transparent',
+                    }}>
+                    {date}
+                    <span style={{ color: `${theme.accent}45` }}> · {fixtures.length}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
