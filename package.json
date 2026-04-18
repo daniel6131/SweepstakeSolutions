@@ -2,9 +2,13 @@
   "name": "world-cup-sweepstake",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:analyze": "ANALYZE=true next build",
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -19,6 +23,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@vercel/kv": "^3.0.0",
     "gsap": "^3.12.7",
     "lenis": "^1.3.0",
     "lucide-react": "^0.575.0",
@@ -27,7 +32,13 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.2.4",
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jsdom": "^28.0.1",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -36,6 +47,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
     "husky": "^9.1.7",
+    "jsdom": "^29.0.2",
     "lint-staged": "^16.2.7",
     "postcss": "^8",
     "prettier": "^3.8.1",

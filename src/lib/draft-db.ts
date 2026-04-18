@@ -1,19 +1,19 @@
 /**
- * Draft Database — JSON file-based persistence
+ * Draft Database — persistence layer
  *
- * Stores the draft ceremony state in data/draft.json.
+ * Uses Vercel KV in production (when KV_REST_API_URL is set).
+ * Falls back to JSON file in development for local iteration.
+ *
  * All 48 tournament teams across 12 groups assigned to 12 players across 4 rounds.
  */
 
 import { getPotForRound, getPotForTeam } from '@/data/draftPots';
 import { GROUPS, getAllTeams } from '@/data/groups';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
 import type { TournamentGroups } from '@/types';
 import type { DraftPot } from '@/data/draftPots';
 
-const DATA_DIR = join(process.cwd(), 'data');
-const DB_PATH = join(DATA_DIR, 'draft.json');
+const KV_KEY = 'draft:state';
+const isKVEnabled = (): boolean => Boolean(process.env.KV_REST_API_URL);
 
 export type Assignment = {
   player: string;
@@ -58,11 +58,7 @@ function normalizeDraftState(state: DraftState, groups: TournamentGroups): Draft
   const assignedTeams = new Set(assignments.map((assignment) => assignment.team));
   const availableTeams = getAllTeamNames(groups).filter((team) => !assignedTeams.has(team));
 
-  return {
-    ...state,
-    assignments,
-    availableTeams,
-  };
+  return { ...state, assignments, availableTeams };
 }
 
 /** Default starting state */
@@ -82,36 +78,68 @@ function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+    [a[i], a[j]] = [a[j] as T, a[i] as T];
   }
   return a;
 }
 
-/** Read current state from disk */
-export function getDraftState(groups: TournamentGroups = GROUPS): DraftState {
-  if (!existsSync(DB_PATH)) return getDefaultState(groups);
+/* ── Storage adapters ─────────────────────────────────────── */
+
+async function readState(): Promise<DraftState | null> {
+  if (isKVEnabled()) {
+    const { kv } = await import('@vercel/kv');
+    return kv.get<DraftState>(KV_KEY);
+  }
+  // Filesystem fallback for local development
+  const { existsSync, readFileSync } = await import('fs');
+  const { join } = await import('path');
+  const dbPath = join(process.cwd(), 'data', 'draft.json');
+  if (!existsSync(dbPath)) return null;
   try {
-    const parsed = JSON.parse(readFileSync(DB_PATH, 'utf-8')) as DraftState;
-    return normalizeDraftState(parsed, groups);
+    return JSON.parse(readFileSync(dbPath, 'utf-8')) as DraftState;
   } catch {
-    return getDefaultState(groups);
+    return null;
   }
 }
 
-/** Write state to disk */
-export function saveDraftState(state: DraftState): void {
-  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-  writeFileSync(DB_PATH, JSON.stringify(state, null, 2));
+async function writeState(state: DraftState): Promise<void> {
+  if (isKVEnabled()) {
+    const { kv } = await import('@vercel/kv');
+    await kv.set(KV_KEY, state);
+    return;
+  }
+  // Filesystem fallback for local development
+  const { existsSync, mkdirSync, writeFileSync } = await import('fs');
+  const { join } = await import('path');
+  const dataDir = join(process.cwd(), 'data');
+  const dbPath = join(dataDir, 'draft.json');
+  if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
+  writeFileSync(dbPath, JSON.stringify(state, null, 2));
+}
+
+/* ── Public API ───────────────────────────────────────────── */
+
+/** Read current state */
+export async function getDraftState(groups: TournamentGroups = GROUPS): Promise<DraftState> {
+  const raw = await readState();
+  if (!raw) return getDefaultState(groups);
+  return normalizeDraftState(raw, groups);
+}
+
+/** Write state */
+export async function saveDraftState(state: DraftState): Promise<void> {
+  await writeState(state);
 }
 
 /** Check if draft is locked (for use by the main app) */
-export function isDraftLocked(): boolean {
-  return getDraftState().status === 'locked';
+export async function isDraftLocked(): Promise<boolean> {
+  const state = await getDraftState();
+  return state.status === 'locked';
 }
 
 /** Get locked assignments as participant format (for main app integration) */
-export function getLockedAssignments(): { name: string; teams: string[] }[] | null {
-  const state = getDraftState();
+export async function getLockedAssignments(): Promise<{ name: string; teams: string[] }[] | null> {
+  const state = await getDraftState();
   if (state.status !== 'locked') return null;
 
   const playerTeams = new Map<string, string[]>();
@@ -141,22 +169,22 @@ const PLAYER_NAMES = [
 ];
 
 /** Start the draft — move from pending → drafting, shuffle first round order */
-export function startDraft(groups: TournamentGroups = GROUPS): DraftState {
+export async function startDraft(groups: TournamentGroups = GROUPS): Promise<DraftState> {
   const state = getDefaultState(groups);
   state.status = 'drafting';
   state.currentRound = 0;
   state.currentPick = 0;
   state.playerOrder = shuffle(PLAYER_NAMES);
-  saveDraftState(state);
+  await saveDraftState(state);
   return state;
 }
 
 /** Draw the next team — assigns a random available team to the current player */
-export function drawNext(groups: TournamentGroups = GROUPS): {
+export async function drawNext(groups: TournamentGroups = GROUPS): Promise<{
   state: DraftState;
   drawn: Assignment;
-} {
-  const state = getDraftState(groups);
+}> {
+  const state = await getDraftState(groups);
   if (state.status !== 'drafting') throw new Error('Not in drafting phase');
   if (state.availableTeams.length === 0) throw new Error('No teams left');
 
@@ -171,13 +199,14 @@ export function drawNext(groups: TournamentGroups = GROUPS): {
     throw new Error(`No teams left in pot ${currentPot}`);
   }
 
-  // Pick a random available team from the active pot only
   const shuffled = shuffle(currentPotTeams);
   const teamName = shuffled[0];
-  const teamInfo = allWithGroups.find((t) => t.team === teamName)!;
+  if (!teamName) throw new Error('Failed to draw a team');
+  const teamInfo = allWithGroups.find((t) => t.team === teamName);
+  if (!teamInfo) throw new Error(`Team not found: ${teamName}`);
 
   const assignment: Assignment = {
-    player,
+    player: player ?? '',
     team: teamInfo.team,
     group: teamInfo.group,
     round: state.currentRound,
@@ -186,34 +215,29 @@ export function drawNext(groups: TournamentGroups = GROUPS): {
 
   state.assignments.push(assignment);
   state.availableTeams = state.availableTeams.filter((t) => t !== teamName);
-
-  // Advance pick
   state.currentPick++;
 
-  // If round complete, advance to next round
   if (state.currentPick >= PLAYER_NAMES.length) {
     state.currentRound++;
     state.currentPick = 0;
     state.playerOrder = shuffle(PLAYER_NAMES);
-
-    // If all 4 rounds done, move to trading
     if (state.currentRound >= 4) {
       state.status = 'trading';
     }
   }
 
-  saveDraftState(state);
+  await saveDraftState(state);
   return { state, drawn: assignment };
 }
 
 /** Trade two teams between two players */
-export function tradePlayers(
+export async function tradePlayers(
   player1: string,
   team1: string,
   player2: string,
   team2: string
-): DraftState {
-  const state = getDraftState();
+): Promise<DraftState> {
+  const state = await getDraftState();
   if (state.status !== 'trading') throw new Error('Not in trading phase');
 
   const a1 = state.assignments.find((a) => a.player === player1 && a.team === team1);
@@ -221,27 +245,26 @@ export function tradePlayers(
 
   if (!a1 || !a2) throw new Error('Assignment not found');
 
-  // Swap
   a1.player = player2;
   a2.player = player1;
 
-  saveDraftState(state);
+  await saveDraftState(state);
   return state;
 }
 
 /** Lock the draft — finalize assignments */
-export function lockDraft(): DraftState {
-  const state = getDraftState();
+export async function lockDraft(): Promise<DraftState> {
+  const state = await getDraftState();
   if (state.status !== 'trading') throw new Error('Not in trading phase');
   state.status = 'locked';
-  saveDraftState(state);
+  await saveDraftState(state);
   return state;
 }
 
-/** Reset draft completely (for testing) */
-export function resetDraft(groups: TournamentGroups = GROUPS): DraftState {
+/** Reset draft completely */
+export async function resetDraft(groups: TournamentGroups = GROUPS): Promise<DraftState> {
   const state = getDefaultState(groups);
-  saveDraftState(state);
+  await saveDraftState(state);
   return state;
 }
 
@@ -260,7 +283,6 @@ export function getPlayerConflicts(
     const groups = teams.map((t) => t.group);
     const duplicates = groups.filter((g, i) => groups.indexOf(g) !== i);
     if (duplicates.length > 0) {
-      // Find team names in conflicting groups
       const conflictTeams = teams.filter((t) => duplicates.includes(t.group)).map((t) => t.team);
       result.push({ player, conflicts: conflictTeams });
     }

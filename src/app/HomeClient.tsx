@@ -2,19 +2,24 @@
 
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { FixturesTab } from '@/components/fixtures/FixturesTab';
-import { GroupsTab } from '@/components/groups/GroupsTab';
 import { Header } from '@/components/layout/Header';
 import { Nav } from '@/components/layout/Nav';
 import { Stickers } from '@/components/layout/Stickers';
 import { LeaderboardTab } from '@/components/leaderboard/LeaderboardTab';
-import { TeamsTab } from '@/components/teams/TeamsTab';
 import { THEMES } from '@/data/themes';
 import type { SweepstakeData } from '@/lib/load-data';
 import { useSmoothScroll } from '@/lib/use-smooth-scroll';
 import type { TabKey } from '@/types';
+
+// Non-initial tabs dynamic-imported — keeps bundle lean for Leaderboard-only sessions.
+const FixturesTab = dynamic(() =>
+  import('@/components/fixtures/FixturesTab').then((m) => m.FixturesTab)
+);
+const GroupsTab = dynamic(() => import('@/components/groups/GroupsTab').then((m) => m.GroupsTab));
+const TeamsTab = dynamic(() => import('@/components/teams/TeamsTab').then((m) => m.TeamsTab));
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -38,40 +43,48 @@ export default function HomeClient({ data }: Props) {
     return () => clearTimeout(t);
   }, []);
 
-  // Apply theme colors
+  // Apply theme via data-theme attribute — CSS [data-theme] rules handle all vars
   useEffect(() => {
-    document.documentElement.style.background = theme.bg;
-    document.body.style.background = theme.bg;
-    document.body.style.transition = 'background 0.6s cubic-bezier(0.32, 0.72, 0, 1)';
-    document.documentElement.style.setProperty('--theme-bg', theme.bg);
-    document.documentElement.style.setProperty('--theme-accent', theme.accent);
-    document.documentElement.style.setProperty('--theme-accent2', theme.accent2);
-    document.documentElement.style.setProperty('--theme-card', theme.card);
-    // Sync safe area bar colors
+    document.documentElement.setAttribute('data-theme', tab.toLowerCase());
+    // Sync safe area bar colors (DOM elements, no browser delay unlike theme-color meta)
     if (safeTopRef.current) safeTopRef.current.style.background = theme.bg;
     if (safeBottomRef.current) safeBottomRef.current.style.background = theme.bg;
-  }, [theme]);
+  }, [tab, theme.bg]);
 
-  // GSAP reveal on tab change
+  // GSAP reveal on tab change — gated behind prefers-reduced-motion
   useEffect(() => {
     if (!contentRef.current) return;
     const els = contentRef.current.querySelectorAll('[data-reveal]');
     if (!els.length) return;
 
-    gsap.set(els, { y: 40, opacity: 0 });
-    const tl = gsap.to(els, {
-      y: 0,
-      opacity: 1,
-      duration: 0.8,
-      stagger: 0.07,
-      ease: 'expo.out',
-      delay: 0.15,
-    });
+    const mm = gsap.matchMedia();
+    mm.add(
+      {
+        motion: '(prefers-reduced-motion: no-preference)',
+        reduced: '(prefers-reduced-motion: reduce)',
+      },
+      (context) => {
+        const { reduced } = context.conditions as { reduced: boolean };
+        if (reduced) {
+          gsap.set(els, { opacity: 1, y: 0 });
+          return;
+        }
+        const ctx = gsap.context(() => {
+          gsap.set(els, { y: 40, opacity: 0 });
+          gsap.to(els, {
+            y: 0,
+            opacity: 1,
+            duration: 0.8,
+            stagger: 0.07,
+            ease: 'expo.out',
+            delay: 0.15,
+          });
+        }, contentRef);
+        return () => ctx.revert();
+      }
+    );
 
-    return () => {
-      tl.kill();
-      ScrollTrigger.getAll().forEach((st) => st.kill());
-    };
+    return () => mm.revert();
   }, [tab]);
 
   /** Update the meta theme-color for mobile safe areas */
@@ -109,22 +122,30 @@ export default function HomeClient({ data }: Props) {
    */
   const handleTabChange = useCallback(
     (newTab: TabKey) => {
-      if (newTab === tab || !wipeRef.current || isTransitioning.current) return;
-      isTransitioning.current = true;
+      if (newTab === tab || isTransitioning.current) return;
+
       const nextTheme = THEMES[newTab];
 
-      // Phase 1: Expand wipe over everything (including open mobile menu)
-      const el = wipeRef.current;
-      el.style.background = nextTheme.bg;
-
-      // Update safe area bars IMMEDIATELY — these are DOM elements we control,
-      // no browser animation delay unlike theme-color meta
+      // Sync safe area bars and theme-color immediately (they sit above the wipe)
       if (safeTopRef.current) safeTopRef.current.style.background = nextTheme.bg;
       if (safeBottomRef.current) safeBottomRef.current.style.background = nextTheme.bg;
       updateThemeColor(nextTheme.bg);
-      document.documentElement.style.background = nextTheme.bg;
-      document.body.style.transition = 'none';
-      document.body.style.background = nextTheme.bg;
+
+      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      if (prefersReduced || !wipeRef.current) {
+        // Instant switch — no animation
+        setMenuOpen(false);
+        document.body.style.overflow = '';
+        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+        document.documentElement.setAttribute('data-theme', newTab.toLowerCase());
+        setTab(newTab);
+        return;
+      }
+
+      isTransitioning.current = true;
+      const el = wipeRef.current;
+      el.style.background = nextTheme.bg;
 
       gsap.set(el, {
         clipPath: 'circle(0% at 50% 50%)',
@@ -137,31 +158,14 @@ export default function HomeClient({ data }: Props) {
         duration: 0.7,
         ease: 'power3.inOut',
         onComplete: () => {
-          // Phase 2: Everything happens under the wipe — user sees nothing
-
-          // Close the mobile menu
           setMenuOpen(false);
-
-          // Unlock body scroll (menu had it locked)
           document.body.style.overflow = '';
-
-          // Scroll to top
           window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
-
-          // Update CSS vars (invisible under wipe — body/html bg already set at wipe start)
-          document.documentElement.style.setProperty('--theme-bg', nextTheme.bg);
-          document.documentElement.style.setProperty('--theme-accent', nextTheme.accent);
-          document.documentElement.style.setProperty('--theme-accent2', nextTheme.accent2);
-          document.documentElement.style.setProperty('--theme-card', nextTheme.card);
-
-          // Swap tab — triggers React re-render
+          document.documentElement.setAttribute('data-theme', newTab.toLowerCase());
           setTab(newTab);
 
-          // Phase 3: Wait for React to paint, then dissolve wipe
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-              document.body.style.transition = 'background 0.6s cubic-bezier(0.32, 0.72, 0, 1)';
-
               gsap.to(el, {
                 opacity: 0,
                 duration: 0.35,
@@ -181,6 +185,13 @@ export default function HomeClient({ data }: Props) {
 
   return (
     <div className="relative min-h-screen">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-9999 focus:rounded-lg focus:px-4 focus:py-2 focus:text-sm focus:font-bold"
+        style={{ background: 'var(--theme-accent)', color: 'var(--theme-bg)' }}>
+        Skip to main content
+      </a>
+
       <Stickers theme={theme} />
 
       <div className="relative z-10">
@@ -196,19 +207,16 @@ export default function HomeClient({ data }: Props) {
         <Header theme={theme} visible={mounted} tab={tab} />
 
         {/* Content — slides over hero with solid background */}
-        <div
+        <main
+          id="main-content"
           className="content-surface relative z-20"
-          style={{
-            background: theme.bg,
-            transition: 'background 0.6s cubic-bezier(0.32, 0.72, 0, 1)',
-          }}>
+          style={{ background: 'var(--color-bg)' }}>
           {/* Soft edge gradient that bleeds up into the hero */}
           <div
             className="pointer-events-none absolute inset-x-0 z-10 h-24 md:h-36"
             style={{
               top: '-5rem',
-              background: `linear-gradient(to bottom, transparent, ${theme.bg} 85%)`,
-              transition: 'background 0.6s',
+              background: 'linear-gradient(to bottom, transparent, var(--color-bg) 85%)',
             }}
           />
 
@@ -216,7 +224,8 @@ export default function HomeClient({ data }: Props) {
           <div
             className="mx-auto h-px max-w-50 md:max-w-70"
             style={{
-              background: `linear-gradient(90deg, transparent, ${theme.accent}18, transparent)`,
+              background:
+                'linear-gradient(90deg, transparent, var(--color-accent-a12), transparent)',
             }}
           />
 
@@ -255,9 +264,9 @@ export default function HomeClient({ data }: Props) {
           <footer className="px-5 pt-12 pb-8 text-center md:pt-16 md:pb-10">
             <div
               className="mx-auto mb-8 h-px max-w-40"
-              style={{ background: `${theme.accent}12` }}
+              style={{ background: 'var(--color-accent-a8)' }}
             />
-            <div className="headline-s mb-2" style={{ color: `${theme.accent}15` }}>
+            <div className="headline-s mb-2" style={{ color: 'var(--color-accent-a8)' }}>
               WORLD CUP 2026
             </div>
             <div
@@ -272,7 +281,7 @@ export default function HomeClient({ data }: Props) {
               UTC
             </div>
           </footer>
-        </div>
+        </main>
       </div>
 
       {/* Circle wipe overlay — z-200 = above nav (z-100), menu (z-95), everything */}

@@ -1,0 +1,18 @@
+export default function Loading() {
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center"
+      style={{ background: 'var(--theme-bg)' }}
+      role="status"
+      aria-label="Loading">
+      <div
+        className="h-10 w-10 rounded-full"
+        style={{
+          border: '2px solid transparent',
+          borderTopColor: 'var(--theme-accent)',
+          animation: 'spin 0.8s linear infinite',
+        }}
+      />
+    </div>
+  );
+}

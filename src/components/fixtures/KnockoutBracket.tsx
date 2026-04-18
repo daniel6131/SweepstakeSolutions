@@ -132,7 +132,7 @@ function renderSlot(
           )}
           <div
             className="font-display truncate text-[11px] leading-none md:text-[12px]"
-            style={{ color: slot.status === 'confirmed' ? theme.accent : '#f9e6c8' }}>
+            style={{ color: slot.status === 'confirmed' ? theme.accent : 'var(--color-fg)' }}>
             {shortTeamName(slot.label)}
           </div>
           {align === 'right' ? (
@@ -150,7 +150,7 @@ function renderSlot(
       {slot.score !== null ? (
         <div
           className="font-display shrink-0 text-[18px] leading-none"
-          style={{ color: slot.isWinner ? theme.accent : '#f9e6c8' }}>
+          style={{ color: slot.isWinner ? theme.accent : 'var(--color-fg)' }}>
           {slot.score}
         </div>
       ) : null}

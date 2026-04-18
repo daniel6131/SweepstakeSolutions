@@ -1,22 +1,23 @@
+import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+
 import DraftClient from './DraftClient';
+import { DRAFT_COOKIE, isDraftProtected, isValidDraftCookie } from '@/lib/draft-auth';
 
-/**
- * /draft?key=YOUR_SECRET
- *
- * Password-protected draft ceremony page.
- * Set DRAFT_SECRET in .env.local (defaults to 'draft2026').
- */
-export default async function DraftPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ key?: string }>;
-}) {
-  const params = await searchParams;
-  const secret = process.env.DRAFT_SECRET || 'draft2026';
+export const metadata: Metadata = {
+  title: 'Draft Ceremony',
+  robots: { index: false, follow: false },
+};
 
-  if (params.key !== secret) {
-    redirect('/');
+export default async function DraftPage() {
+  // If DRAFT_SECRET is set, validate the session cookie
+  if (isDraftProtected()) {
+    const cookieStore = await cookies();
+    const isAuthorized = isValidDraftCookie(cookieStore.get(DRAFT_COOKIE)?.value);
+    if (!isAuthorized) {
+      redirect('/draft/login');
+    }
   }
 
   return <DraftClient />;

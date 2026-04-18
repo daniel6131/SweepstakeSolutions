@@ -29,7 +29,7 @@ export function ParticipantCard({ entry, rank, groups, teamRecords, theme }: Pro
           </div>
           <div
             className="font-heading mt-1.5 text-[11px] font-medium"
-            style={{ color: 'rgba(255,255,255,0.25)' }}>
+            style={{ color: 'var(--color-fg-subtle)' }}>
             {entry.pts} pts · {entry.w + entry.d + entry.l} games
           </div>
         </div>
@@ -53,7 +53,7 @@ export function ParticipantCard({ entry, rank, groups, teamRecords, theme }: Pro
                 <Flag team={t} size={26} />
                 <div>
                   <div className="text-[13px] font-semibold">{t}</div>
-                  <div className="text-[9px]" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                  <div className="text-[9px]" style={{ color: 'var(--color-fg-subtle)' }}>
                     {r.w}W · {r.d}D · {r.l}L
                   </div>
                 </div>
@@ -66,7 +66,7 @@ export function ParticipantCard({ entry, rank, groups, teamRecords, theme }: Pro
                 </span>
                 <span
                   className="font-display w-8 text-right text-xl md:w-10 md:text-2xl"
-                  style={{ color: r.pts > 0 ? theme.accent : 'rgba(255,255,255,0.08)' }}>
+                  style={{ color: r.pts > 0 ? theme.accent : 'var(--color-fg-subtle)' }}>
                   {r.pts}
                 </span>
               </div>

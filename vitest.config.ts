@@ -5,11 +5,15 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   test: {
-    environment: 'node',
-    include: ['src/**/*.test.ts'],
+    globals: true,
+    // jsdom covers both lib and component tests
+    environment: 'jsdom',
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    setupFiles: ['src/test/setup.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
+      include: ['src/lib/**', 'src/components/ui/**'],
     },
   },
 });
