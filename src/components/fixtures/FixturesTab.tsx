@@ -7,7 +7,7 @@ import { SectionHeading } from '@/components/ui/SectionHeading';
 import type { ProjectedKnockoutBracket } from '@/lib/knockout';
 import { getFixtureDisplayParts, getFixtureSortTimestamp } from '@/lib/match-time';
 import type { Fixture, GroupId, Participant, ThemeColors, TournamentGroups } from '@/types';
-import type { MouseEvent as ReactMouseEvent, WheelEvent as ReactWheelEvent } from 'react';
+import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
 import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 type Props = {
@@ -95,10 +95,11 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
   }, [participants]);
   const knockoutBracket = useMemo(() => (view === 'knockout' ? bracket : null), [bracket, view]);
 
-  function handleDateRailMouseDown(event: ReactMouseEvent<HTMLDivElement>) {
+  function handleDateRailPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     const rail = dateRailRef.current;
     if (!rail) return;
 
+    event.currentTarget.setPointerCapture(event.pointerId);
     dragStateRef.current = {
       active: true,
       startX: event.clientX,
@@ -108,7 +109,7 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
     setDateRailDragging(true);
   }
 
-  function handleDateRailMouseMove(event: ReactMouseEvent<HTMLDivElement>) {
+  function handleDateRailPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     const rail = dateRailRef.current;
     const dragState = dragStateRef.current;
     if (!rail || !dragState.active) return;
@@ -122,17 +123,12 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
     event.preventDefault();
   }
 
-  function handleDateRailMouseUp() {
+  function handleDateRailPointerUp() {
     dragStateRef.current.active = false;
     window.setTimeout(() => {
       dragStateRef.current.moved = false;
     }, 0);
     setDateRailDragging(false);
-  }
-
-  function handleDateRailMouseLeave() {
-    if (!dragStateRef.current.active) return;
-    handleDateRailMouseUp();
   }
 
   function handleDateRailWheel(event: ReactWheelEvent<HTMLDivElement>) {
@@ -156,6 +152,8 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
       <NationMarquee groups={groups} theme={theme} />
       <div className="mb-8 flex justify-center md:mb-10" data-reveal>
         <div
+          role="tablist"
+          aria-label="Fixtures view"
           className="inline-flex items-center gap-1 rounded-full p-1.5"
           style={{
             background: `${theme.accent}06`,
@@ -170,8 +168,9 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
             <button
               key={key}
               type="button"
+              role="tab"
               onClick={() => setView(key)}
-              aria-pressed={view === key}
+              aria-selected={view === key}
               className="font-heading cursor-pointer rounded-full px-3 py-2 text-[10px] font-bold uppercase tracking-[2px] transition-colors duration-300 md:px-4 md:text-[11px]"
               style={{
                 color: view === key ? theme.bg : `${theme.accent}75`,
@@ -198,10 +197,10 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
               data-lenis-prevent
               data-lenis-prevent-touch
               data-lenis-prevent-wheel
-              onMouseDown={handleDateRailMouseDown}
-              onMouseMove={handleDateRailMouseMove}
-              onMouseUp={handleDateRailMouseUp}
-              onMouseLeave={handleDateRailMouseLeave}
+              onPointerDown={handleDateRailPointerDown}
+              onPointerMove={handleDateRailPointerMove}
+              onPointerUp={handleDateRailPointerUp}
+              onPointerCancel={handleDateRailPointerUp}
               onWheel={handleDateRailWheel}
               style={{
                 scrollbarWidth: 'none',

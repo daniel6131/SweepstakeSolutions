@@ -46,7 +46,7 @@ export async function loadSweepstakeData(): Promise<SweepstakeData> {
   // Check for locked draft assignments (overrides hardcoded participants)
   let participants = PARTICIPANTS;
   try {
-    const locked = getLockedAssignments();
+    const locked = await getLockedAssignments();
     if (locked && locked.length > 0) {
       participants = locked;
     }
