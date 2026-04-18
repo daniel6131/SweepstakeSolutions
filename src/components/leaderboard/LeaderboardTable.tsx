@@ -7,8 +7,16 @@ function formatGoalBalance(entry: LeaderboardEntry): string {
   return `${entry.gf}-${entry.ga}`;
 }
 
-function formatGoalDifference(goalDifference: number): string {
-  return goalDifference > 0 ? `+${goalDifference}` : `${goalDifference}`;
+function formatGD(gd: number): string {
+  return gd > 0 ? `+${gd}` : `${gd}`;
+}
+
+function GDColor({ gd, children }: { gd: number; children: React.ReactNode }) {
+  return (
+    <span style={{ color: gd >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
+      {children}
+    </span>
+  );
 }
 
 export function LeaderboardTable({ entries, theme }: Props) {
@@ -60,7 +68,7 @@ export function LeaderboardTable({ entries, theme }: Props) {
             }}>
             <span
               className="font-display text-xl"
-              style={{ color: i < 3 ? theme.accent : 'rgba(255,255,255,0.15)' }}>
+              style={{ color: i < 3 ? theme.accent : 'var(--color-fg-subtle)' }}>
               {i + 1}
             </span>
             <div>
@@ -73,7 +81,7 @@ export function LeaderboardTable({ entries, theme }: Props) {
                     style={{
                       background: `${theme.accent}06`,
                       border: `1px solid ${theme.accent}08`,
-                      color: 'rgba(255,255,255,0.4)',
+                      color: 'var(--color-fg-muted)',
                     }}>
                     <Flag team={t} size={13} />
                     {t}
@@ -81,22 +89,32 @@ export function LeaderboardTable({ entries, theme }: Props) {
                 ))}
               </div>
             </div>
-            <span className="text-center text-[13px] font-bold text-[#4CAF50]">{p.w}</span>
-            <span className="text-center text-[13px] font-bold text-[#FFB300]">{p.d}</span>
-            <span className="text-center text-[13px] font-bold text-[#ef5350]">{p.l}</span>
+            <span
+              className="text-center text-[13px] font-bold"
+              style={{ color: 'var(--color-success)' }}>
+              {p.w}
+            </span>
+            <span
+              className="text-center text-[13px] font-bold"
+              style={{ color: 'var(--color-warning)' }}>
+              {p.d}
+            </span>
+            <span
+              className="text-center text-[13px] font-bold"
+              style={{ color: 'var(--color-danger)' }}>
+              {p.l}
+            </span>
             <span
               className="text-center text-[12px] font-bold"
               style={{ color: `${theme.accent}70` }}>
               {formatGoalBalance(p)}
             </span>
-            <span
-              className="text-center text-[12px] font-bold"
-              style={{ color: p.gd >= 0 ? '#4CAF50' : '#ef5350' }}>
-              {formatGoalDifference(p.gd)}
-            </span>
+            <GDColor gd={p.gd}>
+              <span className="block text-center text-[12px] font-bold">{formatGD(p.gd)}</span>
+            </GDColor>
             <span
               className="font-display text-right text-[32px]"
-              style={{ color: p.pts > 0 ? theme.accent : 'rgba(255,255,255,0.08)' }}>
+              style={{ color: p.pts > 0 ? theme.accent : 'var(--color-fg-subtle)' }}>
               {p.pts}
             </span>
           </div>
@@ -111,7 +129,7 @@ export function LeaderboardTable({ entries, theme }: Props) {
             }}>
             <span
               className="font-display text-base"
-              style={{ color: i < 3 ? theme.accent : 'rgba(255,255,255,0.15)' }}>
+              style={{ color: i < 3 ? theme.accent : 'var(--color-fg-subtle)' }}>
               {i + 1}
             </span>
             <div className="min-w-0">
@@ -122,18 +140,16 @@ export function LeaderboardTable({ entries, theme }: Props) {
                 ))}
               </div>
               <div className="mt-1 flex gap-2 text-[10px]">
-                <span className="text-[#4CAF50]">{p.w}W</span>
-                <span className="text-[#FFB300]">{p.d}D</span>
-                <span className="text-[#ef5350]">{p.l}L</span>
+                <span style={{ color: 'var(--color-success)' }}>{p.w}W</span>
+                <span style={{ color: 'var(--color-warning)' }}>{p.d}D</span>
+                <span style={{ color: 'var(--color-danger)' }}>{p.l}L</span>
                 <span style={{ color: `${theme.accent}70` }}>{formatGoalBalance(p)}</span>
-                <span className={p.gd >= 0 ? 'text-[#4CAF50]' : 'text-[#ef5350]'}>
-                  {formatGoalDifference(p.gd)} GD
-                </span>
+                <GDColor gd={p.gd}>{formatGD(p.gd)} GD</GDColor>
               </div>
             </div>
             <span
               className="font-display text-right text-[28px]"
-              style={{ color: p.pts > 0 ? theme.accent : 'rgba(255,255,255,0.08)' }}>
+              style={{ color: p.pts > 0 ? theme.accent : 'var(--color-fg-subtle)' }}>
               {p.pts}
             </span>
           </div>

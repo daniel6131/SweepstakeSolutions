@@ -1,7 +1,7 @@
 {
   "status": "drafting",
   "currentRound": 2,
-  "currentPick": 1,
+  "currentPick": 6,
   "playerOrder": [
     "Michael",
     "Heather",
@@ -191,6 +191,41 @@
       "group": "F",
       "round": 2,
       "pot": 2
+    },
+    {
+      "player": "Heather",
+      "team": "Australia",
+      "group": "D",
+      "round": 2,
+      "pot": 2
+    },
+    {
+      "player": "Adam",
+      "team": "Austria",
+      "group": "J",
+      "round": 2,
+      "pot": 2
+    },
+    {
+      "player": "Big John",
+      "team": "Senegal",
+      "group": "I",
+      "round": 2,
+      "pot": 2
+    },
+    {
+      "player": "John P",
+      "team": "Iran",
+      "group": "G",
+      "round": 2,
+      "pot": 2
+    },
+    {
+      "player": "Steff",
+      "team": "Ecuador",
+      "group": "E",
+      "round": 2,
+      "pot": 2
     }
   ],
   "availableTeams": [
@@ -201,18 +236,13 @@
     "Brazil",
     "Morocco",
     "USA",
-    "Australia",
     "Germany",
-    "Ecuador",
     "Netherlands",
     "Belgium",
-    "Iran",
     "Spain",
     "Uruguay",
     "France",
-    "Senegal",
     "Argentina",
-    "Austria",
     "Portugal",
     "Colombia",
     "England",

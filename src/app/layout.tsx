@@ -4,16 +4,31 @@ import type { ReactNode } from 'react';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'World Cup Sweepstake 2026',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL ?? 'https://sweepstake.vercel.app'),
+  title: {
+    default: 'World Cup Sweepstake 2026',
+    template: '%s | WC Sweepstake 2026',
+  },
   description:
     'Track your sweepstake standings for the 2026 FIFA World Cup — USA, Mexico & Canada.',
+  openGraph: {
+    type: 'website',
+    title: 'World Cup Sweepstake 2026',
+    description:
+      'Track your sweepstake standings for the 2026 FIFA World Cup — USA, Mexico & Canada.',
+    siteName: 'WC Sweepstake 2026',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'World Cup Sweepstake 2026',
+    description:
+      'Track your sweepstake standings for the 2026 FIFA World Cup — USA, Mexico & Canada.',
+  },
 };
 
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: 'cover',
   themeColor: '#002629',
 };

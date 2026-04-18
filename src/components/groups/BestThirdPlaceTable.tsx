@@ -1,4 +1,5 @@
 import { Flag } from '@/components/ui/Flag';
+import { StatTile } from '@/components/ui/StatTile';
 import type { ThirdPlaceSummary } from '@/lib/knockout';
 import type { ThemeColors } from '@/types';
 
@@ -47,28 +48,9 @@ export function BestThirdPlaceTable({
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {[
-              ['In qualification spots', '8'],
-              ['Groups complete', `${completedGroups}/${totalGroups}`],
-              ['Status', completedGroups === totalGroups ? 'Locked' : 'Live'],
-            ].map(([label, value]) => (
-              <div
-                key={label}
-                className="rounded-2xl px-3 py-3"
-                style={{
-                  background: `${theme.bg}80`,
-                  border: `1px solid ${theme.accent}12`,
-                }}>
-                <div
-                  className="font-heading text-[8px] font-bold uppercase tracking-[2px]"
-                  style={{ color: `${theme.accent}52` }}>
-                  {label}
-                </div>
-                <div className="font-display mt-1 text-[18px]" style={{ color: theme.accent }}>
-                  {value}
-                </div>
-              </div>
-            ))}
+            <StatTile label="In qualification spots" value="8" />
+            <StatTile label="Groups complete" value={`${completedGroups}/${totalGroups}`} />
+            <StatTile label="Status" value={completedGroups === totalGroups ? 'Locked' : 'Live'} />
           </div>
         </div>
       </div>
@@ -140,9 +122,7 @@ export function BestThirdPlaceTable({
 
                 {[row.pts, row.gd > 0 ? `+${row.gd}` : row.gd, row.gf].map((value, valueIndex) => (
                   <div key={valueIndex} className="flex items-center justify-center">
-                    <span
-                      className="text-center text-[13px]"
-                      style={{ color: 'rgba(255,255,255,0.75)' }}>
+                    <span className="text-center text-[13px]" style={{ color: 'var(--color-fg)' }}>
                       {value}
                     </span>
                   </div>
@@ -198,26 +178,9 @@ export function BestThirdPlaceTable({
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
-                  {[
-                    ['Pts', row.pts],
-                    ['GD', row.gd > 0 ? `+${row.gd}` : row.gd],
-                    ['GF', row.gf],
-                  ].map(([label, value]) => (
-                    <div
-                      key={label}
-                      className="rounded-2xl px-3 py-2"
-                      style={{
-                        background: `${theme.bg}82`,
-                        border: `1px solid ${theme.accent}10`,
-                      }}>
-                      <div
-                        className="font-heading text-[8px] font-bold uppercase tracking-[2px]"
-                        style={{ color: `${theme.accent}42` }}>
-                        {label}
-                      </div>
-                      <div className="mt-1 text-[13px] font-semibold">{value}</div>
-                    </div>
-                  ))}
+                  <StatTile label="Pts" value={row.pts} />
+                  <StatTile label="GD" value={row.gd > 0 ? `+${row.gd}` : row.gd} />
+                  <StatTile label="GF" value={row.gf} />
                 </div>
               </div>
             </div>

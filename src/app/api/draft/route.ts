@@ -4,6 +4,8 @@
  *   body: { action: 'start' | 'draw' | 'trade' | 'lock' | 'reset', ...params }
  */
 
+export const dynamic = 'force-dynamic';
+
 import {
   drawNext,
   getDraftState,
@@ -18,7 +20,7 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const state = getDraftState(GROUPS);
+    const state = await getDraftState(GROUPS);
     const conflicts = getPlayerConflicts(state.assignments);
     return NextResponse.json({ ...state, conflicts });
   } catch (error) {
@@ -33,12 +35,12 @@ export async function POST(request: Request) {
 
     switch (action) {
       case 'start': {
-        const state = startDraft(GROUPS);
+        const state = await startDraft(GROUPS);
         return NextResponse.json(state);
       }
 
       case 'draw': {
-        const { state, drawn } = drawNext(GROUPS);
+        const { state, drawn } = await drawNext(GROUPS);
         const conflicts = getPlayerConflicts(state.assignments);
         return NextResponse.json({ ...state, conflicts, lastDrawn: drawn });
       }
@@ -48,18 +50,18 @@ export async function POST(request: Request) {
         if (!player1 || !team1 || !player2 || !team2) {
           return NextResponse.json({ error: 'Missing trade params' }, { status: 400 });
         }
-        const state = tradePlayers(player1, team1, player2, team2);
+        const state = await tradePlayers(player1, team1, player2, team2);
         const conflicts = getPlayerConflicts(state.assignments);
         return NextResponse.json({ ...state, conflicts });
       }
 
       case 'lock': {
-        const state = lockDraft();
+        const state = await lockDraft();
         return NextResponse.json(state);
       }
 
       case 'reset': {
-        const state = resetDraft(GROUPS);
+        const state = await resetDraft(GROUPS);
         return NextResponse.json(state);
       }
 
