@@ -9,6 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "build:analyze": "ANALYZE=true next build",
+    "draft:status": "node scripts/draft-smoke.mjs status",
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
