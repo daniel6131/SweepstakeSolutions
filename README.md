@@ -107,6 +107,29 @@ Use `/dev-console` to override fixture scores, simulate outcomes, and validate t
 
 The console stores score overrides in browser local storage so you can close and reopen it without losing your test state.
 
+## Draft Persistence Checks
+
+If you just want to verify what the deployed app has persisted for the draft, use the draft smoke script against the production URL instead of stepping through the whole UI:
+
+```bash
+DRAFT_API_BASE_URL=https://your-site.vercel.app npm run draft:status
+```
+
+That command calls `GET /api/draft` on the target deployment and prints a compact summary of the persisted state, including:
+
+- current draft `status`
+- total `assignments`
+- remaining `availableTeams`
+- whether the draft is fully locked with all 48 teams persisted
+
+If you need a true end-to-end remote write test, the same script can run the full `reset -> start -> 48 draws -> lock` flow:
+
+```bash
+node scripts/draft-smoke.mjs complete --write --base-url=https://your-site.vercel.app
+```
+
+That write mode intentionally requires `--write` because it mutates the persisted draft state.
+
 ## Updating Scores Manually
 
 If you prefer not to use the API, edit `src/data/fixtures.ts`:
