@@ -301,6 +301,7 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
                         <FixtureCard
                           key={`${fixture.utcDate ?? fixture.date}-${fixture.t1}-${fixture.t2}`}
                           fixture={fixture}
+                          ownerByTeam={ownerByTeam}
                           theme={theme}
                           timeZone={timeZone}
                         />
