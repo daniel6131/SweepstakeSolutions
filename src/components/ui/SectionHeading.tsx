@@ -7,15 +7,16 @@ type SectionHeadingProps = {
 
 export function SectionHeading({ overline, line1, line2, accent }: SectionHeadingProps) {
   return (
-    <div className="mb-9 md:mb-14" data-reveal>
+    <div className="mb-9 text-center md:mb-14" data-reveal>
       {overline && (
-        <div className="mb-3 flex items-center gap-3 md:mb-4">
-          <span className="block h-0.75 w-8 md:w-12" style={{ background: accent }} />
+        <div className="mb-3 flex items-center justify-center gap-3 md:mb-4">
+          <span className="block h-0.75 w-8 md:w-10" style={{ background: accent }} />
           <span
             className="font-heading text-[11px] font-semibold uppercase"
             style={{ color: accent, letterSpacing: '3px' }}>
             {overline}
           </span>
+          <span className="block h-0.75 w-8 md:w-10" style={{ background: accent }} />
         </div>
       )}
       <h2

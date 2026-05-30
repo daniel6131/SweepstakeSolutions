@@ -6,6 +6,7 @@ import type {
   ProjectedKnockoutBracket,
 } from '@/lib/knockout';
 import type { ThemeColors } from '@/types';
+import { Trophy } from 'lucide-react';
 
 type Props = {
   bracket: ProjectedKnockoutBracket;
@@ -22,10 +23,14 @@ type PositionedMatch = {
 
 const CARD_WIDTH = 220;
 const CARD_HEIGHT = 152;
-const COLUMN_GAP = 34;
+const COLUMN_GAP = 40;
 const ROW_GAP = 28;
 const PADDING = 24;
 const DESKTOP_STAGE_OFFSET = 64;
+const CHAMP_WIDTH = 210;
+const CHAMP_HEIGHT = 132;
+
+const GOLD = 'var(--color-medal-gold)';
 
 function shortTeamName(team: string): string {
   return team
@@ -61,14 +66,13 @@ function buildDesktopLayout(rounds: KnockoutRound[]) {
     previousCenters = centers;
   });
 
-  const width = PADDING * 2 + rounds.length * CARD_WIDTH + (rounds.length - 1) * COLUMN_GAP;
   const height =
     DESKTOP_STAGE_OFFSET +
     PADDING * 2 +
     rounds[0].matches.length * CARD_HEIGHT +
     (rounds[0].matches.length - 1) * ROW_GAP;
 
-  return { positionedRounds, width, height };
+  return { positionedRounds, height };
 }
 
 function renderSlot(
@@ -83,8 +87,8 @@ function renderSlot(
   if (isPlaceholder) {
     return (
       <div
-        className="flex min-h-[28px] items-center rounded-xl border border-dashed px-2.5 py-1.5"
-        style={{ borderColor: `${theme.accent}16`, background: `${theme.accent}05` }}>
+        className="flex min-h-7.5 items-center rounded-xl border border-dashed px-2.5 py-1.5"
+        style={{ borderColor: `${theme.accent}20`, background: `${theme.accent}05` }}>
         <div className={`w-full ${align === 'right' ? 'text-right' : ''}`}>
           <div
             className="font-heading text-[9px] font-bold uppercase tracking-[2px]"
@@ -103,22 +107,23 @@ function renderSlot(
 
   return (
     <div
-      className={`flex min-h-[28px] items-center gap-2 rounded-xl px-2.5 py-1.5 ${
+      className={`flex min-h-7.5 items-center gap-2 rounded-xl px-2.5 py-1.5 ${
         align === 'right' ? 'flex-row-reverse text-right' : ''
       }`}
       style={{
         background: slot.isWinner
-          ? `${theme.accent}18`
+          ? `${theme.accent}22`
           : slot.status === 'confirmed'
-            ? `${theme.accent}14`
-            : `${theme.accent}09`,
+            ? `${theme.accent}12`
+            : `${theme.accent}08`,
         border: `1px solid ${
           slot.isWinner
-            ? `${theme.accent}34`
+            ? `${theme.accent}55`
             : slot.status === 'confirmed'
               ? `${theme.accent}28`
               : `${theme.accent}16`
         }`,
+        boxShadow: slot.isWinner ? `0 0 18px ${theme.accent}26` : undefined,
       }}>
       <Flag team={slot.label} size={18} />
       <div className={`min-w-0 flex-1 ${align === 'right' ? 'text-right' : ''}`}>
@@ -132,7 +137,13 @@ function renderSlot(
           )}
           <div
             className="font-display truncate text-[11px] leading-none md:text-[12px]"
-            style={{ color: slot.status === 'confirmed' ? theme.accent : 'var(--color-fg)' }}>
+            style={{
+              color: slot.isWinner
+                ? theme.accent
+                : slot.status === 'confirmed'
+                  ? 'var(--color-fg)'
+                  : 'var(--color-fg-muted)',
+            }}>
             {shortTeamName(slot.label)}
           </div>
           {align === 'right' ? (
@@ -143,14 +154,14 @@ function renderSlot(
             </span>
           ) : null}
         </div>
-        <div className="truncate text-[9px] font-medium" style={{ color: `${theme.accent}40` }}>
+        <div className="truncate text-[9px] font-medium" style={{ color: `${theme.accent}48` }}>
           {owner}
         </div>
       </div>
       {slot.score !== null ? (
         <div
-          className="font-display shrink-0 text-[18px] leading-none"
-          style={{ color: slot.isWinner ? theme.accent : 'var(--color-fg)' }}>
+          className="font-display shrink-0 text-[20px] leading-none tabular-nums"
+          style={{ color: slot.isWinner ? theme.accent : 'var(--color-fg-muted)' }}>
           {slot.score}
         </div>
       ) : null}
@@ -181,9 +192,9 @@ function MatchCard({
       style={{
         width: CARD_WIDTH,
         height: CARD_HEIGHT,
-        background: `linear-gradient(180deg, ${theme.card}f4 0%, ${theme.card}d5 100%)`,
-        border: `1px solid ${theme.accent}18`,
-        boxShadow: `0 20px 50px ${theme.bg}45`,
+        background: 'var(--card-surface)',
+        border: match.isPlayed ? `1px solid ${theme.accent}30` : '1px solid var(--card-border)',
+        boxShadow: 'var(--card-highlight), var(--shadow-card)',
       }}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -200,9 +211,13 @@ function MatchCard({
             </span>
           ) : match.isPlayed ? (
             <span
-              className="font-heading text-[8px] font-bold uppercase tracking-[2px]"
-              style={{ color: `${theme.accent}56` }}>
-              Complete
+              className="font-heading flex items-center gap-1 text-[8px] font-bold uppercase tracking-[2px]"
+              style={{ color: theme.accent }}>
+              <span
+                className="inline-block h-1.5 w-1.5 rounded-full"
+                style={{ background: theme.accent }}
+              />
+              Final
             </span>
           ) : null}
         </div>
@@ -236,39 +251,104 @@ function MatchCard({
   );
 }
 
+function ChampionCard({
+  team,
+  owner,
+  theme,
+  width,
+}: {
+  team: string | null;
+  owner: string | null;
+  theme: ThemeColors;
+  width?: number;
+}) {
+  return (
+    <div
+      className="relative flex flex-col items-center justify-center overflow-hidden rounded-[22px] p-4 text-center"
+      style={{
+        width,
+        height: CHAMP_HEIGHT,
+        background: 'var(--card-surface)',
+        border: `1.5px solid color-mix(in srgb, ${GOLD} 55%, transparent)`,
+        boxShadow: `var(--card-highlight), var(--shadow-card-lg), 0 18px 50px -24px color-mix(in srgb, ${GOLD} 70%, transparent)`,
+      }}>
+      <div
+        className="pointer-events-none absolute -top-10 left-1/2 h-24 w-24 -translate-x-1/2 rounded-full blur-2xl"
+        style={{ background: `color-mix(in srgb, ${GOLD} 30%, transparent)` }}
+      />
+      <Trophy size={22} style={{ color: GOLD }} strokeWidth={1.75} />
+      <div
+        className="font-heading mt-2 text-[9px] font-bold uppercase tracking-[3px]"
+        style={{ color: GOLD }}>
+        Champion
+      </div>
+      {team ? (
+        <>
+          <div className="mt-2 flex items-center gap-2">
+            <Flag team={team} size={20} />
+            <span className="font-display text-[15px]" style={{ color: 'var(--color-fg)' }}>
+              {shortTeamName(team)}
+            </span>
+          </div>
+          {owner ? (
+            <div className="text-[9px] font-medium" style={{ color: `${theme.accent}55` }}>
+              {owner}
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <div className="font-display mt-2 text-[13px]" style={{ color: 'var(--color-fg-subtle)' }}>
+          To be decided
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
-  const { positionedRounds, width, height } = buildDesktopLayout(bracket.rounds);
+  const { positionedRounds, height } = buildDesktopLayout(bracket.rounds);
   const qualifiedThirdPlacedTeams = bracket.thirdPlaceStandings.filter((entry) => entry.qualified);
+
+  const lastRoundIndex = positionedRounds.length - 1;
+  const finalPos = positionedRounds[lastRoundIndex]?.[0];
+  const finalMatch = bracket.rounds[lastRoundIndex]?.matches[0];
+  const championTeam = finalMatch?.winner ?? null;
+  const championOwner = championTeam ? (ownerByTeam.get(championTeam) ?? null) : null;
+
+  const champX = PADDING + bracket.rounds.length * (CARD_WIDTH + COLUMN_GAP);
+  const totalWidth = champX + CHAMP_WIDTH + PADDING;
+  const champCenterY = finalPos ? finalPos.centerY + DESKTOP_STAGE_OFFSET : 0;
 
   return (
     <div className="space-y-6 md:space-y-8" data-reveal>
+      {/* ── Road to the final hero ── */}
       <section
         className="relative overflow-hidden rounded-[30px] p-5 md:p-7"
         style={{
-          background: `radial-gradient(circle at top left, ${theme.accent}1b 0%, transparent 30%), linear-gradient(180deg, ${theme.card}f6 0%, ${theme.card}d8 100%)`,
-          border: `1px solid ${theme.accent}16`,
-          boxShadow: `0 28px 90px ${theme.bg}45`,
+          background: `radial-gradient(120% 100% at 100% 0%, ${theme.accent}1f 0%, transparent 45%), var(--card-surface)`,
+          border: '1px solid var(--card-border)',
+          boxShadow: 'var(--card-highlight), var(--shadow-card-lg)',
         }}>
         <div
-          className="pointer-events-none absolute -top-12 right-0 h-40 w-40 rounded-full blur-3xl"
-          style={{ background: `${theme.accent}16` }}
+          className="bg-grain pointer-events-none absolute inset-0"
+          style={{ opacity: 0.04, mixBlendMode: 'overlay' }}
         />
 
         <div className="relative z-10 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
             <div
               className="font-heading mb-2 text-[10px] font-bold uppercase tracking-[3px]"
-              style={{ color: `${theme.accent}56` }}>
+              style={{ color: `${theme.accent}66` }}>
               Knockout View
             </div>
             <h3
               className="font-display text-[30px] leading-none tracking-[-0.04em] md:text-[46px]"
-              style={{ color: theme.accent }}>
+              style={{ color: 'var(--color-fg)' }}>
               Road to the final.
             </h3>
             <p
               className="mt-3 max-w-xl text-sm leading-6 md:text-[15px]"
-              style={{ color: '#f3dec0' }}>
+              style={{ color: 'var(--color-fg-muted)' }}>
               The Round of 32 updates from the live group tables. Group winners and runners-up lock
               in as their sections finish, while third-place paths remain live projections until the
               bracket is fully set.
@@ -278,31 +358,29 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
           <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
             <div
               className="rounded-2xl px-4 py-3"
-              style={{
-                background: `${theme.accent}0b`,
-                border: `1px solid ${theme.accent}16`,
-              }}>
+              style={{ background: `${theme.accent}0d`, border: '1px solid var(--card-border)' }}>
               <div
                 className="font-heading text-[9px] font-bold uppercase tracking-[2px]"
-                style={{ color: `${theme.accent}44` }}>
+                style={{ color: `${theme.accent}55` }}>
                 Groups complete
               </div>
-              <div className="font-display mt-1 text-[22px]" style={{ color: theme.accent }}>
+              <div
+                className="font-display mt-1 text-[22px] tabular-nums"
+                style={{ color: theme.accent }}>
                 {bracket.completedGroups}/{bracket.totalGroups}
               </div>
             </div>
             <div
               className="rounded-2xl px-4 py-3"
-              style={{
-                background: `${theme.accent}0b`,
-                border: `1px solid ${theme.accent}16`,
-              }}>
+              style={{ background: `${theme.accent}0d`, border: '1px solid var(--card-border)' }}>
               <div
                 className="font-heading text-[9px] font-bold uppercase tracking-[2px]"
-                style={{ color: `${theme.accent}44` }}>
+                style={{ color: `${theme.accent}55` }}>
                 Live third places
               </div>
-              <div className="font-display mt-1 text-[22px]" style={{ color: theme.accent }}>
+              <div
+                className="font-display mt-1 text-[22px] tabular-nums"
+                style={{ color: theme.accent }}>
                 {qualifiedThirdPlacedTeams.length}
               </div>
             </div>
@@ -312,7 +390,7 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
         <div className="relative z-10 mt-6">
           <div
             className="font-heading mb-3 text-[9px] font-bold uppercase tracking-[2px]"
-            style={{ color: `${theme.accent}44` }}>
+            style={{ color: `${theme.accent}55` }}>
             Current best third-placed teams
           </div>
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-8">
@@ -320,19 +398,18 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
               <div
                 key={entry.group}
                 className="rounded-2xl px-3 py-2.5"
-                style={{
-                  background: `${theme.accent}08`,
-                  border: `1px solid ${theme.accent}14`,
-                }}>
+                style={{ background: `${theme.accent}0a`, border: '1px solid var(--card-border)' }}>
                 <div className="flex items-center gap-2">
                   <Flag team={entry.team} size={16} />
                   <div className="min-w-0">
-                    <div className="font-display truncate text-[11px]" style={{ color: '#f8e6c8' }}>
+                    <div
+                      className="font-display truncate text-[11px]"
+                      style={{ color: 'var(--color-fg)' }}>
                       {shortTeamName(entry.team)}
                     </div>
                     <div
                       className="font-heading text-[8px] font-bold uppercase tracking-[2px]"
-                      style={{ color: `${theme.accent}42` }}>
+                      style={{ color: `${theme.accent}48` }}>
                       Group {entry.group} · {entry.pts} pts
                     </div>
                   </div>
@@ -343,37 +420,44 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
         </div>
       </section>
 
+      {/* ── Projected bracket ── */}
       <section
         className="overflow-hidden rounded-[30px] p-4 md:p-5"
         style={{
-          background: `linear-gradient(180deg, ${theme.card}f2 0%, ${theme.card}d0 100%)`,
-          border: `1px solid ${theme.accent}12`,
-          boxShadow: `0 24px 80px ${theme.bg}38`,
+          background: 'var(--card-surface)',
+          border: '1px solid var(--card-border)',
+          boxShadow: 'var(--card-highlight), var(--shadow-card-lg)',
         }}
         data-reveal>
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <div
               className="font-heading text-[10px] font-bold uppercase tracking-[3px]"
-              style={{ color: `${theme.accent}50` }}>
+              style={{ color: `${theme.accent}60` }}>
               Projected Bracket
             </div>
             <div
               className="font-display mt-1 text-[26px] leading-none tracking-[-0.03em] md:text-[34px]"
-              style={{ color: theme.accent }}>
+              style={{ color: 'var(--color-fg)' }}>
               Round of 32 to final
             </div>
           </div>
           <div
             className="font-heading hidden text-[9px] font-bold uppercase tracking-[2px] md:block"
-            style={{ color: `${theme.accent}40` }}>
-            Scroll horizontally to see the full path
+            style={{ color: `${theme.accent}45` }}>
+            Scroll horizontally to follow the path
           </div>
         </div>
 
         <div className="hidden overflow-x-auto lg:block">
-          <div className="relative" style={{ width, height }}>
+          <div className="relative" style={{ width: totalWidth, height }}>
             <svg className="absolute inset-0 h-full w-full" aria-hidden="true">
+              <defs>
+                <linearGradient id="bracket-line" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor={`${theme.accent}30`} />
+                  <stop offset="100%" stopColor={`${theme.accent}66`} />
+                </linearGradient>
+              </defs>
               {positionedRounds.slice(0, -1).flatMap((round, roundIndex) =>
                 round.flatMap((source, matchIndex) => {
                   if (matchIndex % 2 !== 0) {
@@ -394,8 +478,8 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
                       y1={source.centerY + DESKTOP_STAGE_OFFSET}
                       x2={branchX}
                       y2={source.centerY + DESKTOP_STAGE_OFFSET}
-                      stroke={`${theme.accent}28`}
-                      strokeWidth="1.5"
+                      stroke="url(#bracket-line)"
+                      strokeWidth="2"
                     />,
                     <line
                       key={`h2-${sibling.match.match}`}
@@ -403,8 +487,8 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
                       y1={sibling.centerY + DESKTOP_STAGE_OFFSET}
                       x2={branchX}
                       y2={sibling.centerY + DESKTOP_STAGE_OFFSET}
-                      stroke={`${theme.accent}28`}
-                      strokeWidth="1.5"
+                      stroke="url(#bracket-line)"
+                      strokeWidth="2"
                     />,
                     <line
                       key={`v-${source.match.match}`}
@@ -412,8 +496,8 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
                       y1={source.centerY + DESKTOP_STAGE_OFFSET}
                       x2={branchX}
                       y2={sibling.centerY + DESKTOP_STAGE_OFFSET}
-                      stroke={`${theme.accent}28`}
-                      strokeWidth="1.5"
+                      stroke={`${theme.accent}45`}
+                      strokeWidth="2"
                     />,
                     <line
                       key={`h3-${target.match.match}`}
@@ -421,12 +505,23 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
                       y1={target.centerY + DESKTOP_STAGE_OFFSET}
                       x2={endX}
                       y2={target.centerY + DESKTOP_STAGE_OFFSET}
-                      stroke={`${theme.accent}28`}
-                      strokeWidth="1.5"
+                      stroke="url(#bracket-line)"
+                      strokeWidth="2"
                     />,
                   ];
                 })
               )}
+              {/* Final → champion connector */}
+              {finalPos ? (
+                <line
+                  x1={finalPos.x + CARD_WIDTH}
+                  y1={champCenterY}
+                  x2={champX}
+                  y2={champCenterY}
+                  stroke={`color-mix(in srgb, ${GOLD} 55%, transparent)`}
+                  strokeWidth="2"
+                />
+              ) : null}
             </svg>
 
             {bracket.rounds.map((round, roundIndex) => {
@@ -434,22 +529,16 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
 
               return (
                 <div key={round.key}>
-                  <div
-                    className="absolute z-10"
-                    style={{
-                      left: x,
-                      top: 0,
-                      width: CARD_WIDTH,
-                    }}>
+                  <div className="absolute z-10" style={{ left: x, top: 0, width: CARD_WIDTH }}>
                     <div
                       className="rounded-full px-3 py-2 text-center"
                       style={{
-                        background: `${theme.accent}0b`,
-                        border: `1px solid ${theme.accent}16`,
+                        background: `${theme.accent}0d`,
+                        border: '1px solid var(--card-border)',
                       }}>
                       <div
                         className="font-heading text-[8px] font-bold uppercase tracking-[2px]"
-                        style={{ color: `${theme.accent}42` }}>
+                        style={{ color: `${theme.accent}48` }}>
                         {round.shortTitle}
                       </div>
                       <div className="font-display mt-1 text-sm" style={{ color: theme.accent }}>
@@ -462,38 +551,66 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
                     <div
                       key={match.match}
                       className="absolute"
-                      style={{
-                        left: matchX,
-                        top: y + DESKTOP_STAGE_OFFSET,
-                      }}>
+                      style={{ left: matchX, top: y + DESKTOP_STAGE_OFFSET }}>
                       <MatchCard match={match} ownerByTeam={ownerByTeam} theme={theme} />
                     </div>
                   ))}
                 </div>
               );
             })}
+
+            {/* Champion column */}
+            {finalPos ? (
+              <>
+                <div className="absolute z-10" style={{ left: champX, top: 0, width: CHAMP_WIDTH }}>
+                  <div
+                    className="rounded-full px-3 py-2 text-center"
+                    style={{
+                      background: `color-mix(in srgb, ${GOLD} 10%, transparent)`,
+                      border: `1px solid color-mix(in srgb, ${GOLD} 35%, transparent)`,
+                    }}>
+                    <div
+                      className="font-heading text-[8px] font-bold uppercase tracking-[2px]"
+                      style={{ color: `color-mix(in srgb, ${GOLD} 70%, transparent)` }}>
+                      Winner
+                    </div>
+                    <div className="font-display mt-1 text-sm" style={{ color: GOLD }}>
+                      Champion
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className="absolute"
+                  style={{ left: champX, top: champCenterY - CHAMP_HEIGHT / 2 }}>
+                  <ChampionCard
+                    team={championTeam}
+                    owner={championOwner}
+                    theme={theme}
+                    width={CHAMP_WIDTH}
+                  />
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
 
+        {/* Mobile — horizontal round columns + champion */}
         <div className="overflow-x-auto lg:hidden">
           <div className="flex w-max snap-x gap-4 pb-2">
             {bracket.rounds.map((round) => (
               <div
                 key={round.key}
-                className="w-[280px] shrink-0 snap-start space-y-3 rounded-[24px] p-3"
-                style={{
-                  background: `${theme.accent}05`,
-                  border: `1px solid ${theme.accent}12`,
-                }}>
+                className="w-70 shrink-0 snap-start space-y-3 rounded-3xl p-3"
+                style={{ background: `${theme.accent}06`, border: '1px solid var(--card-border)' }}>
                 <div
                   className="rounded-2xl px-3 py-2"
                   style={{
-                    background: `${theme.card}dd`,
-                    border: `1px solid ${theme.accent}14`,
+                    background: 'var(--card-surface)',
+                    border: '1px solid var(--card-border)',
                   }}>
                   <div
                     className="font-heading text-[8px] font-bold uppercase tracking-[2px]"
-                    style={{ color: `${theme.accent}42` }}>
+                    style={{ color: `${theme.accent}48` }}>
                     {round.shortTitle}
                   </div>
                   <div className="font-display mt-1 text-[20px]" style={{ color: theme.accent }}>
@@ -511,6 +628,33 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
                 ))}
               </div>
             ))}
+
+            {/* Champion column (mobile) */}
+            {finalMatch ? (
+              <div
+                className="flex w-55 shrink-0 snap-start flex-col gap-3 rounded-3xl p-3"
+                style={{
+                  background: `color-mix(in srgb, ${GOLD} 8%, transparent)`,
+                  border: `1px solid color-mix(in srgb, ${GOLD} 30%, transparent)`,
+                }}>
+                <div
+                  className="rounded-2xl px-3 py-2"
+                  style={{
+                    background: 'var(--card-surface)',
+                    border: `1px solid color-mix(in srgb, ${GOLD} 30%, transparent)`,
+                  }}>
+                  <div
+                    className="font-heading text-[8px] font-bold uppercase tracking-[2px]"
+                    style={{ color: `color-mix(in srgb, ${GOLD} 70%, transparent)` }}>
+                    Winner
+                  </div>
+                  <div className="font-display mt-1 text-[20px]" style={{ color: GOLD }}>
+                    Champion
+                  </div>
+                </div>
+                <ChampionCard team={championTeam} owner={championOwner} theme={theme} />
+              </div>
+            ) : null}
           </div>
         </div>
       </section>
