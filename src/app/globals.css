@@ -310,6 +310,16 @@
   }
 }
 
+/* Race bar fill — GPU-friendly scaleX grow to a per-row --ratio */
+@keyframes race-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(var(--ratio, 0));
+  }
+}
+
 @keyframes dot-pop {
   0% {
     transform: scale(0);
