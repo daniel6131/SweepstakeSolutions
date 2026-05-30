@@ -14,8 +14,8 @@ type Props = {
 export function ParticipantCard({ entry, rank, groups, teamRecords, theme }: Props) {
   return (
     <div
-      className="card-lift overflow-hidden rounded-xl md:rounded-2xl"
-      style={{ background: theme.card, border: `1.5px solid ${theme.accent}10` }}
+      className="surface-card card-lift overflow-hidden rounded-xl md:rounded-2xl"
+      style={{ fontVariantNumeric: 'tabular-nums' }}
       data-reveal>
       {/* Header */}
       <div

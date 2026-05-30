@@ -22,8 +22,8 @@ function GDColor({ gd, children }: { gd: number; children: React.ReactNode }) {
 export function LeaderboardTable({ entries, theme }: Props) {
   return (
     <div
-      className="overflow-hidden rounded-2xl"
-      style={{ background: theme.card, border: `1.5px solid ${theme.accent}12` }}
+      className="surface-card overflow-hidden rounded-2xl"
+      style={{ fontVariantNumeric: 'tabular-nums' }}
       data-reveal>
       {/* Header — desktop */}
       <div
@@ -64,6 +64,7 @@ export function LeaderboardTable({ entries, theme }: Props) {
             style={{
               gridTemplateColumns: '40px minmax(0,1fr) 48px 48px 48px 84px 56px 72px',
               borderBottom: i < entries.length - 1 ? `1px solid ${theme.accent}06` : 'none',
+              boxShadow: i === 0 ? 'inset 3px 0 0 0 var(--color-accent)' : undefined,
               animationDelay: `${i * 0.04}s`,
             }}>
             <span

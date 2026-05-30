@@ -12,8 +12,8 @@ type Props = {
 export function GroupTable({ group, teams, ownerByTeam, standings, theme }: Props) {
   return (
     <div
-      className="overflow-hidden rounded-xl md:rounded-2xl"
-      style={{ background: theme.card, border: `1.5px solid ${theme.accent}10` }}
+      className="surface-card overflow-hidden rounded-xl md:rounded-2xl"
+      style={{ fontVariantNumeric: 'tabular-nums' }}
       data-reveal>
       {/* Group header */}
       <div

@@ -255,8 +255,8 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
                     style={{
                       scrollMarginTop: '92px',
                       background: `linear-gradient(180deg, ${theme.card}f2 0%, ${theme.card}cc 100%)`,
-                      border: `1px solid ${theme.accent}12`,
-                      boxShadow: `0 24px 80px ${theme.bg}35`,
+                      border: '1px solid var(--card-border)',
+                      boxShadow: 'var(--card-highlight), var(--shadow-card-lg)',
                     }}
                     data-reveal>
                     <div

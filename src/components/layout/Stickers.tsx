@@ -1,93 +1,55 @@
 import type { ThemeColors } from '@/types';
 
 /**
- * Floating sticker shapes — Champions4Good's decorative language.
- * Colored circles scattered across the viewport that animate gently.
+ * Cinematic atmosphere — broadcast-grade background depth.
+ *
+ * Replaces the old decorative floating circles with a directional "stadium light"
+ * key glow, a deep counter-glow for spatial depth, a framing vignette, and film
+ * grain. Themed per tab; respects reduced motion (drift disabled in globals.css).
  */
 export function Stickers({ theme }: { theme: ThemeColors }) {
   return (
     <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-      {/* Large accent circle */}
+      {/* Key light — off-center floodlight from the top-right */}
       <div
-        className="animate-float absolute rounded-full"
+        className="atmosphere-glow absolute"
         style={{
-          top: '-8%',
-          right: '-6%',
-          width: 340,
-          height: 340,
-          background: theme.accent,
-          opacity: 0.04,
+          top: '-25%',
+          right: '-12%',
+          width: '72vw',
+          height: '72vw',
+          background: `radial-gradient(circle at center, ${theme.accent}24, transparent 62%)`,
+          filter: 'blur(24px)',
         }}
       />
 
-      {/* Medium accent2 circle */}
+      {/* Counter-glow — deep accent2 from the opposite corner */}
       <div
-        className="animate-float absolute rounded-full"
+        className="atmosphere-glow absolute"
         style={{
-          bottom: '-5%',
-          left: '-4%',
-          width: 260,
-          height: 260,
-          background: theme.accent2,
-          opacity: 0.05,
-          animationDelay: '2s',
+          bottom: '-28%',
+          left: '-16%',
+          width: '62vw',
+          height: '62vw',
+          background: `radial-gradient(circle at center, ${theme.accent2}18, transparent 66%)`,
+          filter: 'blur(24px)',
+          animationDelay: '6s',
         }}
       />
 
-      {/* Small solid sticker — top left */}
+      {/* Vignette — frames the composition and lifts foreground contrast */}
       <div
-        className="animate-float absolute rounded-full"
+        className="absolute inset-0"
         style={{
-          top: '12%',
-          left: '5%',
-          width: 48,
-          height: 48,
-          background: theme.accent,
-          opacity: 0.12,
-          animationDelay: '1s',
+          background:
+            'radial-gradient(125% 95% at 50% 8%, transparent 52%, rgba(0, 0, 0, 0.55) 100%)',
         }}
       />
 
-      {/* Small ring sticker — bottom right */}
+      {/* Film grain — filmic texture instead of flat vector */}
       <div
-        className="animate-float absolute rounded-full"
-        style={{
-          bottom: '15%',
-          right: '6%',
-          width: 36,
-          height: 36,
-          border: `2px solid ${theme.accent}`,
-          opacity: 0.15,
-          animationDelay: '3s',
-        }}
-      />
-
-      {/* Tiny dot */}
-      <div
-        className="animate-float absolute rounded-full"
-        style={{
-          top: '45%',
-          left: '3%',
-          width: 20,
-          height: 20,
-          background: theme.accent2,
-          opacity: 0.1,
-          animationDelay: '4s',
-        }}
-      />
-
-      {/* Accent ring — right side */}
-      <div
-        className="animate-float absolute rounded-full"
-        style={{
-          top: '30%',
-          right: '4%',
-          width: 64,
-          height: 64,
-          border: `2px solid ${theme.accent2}`,
-          opacity: 0.08,
-          animationDelay: '5s',
-        }}
+        className="bg-grain absolute inset-0"
+        style={{ opacity: 0.05, mixBlendMode: 'overlay' }}
       />
     </div>
   );

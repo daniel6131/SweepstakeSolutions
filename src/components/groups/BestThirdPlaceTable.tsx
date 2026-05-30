@@ -23,7 +23,9 @@ export function BestThirdPlaceTable({
       className="overflow-hidden rounded-[24px] md:rounded-[28px]"
       style={{
         background: `linear-gradient(180deg, ${theme.card} 0%, ${theme.card}f0 100%)`,
-        border: `1.5px solid ${theme.accent}12`,
+        border: '1px solid var(--card-border)',
+        boxShadow: 'var(--card-highlight), var(--shadow-card)',
+        fontVariantNumeric: 'tabular-nums',
       }}
       data-reveal>
       <div
