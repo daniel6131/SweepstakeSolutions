@@ -8,6 +8,10 @@ const withBundleAnalyzer = bundleAnalyzer({
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Allow dev access (incl. HMR websocket) from the LAN IP, not just localhost —
+  // needed when opening the dev server from another device or via the Network URL.
+  // Update this if your local IP changes (or prefer http://localhost:3000).
+  allowedDevOrigins: ['192.168.1.110'],
   images: {
     remotePatterns: [
       {
