@@ -11,6 +11,7 @@ import { Stickers } from '@/components/layout/Stickers';
 import { LeaderboardTab } from '@/components/leaderboard/LeaderboardTab';
 import { THEMES } from '@/data/themes';
 import type { SweepstakeData } from '@/lib/load-data';
+import { mockLeaderboard } from '@/lib/mock-leaderboard'; // TEMP: ?demo preview
 import { useSmoothScroll } from '@/lib/use-smooth-scroll';
 import type { TabKey } from '@/types';
 
@@ -29,6 +30,8 @@ export default function HomeClient({ data }: Props) {
   const [tab, setTab] = useState<TabKey>('Leaderboard');
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // TEMP: ?demo previews the leaderboard populated with mock standings.
+  const [demo, setDemo] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const wipeRef = useRef<HTMLDivElement>(null);
   const safeTopRef = useRef<HTMLDivElement>(null);
@@ -39,9 +42,14 @@ export default function HomeClient({ data }: Props) {
   useSmoothScroll();
 
   useEffect(() => {
-    const t = setTimeout(() => setMounted(true), 80);
+    const isDemo = new URLSearchParams(window.location.search).has('demo'); // TEMP: ?demo
+    const t = setTimeout(() => {
+      setMounted(true);
+      setDemo(isDemo);
+    }, 80);
     return () => clearTimeout(t);
   }, []);
+  const leaderboardEntries = demo ? mockLeaderboard(data.leaderboard) : data.leaderboard;
 
   // Apply theme via data-theme attribute — CSS [data-theme] rules handle all vars
   useEffect(() => {
@@ -232,7 +240,7 @@ export default function HomeClient({ data }: Props) {
           <div
             ref={contentRef}
             className="mx-auto max-w-285 px-4 pt-8 pb-20 md:px-6 md:pt-12 md:pb-28 lg:px-8">
-            {tab === 'Leaderboard' && <LeaderboardTab entries={data.leaderboard} theme={theme} />}
+            {tab === 'Leaderboard' && <LeaderboardTab entries={leaderboardEntries} theme={theme} />}
             {tab === 'Fixtures' && (
               <FixturesTab
                 fixtures={data.fixtures}
