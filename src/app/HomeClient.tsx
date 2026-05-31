@@ -3,7 +3,7 @@
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Header } from '@/components/layout/Header';
 import { Nav } from '@/components/layout/Nav';
@@ -11,7 +11,7 @@ import { Stickers } from '@/components/layout/Stickers';
 import { LeaderboardTab } from '@/components/leaderboard/LeaderboardTab';
 import { THEMES } from '@/data/themes';
 import type { SweepstakeData } from '@/lib/load-data';
-import { mockLeaderboard } from '@/lib/mock-leaderboard'; // TEMP: ?demo preview
+import { mockSweepstakeData } from '@/lib/mock-data'; // TEMP: ?demo preview
 import { getLenis, useSmoothScroll } from '@/lib/use-smooth-scroll';
 import type { TabKey } from '@/types';
 
@@ -56,7 +56,8 @@ export default function HomeClient({ data }: Props) {
     }, 80);
     return () => clearTimeout(t);
   }, []);
-  const leaderboardEntries = demo ? mockLeaderboard(data.leaderboard) : data.leaderboard;
+  // TEMP: ?demo fills all four tabs with a consistent mock snapshot.
+  const view = useMemo(() => (demo ? mockSweepstakeData(data) : data), [demo, data]);
 
   // Apply theme via data-theme attribute — CSS [data-theme] rules handle all vars
   useEffect(() => {
@@ -247,29 +248,29 @@ export default function HomeClient({ data }: Props) {
           <div
             ref={contentRef}
             className="mx-auto max-w-285 px-4 pt-8 pb-20 md:px-6 md:pt-12 md:pb-28 lg:px-8">
-            {tab === 'Leaderboard' && <LeaderboardTab entries={leaderboardEntries} theme={theme} />}
+            {tab === 'Leaderboard' && <LeaderboardTab entries={view.leaderboard} theme={theme} />}
             {tab === 'Fixtures' && (
               <FixturesTab
-                fixtures={data.fixtures}
-                bracket={data.bracket}
-                groups={data.groups}
-                participants={data.participants}
+                fixtures={view.fixtures}
+                bracket={view.bracket}
+                groups={view.groups}
+                participants={view.participants}
                 theme={theme}
               />
             )}
             {tab === 'Groups' && (
               <GroupsTab
-                groups={data.groups}
-                participants={data.participants}
-                standings={data.standings}
+                groups={view.groups}
+                participants={view.participants}
+                standings={view.standings}
                 theme={theme}
               />
             )}
             {tab === 'Teams' && (
               <TeamsTab
-                entries={data.leaderboard}
-                fixtures={data.fixtures}
-                groups={data.groups}
+                entries={view.leaderboard}
+                fixtures={view.fixtures}
+                groups={view.groups}
                 theme={theme}
               />
             )}
