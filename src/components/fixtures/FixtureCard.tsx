@@ -1,18 +1,19 @@
 import { Flag } from '@/components/ui/Flag';
-import { getOwner } from '@/data/participants';
 import { getFixtureDisplayParts } from '@/lib/match-time';
 import type { Fixture, ThemeColors } from '@/types';
 import { MapPin } from 'lucide-react';
 
 type Props = {
   fixture: Fixture;
+  ownerByTeam: Map<string, string>;
   theme: ThemeColors;
   timeZone: string | null;
 };
 
-export function FixtureCard({ fixture: f, theme, timeZone }: Props) {
+export function FixtureCard({ fixture: f, ownerByTeam, theme, timeZone }: Props) {
   const hasScore = f.s1 !== null;
   const display = getFixtureDisplayParts(f, timeZone);
+  const owner = (team: string) => ownerByTeam.get(team) ?? '—';
 
   return (
     <div
@@ -51,7 +52,7 @@ export function FixtureCard({ fixture: f, theme, timeZone }: Props) {
           <div
             className="mt-0.5 text-[9px] font-medium md:text-[10px]"
             style={{ color: `${theme.accent}44` }}>
-            {getOwner(f.t1)}
+            {owner(f.t1)}
           </div>
         </div>
 
@@ -81,7 +82,7 @@ export function FixtureCard({ fixture: f, theme, timeZone }: Props) {
           <div
             className="mt-0.5 text-[9px] font-medium md:text-[10px]"
             style={{ color: `${theme.accent}44` }}>
-            {getOwner(f.t2)}
+            {owner(f.t2)}
           </div>
         </div>
       </div>
