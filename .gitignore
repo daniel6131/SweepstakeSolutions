@@ -67,3 +67,7 @@ CLAUDE.md
 AGENTS.md
 .agents
 .impeccable.md
+skills-lock.json
+
+# Generated reference imagery (scripts/gen-image.mjs) — move final assets into public/
+references/

@@ -75,6 +75,20 @@
     --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
     --ease-flag-pop: cubic-bezier(0.22, 1.12, 0.36, 1);
 
+    /* Premium card surfaces — themed, top-lit, with tinted shadows.
+       color-mix resolves against the active [data-theme] vars at use time. */
+    --card-surface: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-surface) 93%, white 7%) 0%,
+      var(--color-surface) 58%
+    );
+    --card-border: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    --card-border-strong: color-mix(in srgb, var(--color-accent) 22%, transparent);
+    --card-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+    --shadow-card: 0 14px 36px -16px color-mix(in srgb, black 75%, var(--color-bg));
+    --shadow-card-lg: 0 28px 64px -22px color-mix(in srgb, black 78%, var(--color-bg));
+    --shadow-accent: 0 18px 50px -24px color-mix(in srgb, var(--color-accent) 55%, transparent);
+
     --nav-height: 56px;
   }
 
@@ -296,6 +310,16 @@
   }
 }
 
+/* Race bar fill — GPU-friendly scaleX grow to a per-row --ratio */
+@keyframes race-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(var(--ratio, 0));
+  }
+}
+
 @keyframes dot-pop {
   0% {
     transform: scale(0);
@@ -336,6 +360,22 @@
   }
   50% {
     box-shadow: 0 0 14px 3px var(--color-accent);
+  }
+}
+
+/* Group "draw" lock — each letter snaps into place with a quick flash */
+@keyframes badge-lock {
+  0% {
+    transform: scale(1.18);
+    box-shadow:
+      var(--card-highlight),
+      0 0 22px 2px var(--color-accent);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow:
+      var(--card-highlight),
+      0 0 0 0 transparent;
   }
 }
 
@@ -434,6 +474,25 @@
   animation: float-slow 10s ease-in-out infinite;
 }
 
+/* ── Cinematic atmosphere — replaces decorative blobs ── */
+/* Film grain: a tiled fractal-noise texture, blended low for filmic depth. */
+.bg-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@keyframes atmosphere-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -2.5%, 0) scale(1.06);
+  }
+}
+.atmosphere-glow {
+  animation: atmosphere-drift 18s ease-in-out infinite;
+  will-change: transform;
+}
+
 /* ── Row hover — full-row background tint ── */
 .row-hover {
   transition: background 0.25s var(--ease-smooth);
@@ -442,15 +501,29 @@
   background: var(--color-accent-a4);
 }
 
+/* ── Premium card surface — themed gradient, hairline highlight, tinted shadow ── */
+.surface-card {
+  background: var(--card-surface);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-highlight), var(--shadow-card);
+}
+.surface-card-strong {
+  background: var(--card-surface);
+  border: 1px solid var(--card-border-strong);
+  box-shadow: var(--card-highlight), var(--shadow-card-lg);
+}
+
 /* ── Card lift ── */
 .card-lift {
   transition:
-    transform 0.5s var(--ease-expo-out),
-    box-shadow 0.5s var(--ease-expo-out);
+    transform 0.45s var(--ease-expo-out),
+    box-shadow 0.45s var(--ease-expo-out),
+    border-color 0.45s var(--ease-expo-out);
 }
 .card-lift:hover {
   transform: translateY(-4px);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+  border-color: var(--card-border-strong);
+  box-shadow: var(--card-highlight), var(--shadow-card-lg);
 }
 
 /* ── Mobile menu overlay ── */
@@ -487,6 +560,7 @@
   .animate-fade-up,
   .animate-slide-row,
   .animate-float,
+  .atmosphere-glow,
   .scroll-chevron {
     animation: none;
     opacity: 1;

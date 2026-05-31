@@ -35,30 +35,17 @@ export function TeamsHero({ theme }: { theme: ThemeColors }) {
   return (
     <div className="relative flex flex-col items-center">
       <div
-        className="pointer-events-none absolute font-display leading-none"
-        style={{
-          fontSize: 'clamp(100px, 35vw, 360px)',
-          color: `${theme.accent}04`,
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          letterSpacing: '-0.02em',
-          userSelect: 'none',
-        }}
-        data-parallax-layer="bg">
-        SQUAD
-      </div>
-
-      <div
         className="relative font-display leading-none"
         data-parallax-layer="mid"
         style={{
           fontSize: 'clamp(100px, 30vw, 280px)',
+          letterSpacing: '-0.03em',
+          textShadow: `0 0 72px ${theme.accent}33`,
           ...(shimmerDone
-            ? { color: theme.accent, transition: 'color 0.6s ease' }
+            ? { color: 'var(--color-fg)', transition: 'color 0.6s ease' }
             : settled
               ? {
-                  background: `linear-gradient(90deg, ${theme.accent}55, ${theme.accent}, ${theme.accent}55)`,
+                  background: `linear-gradient(90deg, ${theme.accent}66, var(--color-fg), ${theme.accent}66)`,
                   backgroundSize: '200% 100%',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
@@ -70,10 +57,22 @@ export function TeamsHero({ theme }: { theme: ThemeColors }) {
       </div>
 
       <div
-        className="relative mt-2 font-heading text-[11px] font-semibold uppercase tracking-[6px] md:mt-3 md:text-sm md:tracking-[8px]"
-        style={{ color: `${theme.accent}35`, animation: 'hero-fade-in 0.7s ease 1.5s both' }}
-        data-parallax-layer="front">
-        NATIONS · 1 LEGEND
+        className="mt-3 flex items-center gap-3 self-start md:mt-4"
+        data-parallax-layer="front"
+        style={{ animation: 'hero-fade-in 0.7s ease 1.5s both' }}>
+        <span
+          className="block h-0.75 w-10 md:w-16"
+          style={{
+            background: theme.accent,
+            animation: 'line-draw 0.9s var(--ease-emphasized) 1.5s both',
+            transformOrigin: 'left',
+          }}
+        />
+        <span
+          className="font-heading text-[10px] font-semibold uppercase md:text-xs"
+          style={{ color: 'var(--color-fg-muted)', letterSpacing: '0.32em' }}>
+          48 Nations · 12 Squads
+        </span>
       </div>
     </div>
   );

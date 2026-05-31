@@ -27,10 +27,14 @@ export function Podium({ top3, theme }: PodiumProps) {
               style={{
                 order: order[i],
                 height: heights[i],
-                background: theme.card,
-                border: i === 0 ? `3px solid ${theme.accent}` : `1.5px solid ${theme.accent}18`,
+                background: 'var(--card-surface)',
+                border: i === 0 ? `2px solid ${theme.accent}` : '1px solid var(--card-border)',
                 borderRadius: 18,
                 padding: '22px 14px 18px',
+                boxShadow:
+                  i === 0
+                    ? 'var(--card-highlight), var(--shadow-card-lg), var(--shadow-accent)'
+                    : 'var(--card-highlight), var(--shadow-card)',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -62,6 +66,7 @@ export function Podium({ top3, theme }: PodiumProps) {
                   style={{
                     fontSize: i === 0 ? 56 : 40,
                     color: i === 0 ? theme.accent : `${theme.accent}44`,
+                    fontVariantNumeric: 'tabular-nums',
                   }}>
                   {p.pts}
                 </div>
@@ -90,8 +95,12 @@ export function Podium({ top3, theme }: PodiumProps) {
               key={p.name}
               className="flex items-center gap-4 rounded-2xl px-4 py-4"
               style={{
-                background: theme.card,
-                border: i === 0 ? `2px solid ${theme.accent}` : `1px solid ${theme.accent}12`,
+                background: 'var(--card-surface)',
+                border: i === 0 ? `2px solid ${theme.accent}` : '1px solid var(--card-border)',
+                boxShadow:
+                  i === 0
+                    ? 'var(--card-highlight), var(--shadow-card), var(--shadow-accent)'
+                    : 'var(--card-highlight), var(--shadow-card)',
               }}>
               <div
                 className="font-display flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs"
@@ -116,7 +125,11 @@ export function Podium({ top3, theme }: PodiumProps) {
               </div>
               <div
                 className="font-display text-right"
-                style={{ fontSize: 36, color: i === 0 ? theme.accent : `${theme.accent}44` }}>
+                style={{
+                  fontSize: 36,
+                  color: i === 0 ? theme.accent : `${theme.accent}44`,
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
                 {p.pts}
               </div>
             </div>

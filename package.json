@@ -10,6 +10,7 @@
     "build": "next build",
     "build:analyze": "ANALYZE=true next build",
     "draft:status": "node scripts/draft-smoke.mjs status",
+    "gen:image": "node scripts/gen-image.mjs",
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -33,6 +34,7 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@google/genai": "^2.7.0",
     "@next/bundle-analyzer": "^16.2.4",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",

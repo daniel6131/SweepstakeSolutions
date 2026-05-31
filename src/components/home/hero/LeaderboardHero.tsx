@@ -4,54 +4,45 @@ import { SplitChars } from './primitives/SplitChars';
 export function LeaderboardHero({ theme }: { theme: ThemeColors }) {
   return (
     <div className="relative flex flex-col items-center">
-      <div
-        className="pointer-events-none absolute font-display leading-none"
-        style={{
-          fontSize: 'clamp(120px, 40vw, 400px)',
-          color: `${theme.accent}04`,
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          letterSpacing: '-0.04em',
-          userSelect: 'none',
-        }}
-        data-parallax-layer="bg">
-        2026
-      </div>
-
-      <div className="relative overflow-visible py-3 md:py-4" data-parallax-layer="mid">
+      {/* Headline — solid foreground statement with an accent halo.
+          Filled (not thin-outline) and near-white, so it reads against the
+          themed ground instead of disappearing into accent-on-accent. */}
+      <div className="relative py-2 md:py-3" data-parallax-layer="mid">
         <SplitChars
           text="GLORY"
-          className="font-display tracking-[-0.04em]"
+          className="font-display tracking-[-0.05em]"
           stagger={0.07}
-          delay={0.35}
-          duration="1.1s"
+          delay={0.3}
+          duration="1.05s"
           charStyle={{
-            fontSize: 'clamp(90px, 24vw, 240px)',
-            lineHeight: '0.85',
-            WebkitTextStroke: `2px ${theme.accent}`,
-            WebkitTextFillColor: 'transparent',
-            color: 'transparent',
+            fontSize: 'clamp(96px, 26vw, 260px)',
+            lineHeight: '0.82',
+            color: 'var(--color-fg)',
+            textShadow: `0 0 64px ${theme.accent}33`,
           }}
         />
       </div>
 
+      {/* Asymmetric base rule — a solid accent bar pinned left (not the generic
+          fade-to-transparent-both-ends line) with a specific, non-filler label. */}
       <div
-        className="relative font-heading text-[11px] font-semibold uppercase tracking-[6px] md:text-sm md:tracking-[8px]"
-        style={{ color: `${theme.accent}35`, animation: 'hero-fade-in 0.8s ease 1.1s both' }}
-        data-parallax-layer="front">
-        AWAITS
-      </div>
-
-      <div
-        className="mx-auto mt-4 h-px w-16 md:mt-5 md:w-28"
-        style={{
-          background: `linear-gradient(90deg, transparent, ${theme.accent}60, transparent)`,
-          animation: 'line-draw 1s var(--ease-emphasized) 1s both',
-          transformOrigin: 'center',
-        }}
+        className="mt-2 flex items-center gap-3 self-start md:mt-3"
         data-parallax-layer="front"
-      />
+        style={{ animation: 'hero-fade-in 0.8s ease 1s both' }}>
+        <span
+          className="block h-0.75 w-10 md:w-16"
+          style={{
+            background: theme.accent,
+            animation: 'line-draw 0.9s var(--ease-emphasized) 1s both',
+            transformOrigin: 'left',
+          }}
+        />
+        <span
+          className="font-heading text-[10px] font-semibold uppercase md:text-xs"
+          style={{ color: 'var(--color-fg-muted)', letterSpacing: '0.32em' }}>
+          12 Players · 48 Nations
+        </span>
+      </div>
     </div>
   );
 }

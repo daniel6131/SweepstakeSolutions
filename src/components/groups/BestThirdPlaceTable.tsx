@@ -1,7 +1,7 @@
 import { Flag } from '@/components/ui/Flag';
-import { StatTile } from '@/components/ui/StatTile';
 import type { ThirdPlaceSummary } from '@/lib/knockout';
 import type { ThemeColors } from '@/types';
+import { Fragment } from 'react';
 
 type Props = {
   rows: ThirdPlaceSummary[];
@@ -10,6 +10,9 @@ type Props = {
   totalGroups: number;
   theme: ThemeColors;
 };
+
+const QUALIFY_COUNT = 8;
+const COLS = '34px minmax(0,1fr) 52px 44px 48px';
 
 export function BestThirdPlaceTable({
   rows,
@@ -20,173 +23,135 @@ export function BestThirdPlaceTable({
 }: Props) {
   return (
     <section
-      className="overflow-hidden rounded-[24px] md:rounded-[28px]"
-      style={{
-        background: `linear-gradient(180deg, ${theme.card} 0%, ${theme.card}f0 100%)`,
-        border: `1.5px solid ${theme.accent}12`,
-      }}
+      className="surface-card overflow-hidden rounded-[24px] md:rounded-[28px]"
+      style={{ fontVariantNumeric: 'tabular-nums' }}
       data-reveal>
+      {/* Header */}
       <div
-        className="flex flex-col gap-4 px-4 py-4 md:px-5 md:py-5"
+        className="flex flex-col gap-5 px-4 py-5 md:flex-row md:items-end md:justify-between md:px-6"
         style={{
-          background: `linear-gradient(135deg, ${theme.accent}12 0%, ${theme.accent2}08 100%)`,
-          borderBottom: `1px solid ${theme.accent}0d`,
+          background: `radial-gradient(120% 140% at 100% 0%, ${theme.accent}16 0%, transparent 50%)`,
+          borderBottom: '1px solid var(--card-border)',
         }}>
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div className="max-w-2xl">
-            <div className="overline mb-2" style={{ color: `${theme.accent}70`, opacity: 1 }}>
-              LIVE RANKING
-            </div>
-            <h3
-              className="font-display text-[28px] leading-none tracking-[-0.04em] md:text-[34px]"
-              style={{ color: theme.accent }}>
-              Best 3rd Place Tracker
-            </h3>
-            <p className="mt-2 max-w-xl text-sm leading-6" style={{ color: `${theme.accent}90` }}>
-              The top eight third-placed teams qualify for the Round of 32.
-            </p>
+        <div>
+          <div
+            className="font-heading mb-2 text-[10px] font-bold tracking-[3px] uppercase"
+            style={{ color: `${theme.accent}70` }}>
+            Live Race
           </div>
-
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <StatTile label="In qualification spots" value="8" />
-            <StatTile label="Groups complete" value={`${completedGroups}/${totalGroups}`} />
-            <StatTile label="Status" value={completedGroups === totalGroups ? 'Locked' : 'Live'} />
+          <h3
+            className="font-display text-[28px] leading-none tracking-[-0.03em] md:text-[38px]"
+            style={{ color: 'var(--color-fg)' }}>
+            Best 3rd-place race
+          </h3>
+        </div>
+        <div className="flex items-center gap-7 md:gap-9">
+          <div>
+            <div
+              className="font-display text-[30px] leading-none tabular-nums md:text-[38px]"
+              style={{ color: theme.accent }}>
+              8
+            </div>
+            <div
+              className="font-heading mt-1.5 text-[9px] font-bold tracking-[2px] uppercase"
+              style={{ color: `${theme.accent}55` }}>
+              Advance
+            </div>
+          </div>
+          <div className="h-9 w-px" style={{ background: `${theme.accent}22` }} />
+          <div>
+            <div
+              className="font-display text-[30px] leading-none tabular-nums md:text-[38px]"
+              style={{ color: theme.accent }}>
+              {completedGroups}
+              <span style={{ color: `${theme.accent}40` }}>/{totalGroups}</span>
+            </div>
+            <div
+              className="font-heading mt-1.5 text-[9px] font-bold tracking-[2px] uppercase"
+              style={{ color: `${theme.accent}55` }}>
+              Groups in
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Column header */}
       <div
-        className="font-heading hidden px-4 py-2 text-[9px] font-bold uppercase tracking-[2px] md:grid"
-        style={{
-          gridTemplateColumns: '44px minmax(0,1fr) 56px 44px 44px 44px 118px',
-          borderBottom: `1px solid ${theme.accent}08`,
-          color: `${theme.accent}34`,
-        }}>
-        <span className="flex items-center justify-center">#</span>
-        <span className="flex items-center">Team</span>
-        <span className="flex items-center justify-center">Grp</span>
-        <span className="flex items-center justify-center">Pts</span>
-        <span className="flex items-center justify-center">GD</span>
-        <span className="flex items-center justify-center">GF</span>
-        <span className="flex items-center justify-end text-right">Status</span>
+        className="font-heading grid items-center gap-2 px-4 py-2.5 text-[8px] font-bold tracking-[1.5px] uppercase md:px-6"
+        style={{ gridTemplateColumns: COLS, color: `${theme.accent}40` }}>
+        <span>#</span>
+        <span>Team</span>
+        <span className="text-center">Grp</span>
+        <span className="text-center">GD</span>
+        <span className="text-right">Pts</span>
       </div>
 
-      <div className="divide-y" style={{ borderColor: `${theme.accent}08` }}>
-        {rows.map((row, index) => {
-          const rank = index + 1;
-          const qualified = row.qualified;
-          const statusLabel = qualified ? 'Qualified line' : 'Outside';
-          const statusTone = qualified ? theme.accent : `${theme.accent}66`;
-
-          return (
+      {/* Rows + qualification cutoff */}
+      {rows.map((row, i) => {
+        const rank = i + 1;
+        const qualified = i < QUALIFY_COUNT;
+        const showCutoff = i === QUALIFY_COUNT - 1 && rows.length > QUALIFY_COUNT;
+        return (
+          <Fragment key={row.group}>
             <div
-              key={row.group}
-              className="px-4 py-3 md:px-5 md:py-0"
+              className="row-hover grid items-center gap-2 px-4 py-3 md:px-6"
               style={{
-                background: qualified ? `${theme.accent}05` : 'transparent',
+                gridTemplateColumns: COLS,
+                boxShadow: qualified ? 'inset 3px 0 0 0 var(--color-accent)' : undefined,
+                background: qualified ? 'var(--color-accent-a4)' : undefined,
+                borderTop: i > 0 ? '1px solid var(--color-accent-a8)' : undefined,
               }}>
-              <div
-                className="hidden min-h-[72px] items-center md:grid"
+              <span
+                className="font-display text-[17px]"
+                style={{ color: qualified ? theme.accent : 'var(--color-fg-subtle)' }}>
+                {rank}
+              </span>
+              <div className="flex min-w-0 items-center gap-2.5">
+                <Flag team={row.team} size={22} />
+                <div className="min-w-0">
+                  <div className="truncate text-[13px] font-semibold">{row.team}</div>
+                  <div className="truncate text-[9px]" style={{ color: `${theme.accent}48` }}>
+                    {ownerByTeam.get(row.team) ?? 'Unassigned'}
+                  </div>
+                </div>
+              </div>
+              <span className="text-center">
+                <span
+                  className="font-heading rounded px-1.5 py-0.5 text-[9px] font-bold uppercase"
+                  style={{ background: `${theme.accent}14`, color: theme.accent }}>
+                  {row.group}
+                </span>
+              </span>
+              <span
+                className="text-center text-[12px] font-semibold"
                 style={{
-                  gridTemplateColumns: '44px minmax(0,1fr) 56px 44px 44px 44px 118px',
+                  color:
+                    row.gd > 0
+                      ? 'var(--color-success)'
+                      : row.gd < 0
+                        ? 'var(--color-danger)'
+                        : 'var(--color-fg-subtle)',
                 }}>
-                <div className="flex items-center justify-center">
-                  <span
-                    className="font-display text-[20px]"
-                    style={{ color: qualified ? theme.accent : `${theme.accent}82` }}>
-                    {rank}
-                  </span>
-                </div>
-
-                <div className="flex min-w-0 items-center gap-3">
-                  <Flag team={row.team} size={22} />
-                  <div className="min-w-0">
-                    <div className="truncate text-[13px] font-semibold">{row.team}</div>
-                    <div className="truncate text-[9px]" style={{ color: `${theme.accent}42` }}>
-                      {ownerByTeam.get(row.team) ?? 'Unassigned'}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-center">
-                  <span
-                    className="font-heading rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-[2px]"
-                    style={{
-                      background: `${theme.accent}10`,
-                      color: theme.accent,
-                      border: `1px solid ${theme.accent}15`,
-                    }}>
-                    {row.group}
-                  </span>
-                </div>
-
-                {[row.pts, row.gd > 0 ? `+${row.gd}` : row.gd, row.gf].map((value, valueIndex) => (
-                  <div key={valueIndex} className="flex items-center justify-center">
-                    <span className="text-center text-[13px]" style={{ color: 'var(--color-fg)' }}>
-                      {value}
-                    </span>
-                  </div>
-                ))}
-
-                <div className="flex flex-col items-end justify-center text-right">
-                  <span
-                    className="font-heading rounded-full px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-[2px]"
-                    style={{
-                      background: `${statusTone}12`,
-                      color: statusTone,
-                      border: `1px solid ${statusTone}24`,
-                    }}>
-                    {statusLabel}
-                  </span>
-                  <div className="mt-1 text-[9px]" style={{ color: `${theme.accent}40` }}>
-                    {row.status === 'confirmed' ? 'Group complete' : 'Projection'}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3 md:hidden">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div
-                      className="font-display flex h-9 w-9 items-center justify-center rounded-full text-[18px]"
-                      style={{
-                        background: qualified ? `${theme.accent}14` : `${theme.accent}0a`,
-                        color: qualified ? theme.accent : `${theme.accent}82`,
-                      }}>
-                      {rank}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <Flag team={row.team} size={20} />
-                        <div className="truncate text-[13px] font-semibold">{row.team}</div>
-                      </div>
-                      <div className="mt-1 text-[9px]" style={{ color: `${theme.accent}42` }}>
-                        Group {row.group} · {ownerByTeam.get(row.team) ?? 'Unassigned'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <span
-                    className="font-heading rounded-full px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-[2px]"
-                    style={{
-                      background: `${statusTone}12`,
-                      color: statusTone,
-                      border: `1px solid ${statusTone}24`,
-                    }}>
-                    {qualified ? 'In' : 'Out'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <StatTile label="Pts" value={row.pts} />
-                  <StatTile label="GD" value={row.gd > 0 ? `+${row.gd}` : row.gd} />
-                  <StatTile label="GF" value={row.gf} />
-                </div>
-              </div>
+                {row.gd > 0 ? `+${row.gd}` : row.gd}
+              </span>
+              <span
+                className="font-display text-right text-[20px]"
+                style={{ color: row.pts > 0 ? theme.accent : 'var(--color-fg-subtle)' }}>
+                {row.pts}
+              </span>
             </div>
-          );
-        })}
-      </div>
+            {showCutoff ? (
+              <div
+                className="font-heading flex items-center gap-3 px-4 py-2 text-[8px] font-bold tracking-[2px] uppercase md:px-6"
+                style={{ background: `${theme.accent}0a`, color: `${theme.accent}70` }}>
+                <span className="h-px flex-1" style={{ background: `${theme.accent}2a` }} />
+                <span className="shrink-0">Qualification cutoff · top 8 advance</span>
+                <span className="h-px flex-1" style={{ background: `${theme.accent}2a` }} />
+              </div>
+            ) : null}
+          </Fragment>
+        );
+      })}
     </section>
   );
 }

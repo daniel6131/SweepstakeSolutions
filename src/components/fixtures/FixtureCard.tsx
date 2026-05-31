@@ -16,10 +16,15 @@ export function FixtureCard({ fixture: f, theme, timeZone }: Props) {
 
   return (
     <div
-      className="card-lift overflow-hidden rounded-xl md:rounded-2xl"
+      className="surface-card card-lift overflow-hidden rounded-xl md:rounded-2xl"
       style={{
-        background: theme.card,
-        border: hasScore ? `2px solid ${theme.accent}35` : `1.5px solid ${theme.accent}0D`,
+        fontVariantNumeric: 'tabular-nums',
+        ...(hasScore
+          ? {
+              border: `2px solid ${theme.accent}55`,
+              boxShadow: 'var(--card-highlight), var(--shadow-card), var(--shadow-accent)',
+            }
+          : {}),
       }}
       data-reveal>
       {/* Top bar */}
