@@ -363,6 +363,22 @@
   }
 }
 
+/* Group "draw" lock — each letter snaps into place with a quick flash */
+@keyframes badge-lock {
+  0% {
+    transform: scale(1.18);
+    box-shadow:
+      var(--card-highlight),
+      0 0 22px 2px var(--color-accent);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow:
+      var(--card-highlight),
+      0 0 0 0 transparent;
+  }
+}
+
 @keyframes text-shimmer {
   0% {
     background-position: 200% center;
