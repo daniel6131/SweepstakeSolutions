@@ -12,8 +12,15 @@ import { LeaderboardTab } from '@/components/leaderboard/LeaderboardTab';
 import { THEMES } from '@/data/themes';
 import type { SweepstakeData } from '@/lib/load-data';
 import { mockLeaderboard } from '@/lib/mock-leaderboard'; // TEMP: ?demo preview
-import { useSmoothScroll } from '@/lib/use-smooth-scroll';
+import { getLenis, useSmoothScroll } from '@/lib/use-smooth-scroll';
 import type { TabKey } from '@/types';
+
+/** Jump to the top via Lenis when it owns scroll (native scrollTo gets reverted). */
+function scrollPageToTop() {
+  const lenis = getLenis();
+  if (lenis) lenis.scrollTo(0, { immediate: true });
+  else window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+}
 
 // Non-initial tabs dynamic-imported — keeps bundle lean for Leaderboard-only sessions.
 const FixturesTab = dynamic(() =>
@@ -145,7 +152,7 @@ export default function HomeClient({ data }: Props) {
         // Instant switch — no animation
         setMenuOpen(false);
         document.body.style.overflow = '';
-        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+        scrollPageToTop();
         document.documentElement.setAttribute('data-theme', newTab.toLowerCase());
         setTab(newTab);
         return;
@@ -168,7 +175,7 @@ export default function HomeClient({ data }: Props) {
         onComplete: () => {
           setMenuOpen(false);
           document.body.style.overflow = '';
-          window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+          scrollPageToTop();
           document.documentElement.setAttribute('data-theme', newTab.toLowerCase());
           setTab(newTab);
 

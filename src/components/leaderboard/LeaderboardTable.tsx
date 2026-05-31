@@ -52,7 +52,13 @@ export function LeaderboardTable({ entries, theme }: Props) {
         const isLeader = !preTournament && i === 0;
         const ratio = maxPts > 0 ? p.pts / maxPts : 0;
         const behind = maxPts - p.pts;
-        const gapLabel = preTournament ? '—' : isLeader ? 'LEADER' : `−${behind}`;
+        const gapLabel = preTournament
+          ? '—'
+          : isLeader
+            ? 'LEADER'
+            : behind === 0
+              ? 'LEVEL'
+              : `−${behind}`;
         const rankColor = i < 3 ? theme.accent : 'var(--color-fg-subtle)';
 
         return (

@@ -7,6 +7,7 @@ import type {
 } from '@/lib/knockout';
 import type { ThemeColors } from '@/types';
 import { Trophy } from 'lucide-react';
+import { useId } from 'react';
 
 type Props = {
   bracket: ProjectedKnockoutBracket;
@@ -292,6 +293,7 @@ function ChampionCard({
 }
 
 export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
+  const flowId = useId();
   const { positionedRounds, height } = buildDesktopLayout(bracket.rounds);
   const qualifiedThirdPlacedTeams = bracket.thirdPlaceStandings.filter((entry) => entry.qualified);
 
@@ -443,7 +445,7 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
               fill="none"
               aria-hidden="true">
               <defs>
-                <linearGradient id="ko-flow" x1="0" y1="0" x2="1" y2="0">
+                <linearGradient id={flowId} x1="0" y1="0" x2="1" y2="0">
                   <stop offset="0%" stopColor={`${theme.accent}38`} />
                   <stop offset="55%" stopColor={`${theme.accent}80`} />
                   <stop offset="100%" stopColor={theme.accent} />
@@ -484,14 +486,14 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
                     <path
                       key={`t-${k}`}
                       d={dTop}
-                      stroke="url(#ko-flow)"
+                      stroke={`url(#${flowId})`}
                       strokeWidth={2}
                       strokeLinecap="round"
                     />,
                     <path
                       key={`b-${k}`}
                       d={dBot}
-                      stroke="url(#ko-flow)"
+                      stroke={`url(#${flowId})`}
                       strokeWidth={2}
                       strokeLinecap="round"
                     />,

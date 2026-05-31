@@ -46,7 +46,9 @@ export function useSmoothScroll() {
         lenis.off('scroll', ScrollTrigger.update);
         lenis.destroy();
         lenisRef.current = null;
-        activeLenis = null;
+        // Only clear if we still own the slot — a fast remount may have already
+        // installed a newer instance (e.g. React Strict Mode double-invoke).
+        if (activeLenis === lenis) activeLenis = null;
       };
     });
 
