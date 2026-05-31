@@ -24,17 +24,18 @@ const PADDING_CLASS: Record<NonNullable<CardProps['padding']>, string> = {
 
 const VARIANT_STYLE: Record<CardVariant, React.CSSProperties> = {
   surface: {
-    background: 'var(--color-surface)',
-    border: '1px solid rgba(255,255,255,0.06)',
+    background: 'var(--card-surface)',
+    border: '1px solid var(--card-border)',
+    boxShadow: 'var(--card-highlight), var(--shadow-card)',
   },
   raised: {
-    background: 'var(--color-surface)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    boxShadow: 'var(--shadow-md)',
+    background: 'var(--card-surface)',
+    border: '1px solid var(--card-border-strong)',
+    boxShadow: 'var(--card-highlight), var(--shadow-card-lg)',
   },
   outline: {
     background: 'transparent',
-    border: '1px solid rgba(255,255,255,0.1)',
+    border: '1px solid var(--card-border)',
   },
 };
 
@@ -51,7 +52,7 @@ export function Card<T extends ElementType = 'div'>({
   const Tag = (as ?? 'div') as ElementType;
   const paddingClass = PADDING_CLASS[padding];
   const interactiveClass = interactive
-    ? 'cursor-pointer transition-transform duration-300 hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2'
+    ? 'card-lift cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2'
     : '';
 
   return (
