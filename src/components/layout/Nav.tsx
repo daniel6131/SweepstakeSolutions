@@ -20,6 +20,10 @@ export function Nav({ activeTab, onTabChange, theme, menuOpen, setMenuOpen }: Na
   const hamburgerRef = useRef<HTMLButtonElement>(null);
   const firstMenuItemRef = useRef<HTMLButtonElement>(null);
   const lastMenuItemRef = useRef<HTMLButtonElement>(null);
+  const tabRefs = useRef<Partial<Record<TabKey, HTMLButtonElement | null>>>({});
+  const pillRef = useRef<HTMLSpanElement>(null);
+  const firstPillMove = useRef(true);
+  const [hovered, setHovered] = useState<TabKey | null>(null);
 
   // Lock body scroll when menu open
   useEffect(() => {
@@ -61,6 +65,37 @@ export function Nav({ activeTab, onTabChange, theme, menuOpen, setMenuOpen }: Na
     [setMenuOpen]
   );
 
+  // Slide the indicator pill to a tab's box (DOM-direct so React re-renders
+  // don't clobber it; the first move snaps without animating).
+  const movePill = useCallback((tab: TabKey) => {
+    const btn = tabRefs.current[tab];
+    const pill = pillRef.current;
+    if (!btn || !pill) return;
+    if (firstPillMove.current) pill.style.transition = 'none';
+    pill.style.width = `${btn.offsetWidth}px`;
+    pill.style.height = `${btn.offsetHeight}px`;
+    pill.style.transform = `translate(${btn.offsetLeft}px, -50%)`;
+    pill.style.opacity = '1';
+    if (firstPillMove.current) {
+      void pill.offsetWidth; // reflow before re-enabling the slide transition
+      pill.style.transition = '';
+      firstPillMove.current = false;
+    }
+  }, []);
+
+  // Pill follows the hovered tab, or rests on the active one.
+  useEffect(() => {
+    const target = hovered ?? activeTab;
+    movePill(target);
+    void document.fonts?.ready.then(() => movePill(target));
+  }, [hovered, activeTab, movePill]);
+
+  useEffect(() => {
+    const onResize = () => movePill(hovered ?? activeTab);
+    window.addEventListener('resize', onResize, { passive: true });
+    return () => window.removeEventListener('resize', onResize);
+  }, [hovered, activeTab, movePill]);
+
   const handleDesktopSelect = (tab: TabKey) => {
     onTabChange(tab);
   };
@@ -96,30 +131,34 @@ export function Nav({ activeTab, onTabChange, theme, menuOpen, setMenuOpen }: Na
             WC 2026
           </div>
 
-          {/* Desktop tab list */}
-          <div role="tablist" aria-label="View" className="hidden items-center gap-1 md:flex">
+          {/* Desktop tab list — bold sliding knockout block */}
+          <div role="tablist" aria-label="View" className="relative hidden items-center md:flex">
+            <span
+              ref={pillRef}
+              aria-hidden="true"
+              className="nav-indicator pointer-events-none absolute top-1/2 left-0 opacity-0"
+              style={{
+                background: theme.accent,
+                clipPath: 'polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%)',
+                filter: `drop-shadow(0 4px 16px ${theme.accent}66)`,
+              }}
+            />
             {TABS.map((tab) => {
-              const active = activeTab === tab;
-              const t = THEMES[tab];
+              const lit = tab === (hovered ?? activeTab);
               return (
                 <button
                   key={tab}
+                  ref={(el) => {
+                    tabRefs.current[tab] = el;
+                  }}
                   role="tab"
-                  aria-selected={active}
+                  aria-selected={activeTab === tab}
                   onClick={() => handleDesktopSelect(tab)}
-                  className="font-heading group relative cursor-pointer px-4 py-2 text-[12px] font-semibold uppercase tracking-[2.5px] transition-colors duration-300"
-                  style={{ color: active ? t.accent : 'var(--color-fg-subtle)' }}>
+                  onPointerEnter={() => setHovered(tab)}
+                  onPointerLeave={() => setHovered(null)}
+                  className="font-heading relative z-10 cursor-pointer px-4 py-2 text-[12px] font-bold uppercase tracking-[2.5px] transition-colors duration-200"
+                  style={{ color: lit ? theme.bg : 'var(--color-fg-subtle)' }}>
                   {tab}
-                  <span
-                    className="absolute bottom-0 left-1/2 h-0.5 -translate-x-1/2 rounded-full transition-all duration-500"
-                    style={{
-                      width: active ? '60%' : '0%',
-                      background: t.accent,
-                      opacity: active ? 1 : 0,
-                      transitionTimingFunction: 'cubic-bezier(0.19, 1, 0.22, 1)',
-                    }}
-                    aria-hidden="true"
-                  />
                 </button>
               );
             })}
