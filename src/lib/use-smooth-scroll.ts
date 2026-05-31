@@ -7,6 +7,16 @@ import { useEffect, useRef } from 'react';
 
 gsap.registerPlugin(ScrollTrigger);
 
+/**
+ * Module-level handle to the active Lenis instance so non-hook code (e.g.
+ * anchor jumps) can drive smooth scroll. Lenis owns the scroll position, so
+ * native window.scrollTo gets reverted on the next frame — use this instead.
+ */
+let activeLenis: Lenis | null = null;
+export function getLenis(): Lenis | null {
+  return activeLenis;
+}
+
 export function useSmoothScroll() {
   const lenisRef = useRef<Lenis | null>(null);
 
@@ -22,6 +32,7 @@ export function useSmoothScroll() {
       });
 
       lenisRef.current = lenis;
+      activeLenis = lenis;
 
       // Bridge Lenis to GSAP ticker — let the GSAP ticker drive Lenis RAF.
       // This keeps Lenis and ScrollTrigger in sync on the same frame.
@@ -35,6 +46,7 @@ export function useSmoothScroll() {
         lenis.off('scroll', ScrollTrigger.update);
         lenis.destroy();
         lenisRef.current = null;
+        activeLenis = null;
       };
     });
 

@@ -6,6 +6,7 @@ import { NationMarquee } from '@/components/fixtures/NationMarquee';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import type { ProjectedKnockoutBracket } from '@/lib/knockout';
 import { getFixtureDisplayParts, getFixtureSortTimestamp } from '@/lib/match-time';
+import { getLenis } from '@/lib/use-smooth-scroll';
 import type { Fixture, GroupId, Participant, ThemeColors, TournamentGroups } from '@/types';
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
 import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -23,13 +24,17 @@ function scrollToFixtureDay(id: string) {
   if (!target) return;
 
   const navOffset = window.innerWidth >= 768 ? 96 : 84;
-  const top = target.getBoundingClientRect().top + window.scrollY - navOffset;
-
   window.history.replaceState(null, '', `#${id}`);
-  window.scrollTo({
-    top: Math.max(0, top),
-    behavior: 'smooth',
-  });
+
+  // Lenis owns the scroll position — native scrollTo gets reverted next frame.
+  const lenis = getLenis();
+  if (lenis) {
+    lenis.scrollTo(target, { offset: -navOffset });
+    return;
+  }
+
+  const top = target.getBoundingClientRect().top + window.scrollY - navOffset;
+  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
 }
 
 export function FixturesTab({ fixtures, bracket, groups, participants, theme }: Props) {
@@ -40,6 +45,8 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
     startX: 0,
     startScrollLeft: 0,
     moved: false,
+    pointerId: -1,
+    captured: false,
   });
   const [dateRailDragging, setDateRailDragging] = useState(false);
   const timeZone = useSyncExternalStore(
@@ -99,36 +106,57 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
     const rail = dateRailRef.current;
     if (!rail) return;
 
-    event.currentTarget.setPointerCapture(event.pointerId);
+    // Do NOT capture the pointer here — capturing on pointerdown swallows the
+    // button's click event. We only capture once an actual drag begins.
     dragStateRef.current = {
       active: true,
       startX: event.clientX,
       startScrollLeft: rail.scrollLeft,
       moved: false,
+      pointerId: event.pointerId,
+      captured: false,
     };
-    setDateRailDragging(true);
   }
 
   function handleDateRailPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
     const rail = dateRailRef.current;
-    const dragState = dragStateRef.current;
-    if (!rail || !dragState.active) return;
+    const drag = dragStateRef.current;
+    if (!rail || !drag.active) return;
 
-    const deltaX = event.clientX - dragState.startX;
-    if (Math.abs(deltaX) > 3) {
-      dragState.moved = true;
+    const deltaX = event.clientX - drag.startX;
+    if (!drag.moved && Math.abs(deltaX) > 6) {
+      drag.moved = true;
+      setDateRailDragging(true);
+      try {
+        event.currentTarget.setPointerCapture(drag.pointerId);
+        drag.captured = true;
+      } catch {
+        // setPointerCapture can throw if the pointer is no longer active
+      }
     }
 
-    rail.scrollLeft = dragState.startScrollLeft - deltaX;
-    event.preventDefault();
+    if (drag.moved) {
+      rail.scrollLeft = drag.startScrollLeft - deltaX;
+      event.preventDefault();
+    }
   }
 
-  function handleDateRailPointerUp() {
-    dragStateRef.current.active = false;
+  function handleDateRailPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    const drag = dragStateRef.current;
+    drag.active = false;
+    if (drag.captured) {
+      try {
+        event.currentTarget.releasePointerCapture(drag.pointerId);
+      } catch {
+        // releasing an inactive pointer throws; safe to ignore
+      }
+      drag.captured = false;
+    }
+    setDateRailDragging(false);
+    // Reset moved after the click event fires so a drag doesn't trigger a jump.
     window.setTimeout(() => {
       dragStateRef.current.moved = false;
     }, 0);
-    setDateRailDragging(false);
   }
 
   function handleDateRailWheel(event: ReactWheelEvent<HTMLDivElement>) {
@@ -191,7 +219,7 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
           <div className="mb-8 md:mb-10" data-reveal>
             <div
               ref={dateRailRef}
-              className={`-mx-5 overflow-x-auto px-5 pb-2 md:mx-0 md:px-0 ${
+              className={`overflow-x-auto rounded-full select-none ${
                 dateRailDragging ? 'cursor-grabbing' : 'cursor-grab'
               }`}
               data-lenis-prevent
@@ -203,20 +231,17 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
               onPointerCancel={handleDateRailPointerUp}
               onWheel={handleDateRailWheel}
               style={{
+                background: `${theme.accent}06`,
+                border: `1px solid ${theme.accent}10`,
                 scrollbarWidth: 'none',
                 WebkitOverflowScrolling: 'touch',
                 overscrollBehaviorX: 'contain',
                 overflowY: 'hidden',
                 touchAction: 'pan-x',
               }}>
-              <div
-                className="mx-auto inline-flex w-max shrink-0 items-center gap-2 rounded-full px-3 py-2 select-none md:gap-3 md:px-4"
-                style={{
-                  background: `${theme.accent}06`,
-                  border: `1px solid ${theme.accent}10`,
-                }}>
+              <div className="flex min-w-full items-center justify-between gap-1 px-3 py-2 md:gap-1.5 md:px-4">
                 <span
-                  className="font-heading shrink-0 text-[9px] font-bold uppercase tracking-[3px] md:text-[10px]"
+                  className="font-heading shrink-0 pr-1 text-[9px] font-bold uppercase tracking-[3px] md:text-[10px]"
                   style={{ color: `${theme.accent}45` }}>
                   Jump to
                 </span>
@@ -231,11 +256,8 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
                       }
                       scrollToFixtureDay(`fixtures-day-${index + 1}`);
                     }}
-                    className="font-heading shrink-0 cursor-pointer rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[2px] transition-colors duration-300 md:px-2.5 md:text-[11px]"
-                    style={{
-                      color: `${theme.accent}78`,
-                      background: 'transparent',
-                    }}>
+                    className="font-heading shrink-0 cursor-pointer rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[1.5px] transition-colors duration-200 md:px-2.5 md:text-[11px]"
+                    style={{ color: `${theme.accent}78`, background: 'transparent' }}>
                     {dateLabel}
                     <span style={{ color: `${theme.accent}45` }}> · {fixtures.length}</span>
                   </button>
