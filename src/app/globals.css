@@ -526,6 +526,17 @@
   box-shadow: var(--card-highlight), var(--shadow-card-lg);
 }
 
+/* ── Desktop nav sliding indicator block ── */
+.nav-indicator {
+  transition:
+    transform 0.44s var(--ease-emphasized),
+    width 0.44s var(--ease-emphasized),
+    height 0.3s ease,
+    opacity 0.28s ease,
+    background 0.5s ease,
+    filter 0.5s ease;
+}
+
 /* ── Mobile menu overlay ── */
 .mobile-menu-overlay {
   position: fixed;
