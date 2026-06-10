@@ -29,6 +29,12 @@ export function Flag({ team, size = 28 }: FlagProps) {
       alt={`${team} flag`}
       className="block rounded"
       style={{
+        // Pin BOTH dimensions: Tailwind Preflight's `img { height: auto }` would
+        // otherwise override the height attribute, leaving only one dimension
+        // "modified" — which trips Next's aspect-ratio warning. Pinning both
+        // keeps uniform flag tiles and lets `object-fit: cover` crop cleanly.
+        width: size,
+        height,
         objectFit: 'cover',
         boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
         border: '1px solid rgba(255,255,255,0.1)',

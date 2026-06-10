@@ -1,3 +1,8 @@
+'use client';
+
+import gsap from 'gsap';
+import { Flip } from 'gsap/dist/Flip';
+
 import { Flag } from '@/components/ui/Flag';
 import type {
   KnockoutMatch,
@@ -6,8 +11,10 @@ import type {
   ProjectedKnockoutBracket,
 } from '@/lib/knockout';
 import type { ThemeColors } from '@/types';
-import { Trophy } from 'lucide-react';
-import { useId } from 'react';
+import { ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+
+gsap.registerPlugin(Flip);
 
 type Props = {
   bracket: ProjectedKnockoutBracket;
@@ -31,6 +38,23 @@ const STAGE_OFFSET = 76;
 const CORNER = 16;
 const CHAMP_WIDTH = 232;
 const CHAMP_HEIGHT = 168;
+/** One round column's horizontal stride. */
+const COLUMN_STRIDE = CARD_WIDTH + COLUMN_GAP;
+/** Collapsed-round rail (left side) — one thin tappable column per passed round. */
+const RAIL_COL_WIDTH = 30;
+const RAIL_GAP = 6;
+/** Collapse / expand morph timing for a focus change (seconds). */
+const MORPH_DURATION = 0.42;
+/** Eased decelerate, matching the reference bracket's quick settle. */
+const MORPH_EASE = 'power2.out';
+/** Minimum horizontal wheel delta (px) that registers as an intentional step. */
+const STEP_WHEEL_DELTA = 6;
+/** Minimum horizontal swipe distance (px) for a touch step. */
+const STEP_TOUCH_DELTA = 45;
+/** Cooldown (ms) after a wheel-driven step before the next one is allowed. A
+ *  fixed window (rather than a debounce reset by every event) keeps trackpad
+ *  momentum from holding the gate shut. */
+const STEP_COOLDOWN_MS = 520;
 
 const GOLD = 'var(--color-medal-gold)';
 
@@ -40,12 +64,16 @@ function shortTeamName(team: string): string {
     .replace('Bosnia-Herzegovina', 'Bosnia & Herz.');
 }
 
-function buildDesktopLayout(rounds: KnockoutRound[]) {
+/** Position a set of rounds as a tree: the leftmost (index 0) round is evenly
+ *  spaced, every later round is centred between the pair of children feeding it.
+ *  Height is driven solely by the leftmost round's match count, so advancing the
+ *  focus (dropping leading rounds) compresses the whole tree. */
+function buildLayout(rounds: KnockoutRound[]) {
   const positionedRounds: PositionedMatch[][] = [];
   let previousCenters: number[] = [];
 
   rounds.forEach((round, roundIndex) => {
-    const x = PADDING + roundIndex * (CARD_WIDTH + COLUMN_GAP);
+    const x = PADDING + roundIndex * COLUMN_STRIDE;
     const centers =
       roundIndex === 0
         ? round.matches.map(
@@ -68,11 +96,8 @@ function buildDesktopLayout(rounds: KnockoutRound[]) {
     previousCenters = centers;
   });
 
-  const height =
-    STAGE_OFFSET +
-    PADDING * 2 +
-    rounds[0].matches.length * CARD_HEIGHT +
-    (rounds[0].matches.length - 1) * ROW_GAP;
+  const leadCount = rounds[0]?.matches.length ?? 1;
+  const height = STAGE_OFFSET + PADDING * 2 + leadCount * CARD_HEIGHT + (leadCount - 1) * ROW_GAP;
 
   return { positionedRounds, height };
 }
@@ -292,14 +317,73 @@ function ChampionCard({
   );
 }
 
+/** One collapsed (passed) round — a thin, full-height, tappable column that
+ *  promotes itself back to the leftmost focus round when clicked. */
+function RailColumn({
+  round,
+  theme,
+  onClick,
+}: {
+  round: KnockoutRound;
+  theme: ThemeColors;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Show ${round.title}`}
+      className="group flex shrink-0 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl transition-colors duration-200"
+      style={{
+        width: RAIL_COL_WIDTH,
+        background: `${theme.accent}0a`,
+        border: '1px solid var(--card-border)',
+      }}>
+      <span
+        className="font-heading text-[10px] font-bold tracking-[3px] uppercase transition-colors duration-200"
+        style={{
+          color: `${theme.accent}70`,
+          writingMode: 'vertical-rl',
+          transform: 'rotate(180deg)',
+        }}>
+        {round.shortTitle}
+      </span>
+      <ChevronRight size={13} style={{ color: `${theme.accent}55` }} aria-hidden="true" />
+    </button>
+  );
+}
+
 export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
   const flowId = useId();
-  const { positionedRounds, height } = buildDesktopLayout(bracket.rounds);
-  const qualifiedThirdPlacedTeams = bracket.thirdPlaceStandings.filter((entry) => entry.qualified);
+  const rounds = bracket.rounds;
+  const lastIndex = rounds.length - 1;
 
-  const lastRoundIndex = positionedRounds.length - 1;
-  const finalPos = positionedRounds[lastRoundIndex]?.[0];
-  const finalMatch = bracket.rounds[lastRoundIndex]?.matches[0];
+  const [focus, setFocus] = useState(0);
+
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const treeRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const flipState = useRef<ReturnType<typeof Flip.getState> | null>(null);
+  const animating = useRef(false);
+  const focusRef = useRef(0);
+  const lastIndexRef = useRef(lastIndex);
+  const reducedRef = useRef(false);
+  const heightRef = useRef(0);
+  const fromHeightRef = useRef(0);
+  const stepFocusRef = useRef<(delta: number) => void>(() => {});
+  // Snapshot of the departing round's cards (clones) captured before React
+  // removes them, so we can animate them out independently of Flip.
+  const leavingClonesRef = useRef<{ el: HTMLElement; top: number; height: number; left: number }[]>(
+    []
+  );
+
+  const visibleRounds = rounds.slice(focus);
+  const passedRounds = rounds.slice(0, focus);
+  const { positionedRounds, height } = buildLayout(visibleRounds);
+
+  const lastVisibleIndex = positionedRounds.length - 1;
+  const finalPos = positionedRounds[lastVisibleIndex]?.[0];
+  const finalMatch = rounds[lastIndex]?.matches[0];
   const championTeam =
     finalMatch?.winner === 'home'
       ? finalMatch.home.team
@@ -308,9 +392,294 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
         : null;
   const championOwner = championTeam ? (ownerByTeam.get(championTeam) ?? null) : null;
 
-  const champX = PADDING + bracket.rounds.length * (CARD_WIDTH + COLUMN_GAP);
+  const champX = PADDING + visibleRounds.length * COLUMN_STRIDE;
   const totalWidth = champX + CHAMP_WIDTH + PADDING;
   const champCenterY = finalPos ? finalPos.centerY + STAGE_OFFSET : 0;
+  const railWidth = passedRounds.length
+    ? passedRounds.length * RAIL_COL_WIDTH + (passedRounds.length - 1) * RAIL_GAP + 12
+    : 0;
+
+  // Mirror the latest committed values into refs so event handlers and the Flip
+  // effect can read them without re-subscribing listeners — and without writing
+  // refs during render (which React forbids).
+  useEffect(() => {
+    focusRef.current = focus;
+    lastIndexRef.current = lastIndex;
+    heightRef.current = height;
+  });
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = () => {
+      reducedRef.current = mq.matches;
+    };
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+
+  /** Capture the current tree layout, then move focus. A layout effect picks the
+   *  captured state up and runs the Flip collapse/expand once React paints the
+   *  new layout — cards glide and the tree compresses rather than disappearing. */
+  const goToFocus = (next: number) => {
+    const clamped = Math.max(0, Math.min(lastIndexRef.current, next));
+    if (clamped === focusRef.current || animating.current) return;
+    leavingClonesRef.current = [];
+    if (!reducedRef.current && treeRef.current) {
+      flipState.current = Flip.getState(treeRef.current.querySelectorAll('[data-flip-id]'), {
+        props: 'opacity',
+      });
+      fromHeightRef.current = heightRef.current;
+      animating.current = true;
+
+      // Advancing drops the leading round(s). Clone their cards now — while they
+      // are still mounted and correctly positioned — so we can animate the exit
+      // ourselves. (Flip can't reliably animate framework-removed nodes.)
+      if (clamped > focusRef.current) {
+        const leavingIds = new Set<string>();
+        rounds.slice(focusRef.current, clamped).forEach((round) => {
+          leavingIds.add(`hdr-${round.key}`);
+          round.matches.forEach((m) => leavingIds.add(`m-${m.match}`));
+        });
+        treeRef.current.querySelectorAll<HTMLElement>('[data-flip-id]').forEach((el) => {
+          if (!leavingIds.has(el.getAttribute('data-flip-id') ?? '')) return;
+          const clone = el.cloneNode(true) as HTMLElement;
+          clone.removeAttribute('data-flip-id');
+          clone.style.position = 'absolute';
+          clone.style.left = `${el.offsetLeft}px`;
+          clone.style.top = `${el.offsetTop}px`;
+          clone.style.width = `${el.offsetWidth}px`;
+          clone.style.margin = '0';
+          clone.style.pointerEvents = 'none';
+          leavingClonesRef.current.push({
+            el: clone,
+            top: el.offsetTop,
+            height: el.offsetHeight,
+            left: el.offsetLeft,
+          });
+        });
+      }
+    }
+    setFocus(clamped);
+  };
+
+  const stepFocus = (delta: number) => goToFocus(focusRef.current + delta);
+  useEffect(() => {
+    stepFocusRef.current = stepFocus;
+  });
+
+  // Run the collapse / expand morph after the focused layout has re-rendered.
+  useLayoutEffect(() => {
+    const state = flipState.current;
+    if (!state) return;
+    flipState.current = null;
+
+    const svg = svgRef.current;
+    const tree = treeRef.current;
+    const wrap = wrapRef.current;
+    const fromHeight = fromHeightRef.current;
+    const toHeight = height;
+
+    // Connector list for the *target* layout (same pairing as the render).
+    const edges: { k: number; top: number; bot: number; target: number }[] = [];
+    positionedRounds.slice(0, -1).forEach((round, ri) => {
+      round.forEach((src, mi) => {
+        if (mi % 2 !== 0) return;
+        const sib = round[mi + 1];
+        const tgt = positionedRounds[ri + 1]?.[Math.floor(mi / 2)];
+        if (!sib || !tgt) return;
+        edges.push({
+          k: src.match.match,
+          top: src.match.match,
+          bot: sib.match.match,
+          target: tgt.match.match,
+        });
+      });
+    });
+
+    // Read a card's live position (includes the in-flight Flip transform) in the
+    // SVG's local coordinate space, so connectors track the cards exactly.
+    const cardRect = (flipId: string) => {
+      if (!svg || !tree) return null;
+      const el = tree.querySelector(`[data-flip-id="${flipId}"]`);
+      if (!el) return null;
+      const base = svg.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      return {
+        left: r.left - base.left,
+        right: r.right - base.left,
+        cy: r.top - base.top + r.height / 2,
+      };
+    };
+    const setD = (conn: string, d: string) =>
+      svg?.querySelector(`[data-conn="${conn}"]`)?.setAttribute('d', d);
+
+    // Redraw every elbow from the cards' current positions — called each frame so
+    // the lines bend continuously with the cards rather than fading out and in.
+    const redraw = () => {
+      for (const e of edges) {
+        const s = cardRect(`m-${e.top}`);
+        const sib = cardRect(`m-${e.bot}`);
+        const t = cardRect(`m-${e.target}`);
+        if (!s || !sib || !t) continue;
+        const dTop = elbowPath(s.right, s.cy, t.left, t.cy);
+        const dBot = elbowPath(sib.right, sib.cy, t.left, t.cy);
+        setD(`t-${e.k}`, dTop);
+        setD(`gt-${e.k}`, dTop);
+        setD(`b-${e.k}`, dBot);
+        setD(`gb-${e.k}`, dBot);
+      }
+      if (finalMatch) {
+        const s = cardRect(`m-${finalMatch.match}`);
+        const c = cardRect('champion');
+        if (s && c) {
+          const d = elbowPath(s.right, s.cy, c.left, c.cy);
+          setD('champ', d);
+          setD('champ-glow', d);
+        }
+      }
+    };
+
+    // Resize the container in lock-step so the page below glides, not jumps.
+    if (wrap && fromHeight && fromHeight !== toHeight) {
+      gsap.fromTo(
+        wrap,
+        { height: fromHeight },
+        {
+          height: toHeight,
+          duration: MORPH_DURATION,
+          ease: MORPH_EASE,
+          onComplete: () => {
+            gsap.set(wrap, { clearProps: 'height' });
+          },
+        }
+      );
+    }
+
+    // Collapse/expand the leaving/entering round.
+    const collapsed = {
+      xPercent: -115,
+      scaleX: 0.18,
+      scaleY: 0.78,
+      opacity: 0,
+      transformOrigin: 'left center' as const,
+    };
+
+    // Use only the live nodes as targets. Flip then animates the surviving cards
+    // and detects entering ones (in the DOM, not in the captured state); leaving
+    // cards are handled separately via clones, so Flip never touches them.
+    const liveTargets = tree ? Array.from(tree.querySelectorAll('[data-flip-id]')) : [];
+
+    Flip.from(state, {
+      targets: liveTargets,
+      duration: MORPH_DURATION,
+      ease: MORPH_EASE,
+      absolute: true,
+      onUpdate: redraw,
+      // Reappearing round (retreat): slide in from the left while expanding.
+      onEnter: (els) =>
+        gsap.from(els, {
+          ...collapsed,
+          duration: MORPH_DURATION,
+          ease: MORPH_EASE,
+          stagger: 0.02,
+          onUpdate: redraw,
+        }),
+      onComplete: () => {
+        animating.current = false;
+        redraw();
+      },
+    });
+
+    // Departing round (advance): animate the cloned cards out. They collapse to a
+    // short pill, pull together toward the column centre, and slide off the left —
+    // mounted on a layer *behind* the surviving tree.
+    const clones = leavingClonesRef.current;
+    leavingClonesRef.current = [];
+    if (clones.length && wrap && tree) {
+      const layer = document.createElement('div');
+      layer.style.cssText = 'position:absolute;inset:0;z-index:0;pointer-events:none;';
+      wrap.insertBefore(layer, tree);
+      clones.forEach(({ el, left }) => {
+        layer.appendChild(el);
+        // Shrink in place (no vertical movement) and slide straight off the left.
+        gsap.to(el, {
+          x: -(left + CARD_WIDTH),
+          scaleX: 0.5,
+          scaleY: 0.5,
+          opacity: 0,
+          transformOrigin: 'left center',
+          duration: MORPH_DURATION,
+          ease: MORPH_EASE,
+        });
+      });
+      gsap.delayedCall(MORPH_DURATION + 0.1, () => layer.remove());
+    }
+
+    // Align paths to the cards' start positions before the browser paints.
+    redraw();
+  }, [focus, height, positionedRounds, finalMatch]);
+
+  // Discrete one-step-per-gesture navigation. A single horizontal wheel notch or
+  // swipe advances/retreats exactly one round; vertical gestures fall straight
+  // through to the page so scrolling into and past the bracket is never trapped.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+
+    let lastStepAt = -Infinity;
+
+    const onWheel = (event: WheelEvent) => {
+      if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return; // vertical → page scrolls
+      event.preventDefault();
+      if (animating.current || Math.abs(event.deltaX) < STEP_WHEEL_DELTA) return;
+      const now = event.timeStamp;
+      if (now - lastStepAt < STEP_COOLDOWN_MS) return; // fixed cooldown — never gets stuck
+      lastStepAt = now;
+      stepFocusRef.current(event.deltaX > 0 ? 1 : -1);
+    };
+
+    let startX = 0;
+    let startY = 0;
+    let swiped = false;
+    let horizontal: boolean | null = null;
+
+    const onTouchStart = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      startX = touch.clientX;
+      startY = touch.clientY;
+      swiped = false;
+      horizontal = null;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      if (horizontal === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+        horizontal = Math.abs(dx) > Math.abs(dy);
+      }
+      if (!horizontal) return; // vertical swipe → page scrolls
+      event.preventDefault();
+      if (swiped || animating.current || Math.abs(dx) < STEP_TOUCH_DELTA) return;
+      swiped = true;
+      stepFocusRef.current(dx < 0 ? 1 : -1);
+    };
+    const onTouchEnd = () => {
+      swiped = false;
+      horizontal = null;
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, []);
 
   return (
     <div className="space-y-6 md:space-y-8" data-reveal>
@@ -368,7 +737,7 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
               <div
                 className="font-display text-[40px] leading-none tabular-nums md:text-[48px]"
                 style={{ color: theme.accent }}>
-                {qualifiedThirdPlacedTeams.length}
+                {bracket.thirdPlaceStandings.filter((entry) => entry.qualified).length}
               </div>
               <div
                 className="font-heading mt-2 text-[9px] font-bold tracking-[2px] uppercase"
@@ -388,22 +757,27 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
             Best third-placed teams · live
           </div>
           <div className="flex flex-wrap gap-2">
-            {qualifiedThirdPlacedTeams.map((entry) => (
-              <div
-                key={entry.group}
-                className="flex items-center gap-2 rounded-full py-1.5 pr-3 pl-1.5"
-                style={{ background: `${theme.accent}0c`, border: '1px solid var(--card-border)' }}>
-                <Flag team={entry.team} size={18} />
-                <span className="font-display text-[12px]" style={{ color: 'var(--color-fg)' }}>
-                  {shortTeamName(entry.team)}
-                </span>
-                <span
-                  className="font-heading text-[8px] font-bold tracking-[1.5px] uppercase"
-                  style={{ color: `${theme.accent}55` }}>
-                  Grp {entry.group}
-                </span>
-              </div>
-            ))}
+            {bracket.thirdPlaceStandings
+              .filter((entry) => entry.qualified)
+              .map((entry) => (
+                <div
+                  key={entry.group}
+                  className="flex items-center gap-2 rounded-full py-1.5 pr-3 pl-1.5"
+                  style={{
+                    background: `${theme.accent}0c`,
+                    border: '1px solid var(--card-border)',
+                  }}>
+                  <Flag team={entry.team} size={18} />
+                  <span className="font-display text-[12px]" style={{ color: 'var(--color-fg)' }}>
+                    {shortTeamName(entry.team)}
+                  </span>
+                  <span
+                    className="font-heading text-[8px] font-bold tracking-[1.5px] uppercase"
+                    style={{ color: `${theme.accent}55` }}>
+                    Grp {entry.group}
+                  </span>
+                </div>
+              ))}
           </div>
         </div>
       </section>
@@ -418,111 +792,167 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
         }}
         data-reveal>
         <div className="relative z-10 mb-4 flex items-center justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <div
               className="font-heading text-[10px] font-bold tracking-[3px] uppercase"
               style={{ color: `${theme.accent}60` }}>
               Projected Bracket
             </div>
             <div
-              className="font-display mt-1 text-[26px] leading-none tracking-[-0.03em] md:text-[34px]"
+              className="font-display mt-1 truncate text-[26px] leading-none tracking-[-0.03em] md:text-[34px]"
               style={{ color: 'var(--color-fg)' }}>
-              Round of 32 to final
+              {visibleRounds[0]?.title ?? 'Final'} to final
             </div>
           </div>
-          <div
-            className="font-heading hidden text-[9px] font-bold tracking-[2px] uppercase md:block"
-            style={{ color: `${theme.accent}45` }}>
-            Scroll horizontally to follow the path →
+
+          {/* Round stepper — arrows or a sideways scroll/swipe move one round */}
+          <div className="flex shrink-0 items-center gap-2">
+            <div
+              className="font-heading hidden text-[9px] font-bold tracking-[2px] uppercase sm:block"
+              style={{ color: `${theme.accent}45` }}>
+              Scroll sideways · one round
+            </div>
+            <button
+              type="button"
+              onClick={() => stepFocus(-1)}
+              disabled={focus === 0}
+              aria-label="Previous round"
+              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-30"
+              style={{ background: `${theme.accent}12`, border: `1px solid ${theme.accent}26` }}>
+              <ChevronLeft size={17} style={{ color: theme.accent }} />
+            </button>
+            <button
+              type="button"
+              onClick={() => stepFocus(1)}
+              disabled={focus === lastIndex}
+              aria-label="Next round"
+              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-30"
+              style={{ background: `${theme.accent}12`, border: `1px solid ${theme.accent}26` }}>
+              <ChevronRight size={17} style={{ color: theme.accent }} />
+            </button>
           </div>
         </div>
 
-        {/* Desktop tree */}
-        <div className="relative z-10 hidden overflow-x-auto lg:block">
-          <div className="relative" style={{ width: totalWidth, height }}>
-            <svg
-              className="pointer-events-none absolute inset-0 h-full w-full"
-              fill="none"
-              aria-hidden="true">
-              <defs>
-                <linearGradient id={flowId} x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor={`${theme.accent}38`} />
-                  <stop offset="55%" stopColor={`${theme.accent}80`} />
-                  <stop offset="100%" stopColor={theme.accent} />
-                </linearGradient>
-              </defs>
-              {positionedRounds.slice(0, -1).flatMap((round, roundIndex) =>
-                round.flatMap((source, matchIndex) => {
-                  if (matchIndex % 2 !== 0) return [];
-                  const sibling = round[matchIndex + 1];
-                  const target = positionedRounds[roundIndex + 1][Math.floor(matchIndex / 2)];
-                  const startX = source.x + CARD_WIDTH;
-                  const endX = target.x;
-                  const topY = source.centerY + STAGE_OFFSET;
-                  const botY = sibling.centerY + STAGE_OFFSET;
-                  const midY = target.centerY + STAGE_OFFSET;
-                  const dTop = elbowPath(startX, topY, endX, midY);
-                  const dBot = elbowPath(startX, botY, endX, midY);
-                  const k = source.match.match;
-                  return [
-                    // soft glow underlay
-                    <path
-                      key={`gt-${k}`}
-                      d={dTop}
-                      stroke={theme.accent}
-                      strokeOpacity={0.1}
-                      strokeWidth={6}
-                      strokeLinecap="round"
-                    />,
-                    <path
-                      key={`gb-${k}`}
-                      d={dBot}
-                      stroke={theme.accent}
-                      strokeOpacity={0.1}
-                      strokeWidth={6}
-                      strokeLinecap="round"
-                    />,
-                    // crisp connecting lines
-                    <path
-                      key={`t-${k}`}
-                      d={dTop}
-                      stroke={`url(#${flowId})`}
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                    />,
-                    <path
-                      key={`b-${k}`}
-                      d={dBot}
-                      stroke={`url(#${flowId})`}
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                    />,
-                  ];
-                })
-              )}
-              {finalPos ? (
-                <>
-                  <path
-                    d={elbowPath(finalPos.x + CARD_WIDTH, champCenterY, champX, champCenterY)}
-                    style={{ stroke: GOLD, strokeOpacity: 0.16 }}
-                    strokeWidth={8}
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d={elbowPath(finalPos.x + CARD_WIDTH, champCenterY, champX, champCenterY)}
-                    style={{ stroke: GOLD }}
-                    strokeWidth={2.5}
-                    strokeLinecap="round"
-                  />
-                </>
-              ) : null}
-            </svg>
+        {/* Rail (collapsed passed rounds) + focused tree */}
+        <div className="relative z-10 flex gap-2 md:gap-3">
+          {passedRounds.length > 0 ? (
+            <div
+              className="flex shrink-0 gap-1.5 pr-1"
+              style={{ width: railWidth, height }}
+              aria-label="Completed rounds — tap to revisit">
+              {passedRounds.map((round, index) => (
+                <RailColumn
+                  key={round.key}
+                  round={round}
+                  theme={theme}
+                  onClick={() => goToFocus(index)}
+                />
+              ))}
+            </div>
+          ) : null}
 
-            {bracket.rounds.map((round, roundIndex) => {
-              const x = PADDING + roundIndex * (CARD_WIDTH + COLUMN_GAP);
-              return (
-                <div key={round.key}>
-                  <div className="absolute z-10" style={{ left: x, top: 0, width: CARD_WIDTH }}>
+          {/* Clip the off-screen rounds; horizontal gestures step focus, vertical
+              gestures pass through to the page (touch-action: pan-y). */}
+          <div
+            ref={wrapRef}
+            className="relative grow overflow-hidden"
+            style={{ height, touchAction: 'pan-y' }}>
+            <div ref={treeRef} className="relative" style={{ width: totalWidth, height }}>
+              <svg
+                ref={svgRef}
+                className="pointer-events-none absolute inset-0 h-full w-full"
+                fill="none"
+                aria-hidden="true">
+                <defs>
+                  <linearGradient id={flowId} x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor={`${theme.accent}38`} />
+                    <stop offset="55%" stopColor={`${theme.accent}80`} />
+                    <stop offset="100%" stopColor={theme.accent} />
+                  </linearGradient>
+                </defs>
+                {positionedRounds.slice(0, -1).flatMap((round, roundIndex) =>
+                  round.flatMap((source, matchIndex) => {
+                    if (matchIndex % 2 !== 0) return [];
+                    const sibling = round[matchIndex + 1];
+                    const target = positionedRounds[roundIndex + 1][Math.floor(matchIndex / 2)];
+                    if (!sibling || !target) return [];
+                    const startX = source.x + CARD_WIDTH;
+                    const endX = target.x;
+                    const topY = source.centerY + STAGE_OFFSET;
+                    const botY = sibling.centerY + STAGE_OFFSET;
+                    const midY = target.centerY + STAGE_OFFSET;
+                    const dTop = elbowPath(startX, topY, endX, midY);
+                    const dBot = elbowPath(startX, botY, endX, midY);
+                    const k = source.match.match;
+                    return [
+                      <path
+                        key={`gt-${k}`}
+                        data-conn={`gt-${k}`}
+                        d={dTop}
+                        stroke={theme.accent}
+                        strokeOpacity={0.1}
+                        strokeWidth={6}
+                        strokeLinecap="round"
+                      />,
+                      <path
+                        key={`gb-${k}`}
+                        data-conn={`gb-${k}`}
+                        d={dBot}
+                        stroke={theme.accent}
+                        strokeOpacity={0.1}
+                        strokeWidth={6}
+                        strokeLinecap="round"
+                      />,
+                      <path
+                        key={`t-${k}`}
+                        data-conn={`t-${k}`}
+                        d={dTop}
+                        stroke={`url(#${flowId})`}
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                      />,
+                      <path
+                        key={`b-${k}`}
+                        data-conn={`b-${k}`}
+                        d={dBot}
+                        stroke={`url(#${flowId})`}
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                      />,
+                    ];
+                  })
+                )}
+                {finalPos ? (
+                  <>
+                    <path
+                      data-conn="champ-glow"
+                      d={elbowPath(finalPos.x + CARD_WIDTH, champCenterY, champX, champCenterY)}
+                      style={{ stroke: GOLD, strokeOpacity: 0.16 }}
+                      strokeWidth={8}
+                      strokeLinecap="round"
+                    />
+                    <path
+                      data-conn="champ"
+                      d={elbowPath(finalPos.x + CARD_WIDTH, champCenterY, champX, champCenterY)}
+                      style={{ stroke: GOLD }}
+                      strokeWidth={2.5}
+                      strokeLinecap="round"
+                    />
+                  </>
+                ) : null}
+              </svg>
+
+              {/* Headers and cards are FLAT children of the tree so that when a
+                  round leaves, only its own elements are removed — their parent
+                  persists, letting Flip re-insert and animate them out. */}
+              {visibleRounds.flatMap((round, roundIndex) => {
+                const x = PADDING + roundIndex * COLUMN_STRIDE;
+                return [
+                  <div
+                    key={`hdr-${round.key}`}
+                    className="absolute z-10"
+                    data-flip-id={`hdr-${round.key}`}
+                    style={{ left: x, top: 0, width: CARD_WIDTH }}>
                     <div
                       className="rounded-full px-3 py-2 text-center backdrop-blur-sm"
                       style={{
@@ -538,113 +968,55 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
                         {round.title}
                       </div>
                     </div>
-                  </div>
-                  {positionedRounds[roundIndex].map(({ match, x: matchX, y }) => (
+                  </div>,
+                  ...positionedRounds[roundIndex].map(({ match, x: matchX, y }) => (
                     <div
                       key={match.match}
                       className="absolute z-10"
+                      data-flip-id={`m-${match.match}`}
                       style={{ left: matchX, top: y + STAGE_OFFSET }}>
                       <MatchCard match={match} ownerByTeam={ownerByTeam} theme={theme} />
                     </div>
-                  ))}
-                </div>
-              );
-            })}
+                  )),
+                ];
+              })}
 
-            {finalPos ? (
-              <>
-                <div className="absolute z-10" style={{ left: champX, top: 0, width: CHAMP_WIDTH }}>
+              {finalPos ? (
+                <>
                   <div
-                    className="rounded-full px-3 py-2 text-center"
-                    style={{
-                      background: `color-mix(in srgb, ${GOLD} 12%, transparent)`,
-                      border: `1px solid color-mix(in srgb, ${GOLD} 38%, transparent)`,
-                    }}>
+                    className="absolute z-10"
+                    data-flip-id="champion-header"
+                    style={{ left: champX, top: 0, width: CHAMP_WIDTH }}>
                     <div
-                      className="font-heading text-[8px] font-bold tracking-[2px] uppercase"
-                      style={{ color: `color-mix(in srgb, ${GOLD} 75%, transparent)` }}>
-                      Winner
+                      className="rounded-full px-3 py-2 text-center"
+                      style={{
+                        background: `color-mix(in srgb, ${GOLD} 12%, transparent)`,
+                        border: `1px solid color-mix(in srgb, ${GOLD} 38%, transparent)`,
+                      }}>
+                      <div
+                        className="font-heading text-[8px] font-bold tracking-[2px] uppercase"
+                        style={{ color: `color-mix(in srgb, ${GOLD} 75%, transparent)` }}>
+                        Winner
+                      </div>
+                      <div className="font-display mt-0.5 text-sm" style={{ color: GOLD }}>
+                        Champion
+                      </div>
                     </div>
-                    <div className="font-display mt-0.5 text-sm" style={{ color: GOLD }}>
-                      Champion
-                    </div>
                   </div>
-                </div>
-                <div
-                  className="absolute z-10"
-                  style={{ left: champX, top: champCenterY - CHAMP_HEIGHT / 2 }}>
-                  <ChampionCard
-                    team={championTeam}
-                    owner={championOwner}
-                    theme={theme}
-                    width={CHAMP_WIDTH}
-                  />
-                </div>
-              </>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Mobile — horizontal round columns + champion */}
-        <div className="relative z-10 overflow-x-auto lg:hidden">
-          <div className="flex w-max gap-4 pb-2">
-            {bracket.rounds.map((round) => (
-              <div
-                key={round.key}
-                className="w-70 shrink-0 space-y-3 rounded-3xl p-3"
-                style={{ background: `${theme.accent}06`, border: '1px solid var(--card-border)' }}>
-                <div
-                  className="rounded-2xl px-3 py-2"
-                  style={{
-                    background: 'var(--card-surface)',
-                    border: '1px solid var(--card-border)',
-                  }}>
                   <div
-                    className="font-heading text-[8px] font-bold tracking-[2px] uppercase"
-                    style={{ color: `${theme.accent}55` }}>
-                    {round.shortTitle}
+                    className="absolute z-10"
+                    data-flip-id="champion"
+                    style={{ left: champX, top: champCenterY - CHAMP_HEIGHT / 2 }}>
+                    <ChampionCard
+                      team={championTeam}
+                      owner={championOwner}
+                      theme={theme}
+                      width={CHAMP_WIDTH}
+                    />
                   </div>
-                  <div className="font-display mt-0.5 text-[20px]" style={{ color: theme.accent }}>
-                    {round.title}
-                  </div>
-                </div>
-                {round.matches.map((match) => (
-                  <MatchCard
-                    key={match.match}
-                    match={match}
-                    ownerByTeam={ownerByTeam}
-                    theme={theme}
-                    width={256}
-                  />
-                ))}
-              </div>
-            ))}
-
-            {finalMatch ? (
-              <div
-                className="flex w-60 shrink-0 flex-col gap-3 rounded-3xl p-3"
-                style={{
-                  background: `color-mix(in srgb, ${GOLD} 8%, transparent)`,
-                  border: `1px solid color-mix(in srgb, ${GOLD} 30%, transparent)`,
-                }}>
-                <div
-                  className="rounded-2xl px-3 py-2"
-                  style={{
-                    background: 'var(--card-surface)',
-                    border: `1px solid color-mix(in srgb, ${GOLD} 30%, transparent)`,
-                  }}>
-                  <div
-                    className="font-heading text-[8px] font-bold tracking-[2px] uppercase"
-                    style={{ color: `color-mix(in srgb, ${GOLD} 75%, transparent)` }}>
-                    Winner
-                  </div>
-                  <div className="font-display mt-0.5 text-[20px]" style={{ color: GOLD }}>
-                    Champion
-                  </div>
-                </div>
-                <ChampionCard team={championTeam} owner={championOwner} theme={theme} width={216} />
-              </div>
-            ) : null}
+                </>
+              ) : null}
+            </div>
           </div>
         </div>
       </section>
