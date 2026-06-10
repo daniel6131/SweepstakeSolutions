@@ -114,11 +114,23 @@ export function Header({ theme, visible, tab }: HeaderProps) {
             </div>
           </div>
 
-          <div key={tab} className="relative mt-6 md:mt-10" style={{ willChange: 'transform' }}>
-            {tab === 'Leaderboard' && <LeaderboardHero theme={theme} />}
-            {tab === 'Fixtures' && <FixturesHero theme={theme} />}
-            {tab === 'Groups' && <GroupsHero theme={theme} />}
-            {tab === 'Teams' && <TeamsHero theme={theme} />}
+          {/*
+            Mount the hero word only once `visible` is true. The entrance
+            animations inside are CSS-keyframe driven (start at first paint),
+            while the reveal is gated by the JS `visible` flag (set ~80ms after
+            hydration). Mounting on `visible` couples the two clocks so the
+            animation plays in sync with the reveal instead of finishing behind
+            an `opacity:0` container on slow loads. `key` includes `visible` so
+            the children remount (and re-trigger) the moment it flips.
+          */}
+          <div
+            key={`${tab}-${visible}`}
+            className="relative mt-6 md:mt-10"
+            style={{ willChange: 'transform' }}>
+            {visible && tab === 'Leaderboard' && <LeaderboardHero theme={theme} />}
+            {visible && tab === 'Fixtures' && <FixturesHero theme={theme} />}
+            {visible && tab === 'Groups' && <GroupsHero theme={theme} />}
+            {visible && tab === 'Teams' && <TeamsHero theme={theme} />}
           </div>
         </div>
 
