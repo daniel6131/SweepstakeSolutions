@@ -557,6 +557,61 @@
   pointer-events: auto;
 }
 
+/* ── Fixture filter panel (Osklen-style anchored glass sheet) ── */
+@keyframes filter-sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(110%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes filter-sheet-left {
+  from {
+    opacity: 0;
+    transform: translateX(-115%) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+@keyframes filter-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+/* Closed dialog must stay hidden — an author-origin `display` (e.g. a `flex`
+   utility) would otherwise beat the UA `dialog:not([open])` rule and leave the
+   panel permanently visible. Drive display off the [open] state instead. */
+.filter-panel:not([open]) {
+  display: none;
+}
+/* Mobile: slides up from the bottom as a sheet. */
+.filter-panel[open] {
+  display: flex;
+  flex-direction: column;
+  animation: filter-sheet-up 0.5s var(--ease-expo-out) both;
+}
+/* Desktop: slides in from the left edge, anchored over the schedule. */
+@media (min-width: 768px) {
+  .filter-panel[open] {
+    animation: filter-sheet-left 0.55s var(--ease-expo-out) both;
+  }
+}
+/* Soft dim that keeps the fixtures faintly visible behind the glass. */
+.filter-panel[open]::backdrop {
+  background: rgba(8, 8, 10, 0.62);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: filter-backdrop-in 0.4s var(--ease-smooth) both;
+}
+
 /* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
   *,
