@@ -317,6 +317,128 @@ function ChampionCard({
   );
 }
 
+/** Compact, full-width match card for the mobile round list — drops the fixed
+ *  bracket width/height and the venue footer so team names stay legible. */
+function MobileMatchCard({
+  match,
+  ownerByTeam,
+  theme,
+}: {
+  match: KnockoutMatch;
+  ownerByTeam: Map<string, string>;
+  theme: ThemeColors;
+}) {
+  const projected = match.home.status === 'projected' || match.away.status === 'projected';
+
+  return (
+    <article
+      className="flex flex-col gap-1.5 overflow-hidden rounded-xl p-3"
+      style={{
+        background: 'var(--card-surface)',
+        border: match.isPlayed ? `1px solid ${theme.accent}3a` : '1px solid var(--card-border)',
+        boxShadow: match.isPlayed
+          ? `var(--card-highlight), var(--shadow-card), 0 0 24px -14px ${theme.accent}55`
+          : 'var(--card-highlight), var(--shadow-card)',
+      }}>
+      <div className="mb-0.5 flex items-center justify-between gap-2">
+        <span
+          className="font-heading rounded-full px-2 py-0.5 text-[9px] font-bold tracking-[1.5px]"
+          style={{ color: theme.bg, background: theme.accent }}>
+          M{match.match}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <span
+            className="inline-block h-1.5 w-1.5 rounded-full"
+            style={{
+              background: match.isPlayed ? theme.accent : `${theme.accent}40`,
+              boxShadow: match.isPlayed ? `0 0 8px ${theme.accent}` : undefined,
+            }}
+          />
+          <span
+            className="font-heading text-[8px] font-bold tracking-[2px] uppercase"
+            style={{ color: `${theme.accent}5a` }}>
+            {match.isPlayed ? 'Full time' : projected ? 'Projected' : match.date}
+          </span>
+        </div>
+      </div>
+      <Slot slot={match.home} ownerByTeam={ownerByTeam} theme={theme} align="left" />
+      <Slot slot={match.away} ownerByTeam={ownerByTeam} theme={theme} align="left" />
+    </article>
+  );
+}
+
+/** Mobile knockout view — round tabs over a vertical list of compact cards.
+ *  Replaces the absolute-positioned tree (which overflows small screens) with a
+ *  single legible column per round, the way broadcast/Google brackets do. */
+function MobileBracket({
+  rounds,
+  ownerByTeam,
+  theme,
+  championTeam,
+  championOwner,
+}: {
+  rounds: KnockoutRound[];
+  ownerByTeam: Map<string, string>;
+  theme: ThemeColors;
+  championTeam: string | null;
+  championOwner: string | null;
+}) {
+  const [active, setActive] = useState(0);
+  const safeActive = Math.min(active, rounds.length - 1);
+  const round = rounds[safeActive];
+  const isFinal = safeActive === rounds.length - 1;
+
+  if (!round) return null;
+
+  return (
+    <div className="relative z-10">
+      {/* Round tabs (horizontally scrollable) */}
+      <div
+        role="tablist"
+        aria-label="Knockout rounds"
+        className="-mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 pb-1"
+        style={{ scrollbarWidth: 'none' }}>
+        {rounds.map((roundOption, index) => {
+          const selected = index === safeActive;
+          return (
+            <button
+              key={roundOption.key}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => setActive(index)}
+              className="font-heading shrink-0 cursor-pointer rounded-full px-3.5 py-2 text-[11px] font-bold tracking-[1px] uppercase transition-colors duration-200"
+              style={{
+                color: selected ? theme.bg : `${theme.accent}85`,
+                background: selected ? theme.accent : `${theme.accent}0d`,
+                border: `1px solid ${selected ? theme.accent : `${theme.accent}1f`}`,
+              }}>
+              {roundOption.title}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Match list for the selected round */}
+      <div className="flex flex-col gap-2.5">
+        {round.matches.map((match) => (
+          <MobileMatchCard
+            key={match.match}
+            match={match}
+            ownerByTeam={ownerByTeam}
+            theme={theme}
+          />
+        ))}
+        {isFinal ? (
+          <div className="mt-1.5">
+            <ChampionCard team={championTeam} owner={championOwner} theme={theme} />
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 /** One collapsed (passed) round — a thin, full-height, tappable column that
  *  promotes itself back to the leftmost focus round when clicked. */
 function RailColumn({
@@ -799,14 +921,20 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
               Projected Bracket
             </div>
             <div
-              className="font-display mt-1 truncate text-[26px] leading-none tracking-[-0.03em] md:text-[34px]"
+              className="font-display mt-1 hidden truncate text-[26px] leading-none tracking-[-0.03em] md:block md:text-[34px]"
               style={{ color: 'var(--color-fg)' }}>
               {visibleRounds[0]?.title ?? 'Final'} to final
             </div>
+            <div
+              className="font-display mt-1 text-[24px] leading-none tracking-[-0.03em] md:hidden"
+              style={{ color: 'var(--color-fg)' }}>
+              Road to final
+            </div>
           </div>
 
-          {/* Round stepper — arrows or a sideways scroll/swipe move one round */}
-          <div className="flex shrink-0 items-center gap-2">
+          {/* Round stepper — arrows or a sideways scroll/swipe move one round.
+              Desktop only; the mobile view navigates via round tabs instead. */}
+          <div className="hidden shrink-0 items-center gap-2 md:flex">
             <div
               className="font-heading hidden text-[9px] font-bold tracking-[2px] uppercase sm:block"
               style={{ color: `${theme.accent}45` }}>
@@ -833,8 +961,19 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
           </div>
         </div>
 
-        {/* Rail (collapsed passed rounds) + focused tree */}
-        <div className="relative z-10 flex gap-2 md:gap-3">
+        {/* Mobile — round tabs + vertical card list (desktop tree overflows). */}
+        <div className="md:hidden">
+          <MobileBracket
+            rounds={rounds}
+            ownerByTeam={ownerByTeam}
+            theme={theme}
+            championTeam={championTeam}
+            championOwner={championOwner}
+          />
+        </div>
+
+        {/* Rail (collapsed passed rounds) + focused tree — desktop only */}
+        <div className="relative z-10 hidden gap-2 md:flex md:gap-3">
           {passedRounds.length > 0 ? (
             <div
               className="flex shrink-0 gap-1.5 pr-1"
