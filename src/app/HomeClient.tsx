@@ -180,6 +180,12 @@ export default function HomeClient({ data }: Props) {
           document.documentElement.setAttribute('data-theme', newTab.toLowerCase());
           setTab(newTab);
 
+          // Stop intercepting taps the moment the new page is swapped in. The
+          // dissolve that follows is purely visual (opacity), so the revealed
+          // page is interactive immediately — without this the overlay keeps
+          // eating the first tap (e.g. the Knockout toggle or nav) for ~0.35s.
+          el.style.pointerEvents = 'none';
+
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               gsap.to(el, {
@@ -187,7 +193,6 @@ export default function HomeClient({ data }: Props) {
                 duration: 0.35,
                 ease: 'power2.out',
                 onComplete: () => {
-                  el.style.pointerEvents = 'none';
                   isTransitioning.current = false;
                 },
               });
