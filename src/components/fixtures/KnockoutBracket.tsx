@@ -408,8 +408,11 @@ function MobileTreeCard({
 
 /** Mobile knockout view — round tabs over a compact, horizontally-scrollable
  *  bracket tree. Tapping a tab focuses that round (showing it → final, with the
- *  height driven by its match count); the tree itself swipes horizontally so the
- *  next rounds and their connectors stay visible, the way Google's bracket does. */
+ *  height driven by its match count); the tree swipes horizontally so the next
+ *  rounds and their connectors stay visible, the way Google's bracket does.
+ *  Changing rounds runs the same collapse/expand Flip morph as desktop —
+ *  dropped rounds slide off, reappearing ones slide back in, connectors track
+ *  the cards each frame, and the container height eases between rounds. */
 function MobileBracket({
   rounds,
   ownerByTeam,
@@ -425,6 +428,12 @@ function MobileBracket({
 }) {
   const flowId = useId();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const treeRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const flipState = useRef<ReturnType<typeof Flip.getState> | null>(null);
+  const animating = useRef(false);
+  const fromHeightRef = useRef(0);
+  const reducedRef = useRef(false);
   const [focus, setFocus] = useState(0);
 
   const safeFocus = Math.min(focus, rounds.length - 1);
@@ -435,11 +444,136 @@ function MobileBracket({
   const totalWidth = champX + M_CHAMP_W + M_PAD;
   const finalPos = positionedRounds[positionedRounds.length - 1]?.[0];
   const champCenterY = finalPos?.centerY ?? 0;
+  const finalMatch = rounds[rounds.length - 1]?.matches[0];
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = () => {
+      reducedRef.current = mq.matches;
+    };
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
 
   const selectRound = (index: number) => {
+    if (index === safeFocus || animating.current) return;
+    if (!reducedRef.current && treeRef.current) {
+      flipState.current = Flip.getState(treeRef.current.querySelectorAll('[data-flip-id]'), {
+        props: 'opacity',
+      });
+      fromHeightRef.current = height;
+      animating.current = true;
+    }
     setFocus(index);
-    scrollRef.current?.scrollTo({ left: 0, behavior: 'smooth' });
   };
+
+  // Run the collapse / expand morph once the focused layout has re-rendered.
+  useLayoutEffect(() => {
+    const state = flipState.current;
+    if (!state) return;
+    flipState.current = null;
+
+    const svg = svgRef.current;
+    const tree = treeRef.current;
+    const toHeight = height;
+    const fromHeight = fromHeightRef.current;
+
+    const edges: { k: number; top: number; bot: number; target: number }[] = [];
+    positionedRounds.slice(0, -1).forEach((round, ri) => {
+      round.forEach((src, mi) => {
+        if (mi % 2 !== 0) return;
+        const sib = round[mi + 1];
+        const tgt = positionedRounds[ri + 1]?.[Math.floor(mi / 2)];
+        if (!sib || !tgt) return;
+        edges.push({
+          k: src.match.match,
+          top: src.match.match,
+          bot: sib.match.match,
+          target: tgt.match.match,
+        });
+      });
+    });
+
+    const cardRect = (flipId: string) => {
+      if (!svg || !tree) return null;
+      const el = tree.querySelector(`[data-flip-id="${flipId}"]`);
+      if (!el) return null;
+      const base = svg.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      return {
+        left: r.left - base.left,
+        right: r.right - base.left,
+        cy: r.top - base.top + r.height / 2,
+      };
+    };
+    const setD = (conn: string, d: string) =>
+      svg?.querySelector(`[data-conn="${conn}"]`)?.setAttribute('d', d);
+
+    const redraw = () => {
+      for (const e of edges) {
+        const s = cardRect(`m-${e.top}`);
+        const sib = cardRect(`m-${e.bot}`);
+        const t = cardRect(`m-${e.target}`);
+        if (!s || !sib || !t) continue;
+        setD(`t-${e.k}`, elbowPath(s.right, s.cy, t.left, t.cy));
+        setD(`b-${e.k}`, elbowPath(sib.right, sib.cy, t.left, t.cy));
+      }
+      if (finalMatch) {
+        const s = cardRect(`m-${finalMatch.match}`);
+        const c = cardRect('champion');
+        if (s && c) setD('champ', elbowPath(s.right, s.cy, c.left, c.cy));
+      }
+    };
+
+    if (tree && fromHeight && fromHeight !== toHeight) {
+      // Settle at toHeight (which equals the React-rendered height) — do NOT
+      // clearProps, since the absolutely-positioned cards give the tree no
+      // intrinsic height, so dropping the inline height collapses it to 0.
+      gsap.fromTo(
+        tree,
+        { height: fromHeight },
+        { height: toHeight, duration: MORPH_DURATION, ease: MORPH_EASE }
+      );
+    }
+
+    const collapsed = {
+      xPercent: -70,
+      scaleX: 0.4,
+      opacity: 0,
+      transformOrigin: 'left center' as const,
+    };
+
+    Flip.from(state, {
+      duration: MORPH_DURATION,
+      ease: MORPH_EASE,
+      absolute: true,
+      onUpdate: redraw,
+      onEnter: (els) =>
+        gsap.from(els, {
+          ...collapsed,
+          duration: MORPH_DURATION,
+          ease: MORPH_EASE,
+          stagger: 0.02,
+          onUpdate: redraw,
+        }),
+      onLeave: (els) => {
+        gsap.to(els, {
+          ...collapsed,
+          duration: MORPH_DURATION,
+          ease: MORPH_EASE,
+          onUpdate: redraw,
+        });
+      },
+      onComplete: () => {
+        animating.current = false;
+        redraw();
+        scrollRef.current?.scrollTo({ left: 0, behavior: 'smooth' });
+      },
+    });
+
+    redraw();
+  }, [focus, height, positionedRounds, finalMatch]);
 
   return (
     <div className="relative z-10">
@@ -475,8 +609,9 @@ function MobileBracket({
         ref={scrollRef}
         className="overflow-x-auto overflow-y-hidden"
         style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
-        <div className="relative" style={{ width: totalWidth, height }}>
+        <div ref={treeRef} className="relative" style={{ width: totalWidth, height }}>
           <svg
+            ref={svgRef}
             className="pointer-events-none absolute inset-0 h-full w-full"
             fill="none"
             aria-hidden="true">
@@ -501,6 +636,7 @@ function MobileBracket({
                 return [
                   <path
                     key={`t-${k}`}
+                    data-conn={`t-${k}`}
                     d={dTop}
                     stroke={`url(#${flowId})`}
                     strokeWidth={1.5}
@@ -508,6 +644,7 @@ function MobileBracket({
                   />,
                   <path
                     key={`b-${k}`}
+                    data-conn={`b-${k}`}
                     d={dBot}
                     stroke={`url(#${flowId})`}
                     strokeWidth={1.5}
@@ -518,6 +655,7 @@ function MobileBracket({
             )}
             {finalPos ? (
               <path
+                data-conn="champ"
                 d={elbowPath(finalPos.x + M_CARD_W, champCenterY, champX, champCenterY)}
                 style={{ stroke: GOLD }}
                 strokeWidth={2}
@@ -528,7 +666,11 @@ function MobileBracket({
 
           {positionedRounds.flatMap((round) =>
             round.map(({ match, x, y }) => (
-              <div key={match.match} className="absolute" style={{ left: x, top: y }}>
+              <div
+                key={match.match}
+                className="absolute"
+                data-flip-id={`m-${match.match}`}
+                style={{ left: x, top: y }}>
                 <MobileTreeCard match={match} ownerByTeam={ownerByTeam} theme={theme} />
               </div>
             ))
@@ -537,6 +679,7 @@ function MobileBracket({
           {finalPos ? (
             <div
               className="absolute"
+              data-flip-id="champion"
               style={{ left: champX, top: champCenterY - CHAMP_HEIGHT / 2 }}>
               <ChampionCard
                 team={championTeam}
