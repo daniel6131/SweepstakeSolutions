@@ -604,6 +604,71 @@
     animation: filter-sheet-left 0.55s var(--ease-expo-out) both;
   }
 }
+/* ── Mobile champion podium (the final-view reveal) ── */
+@keyframes champion-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes champion-rise {
+  from {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+@keyframes champion-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+@keyframes champion-spin {
+  to {
+    transform: translateX(-50%) rotate(360deg);
+  }
+}
+.champion-trophy {
+  animation: champion-pop 0.7s var(--ease-spring) both;
+}
+.champion-glow {
+  animation: champion-glow-pulse 3s var(--ease-smooth) infinite;
+}
+.champion-rays {
+  opacity: 0.7;
+  animation: champion-spin 38s linear infinite;
+}
+.champion-flag {
+  animation: champion-pop 0.6s var(--ease-spring) 0.12s both;
+}
+.champion-pedestal > * {
+  transform-origin: bottom;
+  animation: champion-rise 0.55s var(--ease-expo-out) both;
+}
+.champion-pedestal > *:nth-child(1) {
+  animation-delay: 0.18s;
+}
+.champion-pedestal > *:nth-child(2) {
+  animation-delay: 0.06s;
+}
+.champion-pedestal > *:nth-child(3) {
+  animation-delay: 0.28s;
+}
+
 /* Soft dim that keeps the fixtures faintly visible behind the glass. */
 .filter-panel[open]::backdrop {
   background: rgba(8, 8, 10, 0.62);

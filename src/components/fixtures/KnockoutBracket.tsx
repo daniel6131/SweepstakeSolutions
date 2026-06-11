@@ -406,6 +406,127 @@ function MobileTreeCard({
   );
 }
 
+/** The mobile final's centrepiece — a centred, cinematic champion reveal:
+ *  floodlit rays, a glowing trophy, the champion (or awaiting state), and a
+ *  rising three-tier podium. Replaces the cramped champion card on phones. */
+function ChampionPodium({
+  team,
+  owner,
+  theme,
+}: {
+  team: string | null;
+  owner: string | null;
+  theme: ThemeColors;
+}) {
+  const tiers = [
+    { rank: '2', height: 40, width: 60, lead: false },
+    { rank: '1', height: 66, width: 66, lead: true },
+    { rank: '3', height: 28, width: 60, lead: false },
+  ];
+
+  return (
+    <div
+      className="champion-podium relative mx-auto mt-4 w-full max-w-[330px] overflow-hidden rounded-[26px] px-6 pt-9 pb-7 text-center"
+      style={{
+        background: `radial-gradient(130% 100% at 50% -10%, color-mix(in srgb, ${GOLD} 24%, transparent), transparent 72%), var(--card-surface)`,
+        border: `1.5px solid color-mix(in srgb, ${GOLD} 50%, transparent)`,
+        boxShadow: `var(--card-highlight), var(--shadow-card-lg), 0 34px 90px -34px color-mix(in srgb, ${GOLD} 75%, transparent)`,
+      }}>
+      <div
+        className="bg-grain pointer-events-none absolute inset-0"
+        style={{ opacity: 0.06, mixBlendMode: 'overlay' }}
+      />
+      <div
+        className="champion-rays pointer-events-none absolute top-[-30%] left-1/2 h-[150%] w-[150%] -translate-x-1/2"
+        style={{
+          background: `conic-gradient(from 0deg at 50% 0%, transparent 0deg, color-mix(in srgb, ${GOLD} 13%, transparent) 11deg, transparent 22deg, transparent 38deg, color-mix(in srgb, ${GOLD} 13%, transparent) 49deg, transparent 60deg)`,
+          maskImage: 'radial-gradient(58% 58% at 50% 0%, #000, transparent)',
+          WebkitMaskImage: 'radial-gradient(58% 58% at 50% 0%, #000, transparent)',
+        }}
+      />
+
+      <div className="relative">
+        <div
+          className="champion-glow pointer-events-none absolute top-[-8px] left-1/2 h-32 w-32 -translate-x-1/2 rounded-full blur-2xl"
+          style={{ background: `color-mix(in srgb, ${GOLD} 38%, transparent)` }}
+        />
+        <Trophy
+          size={46}
+          strokeWidth={1.5}
+          style={{ color: GOLD }}
+          className="champion-trophy relative mx-auto"
+        />
+      </div>
+
+      <div
+        className="font-heading relative mt-3 text-[11px] font-bold tracking-[5px] uppercase"
+        style={{ color: GOLD }}>
+        World Champion
+      </div>
+
+      {team ? (
+        <div className="relative">
+          <div className="mt-4 flex justify-center">
+            <div
+              className="champion-flag"
+              style={{
+                filter: `drop-shadow(0 8px 22px color-mix(in srgb, ${GOLD} 45%, transparent))`,
+              }}>
+              <Flag team={team} size={60} />
+            </div>
+          </div>
+          <div
+            className="font-display mt-3 text-[30px] leading-none tracking-[-0.02em]"
+            style={{ color: 'var(--color-fg)' }}>
+            {shortTeamName(team)}
+          </div>
+          {owner ? (
+            <div
+              className="font-heading mt-2 text-[11px] font-bold tracking-[2.5px] uppercase"
+              style={{ color: theme.accent }}>
+              {owner}
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div
+          className="font-display relative mt-4 text-[24px] leading-[1.05]"
+          style={{ color: 'var(--color-fg-subtle)' }}>
+          Awaiting
+          <br />
+          the final
+        </div>
+      )}
+
+      <div className="champion-pedestal relative mt-7 flex items-end justify-center gap-2">
+        {tiers.map((tier) => (
+          <div
+            key={tier.rank}
+            className="flex shrink-0 items-start justify-center rounded-t-lg pt-1.5"
+            style={{
+              width: tier.width,
+              height: tier.height,
+              background: tier.lead
+                ? `linear-gradient(180deg, color-mix(in srgb, ${GOLD} 82%, transparent), color-mix(in srgb, ${GOLD} 30%, transparent))`
+                : `linear-gradient(180deg, color-mix(in srgb, ${GOLD} 42%, transparent), color-mix(in srgb, ${GOLD} 12%, transparent))`,
+              borderTop: `1.5px solid color-mix(in srgb, ${GOLD} ${tier.lead ? 92 : 55}%, transparent)`,
+            }}>
+            <span
+              className="font-display text-[13px] leading-none"
+              style={{
+                color: tier.lead
+                  ? 'var(--color-bg)'
+                  : `color-mix(in srgb, ${GOLD} 85%, transparent)`,
+              }}>
+              {tier.rank}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Mobile knockout view — round tabs over a compact, horizontally-scrollable
  *  bracket tree. Tapping a tab focuses that round (showing it → final, with the
  *  height driven by its match count); the tree swipes horizontally so the next
@@ -439,6 +560,7 @@ function MobileBracket({
   // reliably animate framework-removed nodes) — identical to the desktop tree.
   const leavingClonesRef = useRef<{ el: HTMLElement; left: number }[]>([]);
   const [focus, setFocus] = useState(0);
+  const [containerW, setContainerW] = useState(0);
 
   const safeFocus = Math.min(focus, rounds.length - 1);
   const visibleRounds = rounds.slice(safeFocus);
@@ -448,16 +570,16 @@ function MobileBracket({
   const champCenterY = finalPos?.centerY ?? 0;
   const finalMatch = rounds[rounds.length - 1]?.matches[0];
 
-  // On the final-only view the champion would overflow off the right edge with
-  // nothing to swipe to, so stack it (match-card width) directly below the final
-  // match where it always fits. Other rounds keep it to the right as usual.
+  // Champion is a card to the right on multi-round views; on the final-only view
+  // it becomes a centred podium rendered below the tree, so the tree then holds
+  // only the (horizontally centred) final match.
   const isFinalOnly = visibleRounds.length === 1;
-  const champW = isFinalOnly ? M_CARD_W : M_CHAMP_W;
-  const champX = isFinalOnly ? M_PAD : M_PAD + visibleRounds.length * M_COL_STRIDE;
-  const champTop =
-    finalPos && isFinalOnly ? finalPos.y + M_CARD_H + 26 : champCenterY - CHAMP_HEIGHT / 2;
-  const treeWidth = champX + champW + M_PAD;
-  const treeHeight = finalPos && isFinalOnly ? champTop + CHAMP_HEIGHT + M_PAD : height;
+  const champX = M_PAD + visibleRounds.length * M_COL_STRIDE;
+  const centeredFinalX = Math.max(M_PAD, (containerW - M_CARD_W) / 2);
+  const treeWidth = isFinalOnly
+    ? Math.max(containerW, M_PAD * 2 + M_CARD_W)
+    : champX + M_CHAMP_W + M_PAD;
+  const treeHeight = isFinalOnly ? M_PAD * 2 + M_CARD_H : height;
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -467,6 +589,15 @@ function MobileBracket({
     sync();
     mq.addEventListener('change', sync);
     return () => mq.removeEventListener('change', sync);
+  }, []);
+
+  // Track the gesture container's width so the final match + podium can centre.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => setContainerW(entries[0].contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   const selectRound = (index: number) => {
@@ -794,27 +925,31 @@ function MobileBracket({
                 key={match.match}
                 className="absolute"
                 data-flip-id={`m-${match.match}`}
-                style={{ left: x, top: y }}>
+                style={{ left: isFinalOnly ? centeredFinalX : x, top: y }}>
                 <MobileTreeCard match={match} ownerByTeam={ownerByTeam} theme={theme} />
               </div>
             ))
           )}
 
-          {finalPos ? (
+          {finalPos && !isFinalOnly ? (
             <div
               className="absolute"
               data-flip-id="champion"
-              style={{ left: champX, top: champTop }}>
+              style={{ left: champX, top: champCenterY - CHAMP_HEIGHT / 2 }}>
               <ChampionCard
                 team={championTeam}
                 owner={championOwner}
                 theme={theme}
-                width={champW}
+                width={M_CHAMP_W}
               />
             </div>
           ) : null}
         </div>
       </div>
+
+      {finalPos && isFinalOnly ? (
+        <ChampionPodium team={championTeam} owner={championOwner} theme={theme} />
+      ) : null}
     </div>
   );
 }
