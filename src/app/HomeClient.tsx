@@ -70,7 +70,12 @@ export default function HomeClient({ data }: Props) {
   // GSAP reveal on tab change — gated behind prefers-reduced-motion
   useEffect(() => {
     if (!contentRef.current) return;
-    const els = contentRef.current.querySelectorAll('[data-reveal]');
+    // Only animate the near-the-fold elements. A tab like Fixtures has ~90
+    // [data-reveal] nodes (one per fixture card); staggering all of them ran the
+    // entrance for ~7s and saturated the mobile compositor, delaying taps (the
+    // Knockout toggle / nav needed a double-tap). Off-screen nodes are left
+    // visible — the user scrolls to them already settled.
+    const els = Array.from(contentRef.current.querySelectorAll('[data-reveal]')).slice(0, 10);
     if (!els.length) return;
 
     const mm = gsap.matchMedia();
