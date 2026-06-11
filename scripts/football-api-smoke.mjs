@@ -58,7 +58,7 @@ for (const match of matches) {
 
 print(`endpoint: ${endpoint}`);
 print(`status: ${response.status}`);
-print(`requests-available: ${response.headers.get('x-requestsavailable') ?? 'n/a'}`);
+print(`requests-available: ${response.headers.get('x-requests-available-minute') ?? 'n/a'}`);
 print(`request-counter-reset: ${response.headers.get('x-requestcounter-reset') ?? 'n/a'}`);
 print(`match-count: ${matches.length}`);
 print(`stage-counts: ${JSON.stringify(Object.fromEntries(stageCounts))}`);
