@@ -81,7 +81,11 @@ export function FixtureFilterPanel({
       onClick={handleBackdropClick}
       onKeyDown={handleKeyDown}
       aria-label="Filter fixtures"
-      className="filter-panel fixed inset-x-2 bottom-2 top-auto m-0 max-h-[86svh] w-[calc(100%-1rem)] max-w-none overflow-hidden rounded-[24px] border-0 p-0 text-white md:inset-x-auto md:top-0 md:bottom-0 md:left-6 md:my-auto md:h-fit md:w-[408px]"
+      // Mobile uses a *definite* height (h-[86svh]), not max-h: iOS Safari won't
+      // resolve a flex-1 child's height in a column flex container that only has
+      // max-height, so the scrollable middle collapsed to 0 and only the header +
+      // footer showed. Desktop overrides back to fit-content via md:h-fit.
+      className="filter-panel fixed inset-x-2 bottom-2 top-auto m-0 h-[86svh] w-[calc(100%-1rem)] max-w-none overflow-hidden rounded-[24px] border-0 p-0 text-white md:inset-x-auto md:top-0 md:bottom-0 md:left-6 md:my-auto md:h-fit md:max-h-[86svh] md:w-[408px]"
       style={{
         background: `${theme.bg}f7`,
         backdropFilter: 'blur(28px)',
