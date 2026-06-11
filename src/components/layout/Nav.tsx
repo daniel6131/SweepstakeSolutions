@@ -33,8 +33,15 @@ export function Nav({ activeTab, onTabChange, theme, menuOpen, setMenuOpen }: Na
     };
   }, [menuOpen]);
 
-  // Focus first menu item when menu opens; restore hamburger when it closes
+  // Focus first menu item when menu opens; restore hamburger when it closes.
+  // Skip the initial mount so nothing is auto-focused on page load (otherwise
+  // the hamburger shows a focus ring before the user has interacted).
+  const menuWasMounted = useRef(false);
   useEffect(() => {
+    if (!menuWasMounted.current) {
+      menuWasMounted.current = true;
+      return;
+    }
     if (menuOpen) {
       firstMenuItemRef.current?.focus();
     } else {

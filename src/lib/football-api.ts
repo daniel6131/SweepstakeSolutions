@@ -26,8 +26,8 @@ const WORLD_CUP_SEASON = 2026;
 
 type CacheEntry<T> = { data: T; fetchedAt: number };
 const cache = new Map<string, CacheEntry<unknown>>();
-const CACHE_TTL_MS = 55_000; // 55s — just under the fetch/page revalidation window
-const FETCH_REVALIDATE_SECONDS = 60;
+const CACHE_TTL_MS = 18_000; // 18s — just under the fetch/page revalidation window
+const FETCH_REVALIDATE_SECONDS = 20; // upstream gate: ≤3 calls/min globally, well under the 10/min free tier
 const LIVE_STATUSES = new Set(['IN_PLAY', 'PAUSED', 'SUSPENDED', 'EXTRA_TIME', 'PENALTY_SHOOTOUT']);
 const FINISHED_STATUSES = new Set(['FINISHED', 'AWARDED']);
 const KNOCKOUT_STAGE_MAP: Partial<Record<string, KnockoutRoundKey>> = {
@@ -237,14 +237,19 @@ export type LiveTournamentData = {
   fixtures: Fixture[];
   knockoutMatches: LiveKnockoutMatch[];
   extraScoringMatches: ScoringMatch[];
+  /** Number of matches currently in play — drives the live "● LIVE" indicator. */
+  liveMatchCount: number;
 };
 
 export function transformCompetitionMatches(data: ApiMatchesResponse): LiveTournamentData {
   const fixtures: Fixture[] = [];
   const knockoutMatches: LiveKnockoutMatch[] = [];
   const extraScoringMatches: ScoringMatch[] = [];
+  let liveMatchCount = 0;
 
   for (const match of data.matches) {
+    if (LIVE_STATUSES.has(match.status)) liveMatchCount++;
+
     const { date, time } = formatDateParts(match.utcDate);
     const { t1, t2 } = normalizeMatchTeams(match);
 
@@ -291,7 +296,7 @@ export function transformCompetitionMatches(data: ApiMatchesResponse): LiveTourn
     });
   }
 
-  return { fixtures, knockoutMatches, extraScoringMatches };
+  return { fixtures, knockoutMatches, extraScoringMatches, liveMatchCount };
 }
 
 /* ── Public functions ──────────────────────────────────────────*/

@@ -35,11 +35,13 @@ export type SweepstakeData = {
   standings: Record<GroupId, GroupStanding[]>;
   bracket: ProjectedKnockoutBracket;
   dataSource: 'live' | 'static';
+  /** Matches currently in play — > 0 means the UI shows a pulsing "LIVE" badge. */
+  liveMatchCount: number;
   fetchedAt: string; // ISO timestamp
 };
 
 export async function loadSweepstakeData(): Promise<SweepstakeData> {
-  const { fixtures, knockoutMatches, extraScoringMatches, dataSource } =
+  const { fixtures, knockoutMatches, extraScoringMatches, liveMatchCount, dataSource } =
     await loadCurrentTournamentData();
   const groups = buildGroupsFromFixtures(fixtures);
 
@@ -70,6 +72,7 @@ export async function loadSweepstakeData(): Promise<SweepstakeData> {
     standings,
     bracket,
     dataSource,
+    liveMatchCount,
     fetchedAt: new Date().toISOString(),
   };
 }

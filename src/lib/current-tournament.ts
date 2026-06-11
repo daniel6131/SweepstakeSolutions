@@ -29,6 +29,7 @@ export async function loadCurrentTournamentData(): Promise<{
   fixtures: Fixture[];
   knockoutMatches: LiveKnockoutMatch[];
   extraScoringMatches: LiveTournamentData['extraScoringMatches'];
+  liveMatchCount: number;
   dataSource: 'live' | 'static';
 }> {
   if (isApiConfigured()) {
@@ -38,12 +39,19 @@ export async function loadCurrentTournamentData(): Promise<{
         fixtures: mergeVenues(live.fixtures),
         knockoutMatches: live.knockoutMatches,
         extraScoringMatches: live.extraScoringMatches,
+        liveMatchCount: live.liveMatchCount,
         dataSource: 'live',
       };
     }
   }
 
-  return { fixtures: FIXTURES, knockoutMatches: [], extraScoringMatches: [], dataSource: 'static' };
+  return {
+    fixtures: FIXTURES,
+    knockoutMatches: [],
+    extraScoringMatches: [],
+    liveMatchCount: 0,
+    dataSource: 'static',
+  };
 }
 
 export async function loadCurrentTournamentFixtures(): Promise<{
