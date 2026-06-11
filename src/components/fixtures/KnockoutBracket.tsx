@@ -444,11 +444,20 @@ function MobileBracket({
   const visibleRounds = rounds.slice(safeFocus);
   const { positionedRounds, height } = buildMobileLayout(visibleRounds);
 
-  const champX = M_PAD + visibleRounds.length * M_COL_STRIDE;
-  const totalWidth = champX + M_CHAMP_W + M_PAD;
   const finalPos = positionedRounds[positionedRounds.length - 1]?.[0];
   const champCenterY = finalPos?.centerY ?? 0;
   const finalMatch = rounds[rounds.length - 1]?.matches[0];
+
+  // On the final-only view the champion would overflow off the right edge with
+  // nothing to swipe to, so stack it (match-card width) directly below the final
+  // match where it always fits. Other rounds keep it to the right as usual.
+  const isFinalOnly = visibleRounds.length === 1;
+  const champW = isFinalOnly ? M_CARD_W : M_CHAMP_W;
+  const champX = isFinalOnly ? M_PAD : M_PAD + visibleRounds.length * M_COL_STRIDE;
+  const champTop =
+    finalPos && isFinalOnly ? finalPos.y + M_CARD_H + 26 : champCenterY - CHAMP_HEIGHT / 2;
+  const treeWidth = champX + champW + M_PAD;
+  const treeHeight = finalPos && isFinalOnly ? champTop + CHAMP_HEIGHT + M_PAD : height;
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -468,7 +477,7 @@ function MobileBracket({
       flipState.current = Flip.getState(treeRef.current.querySelectorAll('[data-flip-id]'), {
         props: 'opacity',
       });
-      fromHeightRef.current = height;
+      fromHeightRef.current = treeHeight;
       animating.current = true;
 
       // Advancing drops leading round(s) — clone their cards now, while still
@@ -503,7 +512,7 @@ function MobileBracket({
 
     const svg = svgRef.current;
     const tree = treeRef.current;
-    const toHeight = height;
+    const toHeight = treeHeight;
     const fromHeight = fromHeightRef.current;
 
     const edges: { k: number; top: number; bot: number; target: number }[] = [];
@@ -546,7 +555,7 @@ function MobileBracket({
         setD(`t-${e.k}`, elbowPath(s.right, s.cy, t.left, t.cy));
         setD(`b-${e.k}`, elbowPath(sib.right, sib.cy, t.left, t.cy));
       }
-      if (finalMatch) {
+      if (finalMatch && !isFinalOnly) {
         const s = cardRect(`m-${finalMatch.match}`);
         const c = cardRect('champion');
         if (s && c) setD('champ', elbowPath(s.right, s.cy, c.left, c.cy));
@@ -622,7 +631,7 @@ function MobileBracket({
     }
 
     redraw();
-  }, [focus, height, positionedRounds, finalMatch]);
+  }, [focus, treeHeight, positionedRounds, finalMatch, isFinalOnly]);
 
   // One round per horizontal swipe/wheel — same discrete stepping as desktop, so
   // navigating the bracket by gesture runs the collapse/expand morph too. A ref
@@ -724,7 +733,7 @@ function MobileBracket({
       {/* Clipped tree — a horizontal swipe steps one round (with the morph);
           vertical gestures pass through to the page (touch-action: pan-y). */}
       <div ref={scrollRef} className="relative overflow-hidden" style={{ touchAction: 'pan-y' }}>
-        <div ref={treeRef} className="relative" style={{ width: totalWidth, height }}>
+        <div ref={treeRef} className="relative" style={{ width: treeWidth, height: treeHeight }}>
           <svg
             ref={svgRef}
             className="pointer-events-none absolute inset-0 h-full w-full"
@@ -768,7 +777,7 @@ function MobileBracket({
                 ];
               })
             )}
-            {finalPos ? (
+            {finalPos && !isFinalOnly ? (
               <path
                 data-conn="champ"
                 d={elbowPath(finalPos.x + M_CARD_W, champCenterY, champX, champCenterY)}
@@ -795,12 +804,12 @@ function MobileBracket({
             <div
               className="absolute"
               data-flip-id="champion"
-              style={{ left: champX, top: champCenterY - CHAMP_HEIGHT / 2 }}>
+              style={{ left: champX, top: champTop }}>
               <ChampionCard
                 team={championTeam}
                 owner={championOwner}
                 theme={theme}
-                width={M_CHAMP_W}
+                width={champW}
               />
             </div>
           ) : null}
