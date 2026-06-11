@@ -2,15 +2,13 @@ import { loadSweepstakeData } from '@/lib/load-data';
 import HomeClient from './HomeClient';
 
 /**
- * ISR: Rebuild the page every 60 seconds.
- *
- * During the tournament, this means scores update within a minute
- * of a goal being scored. Pre-tournament, static data is served
- * instantly from the edge cache.
- *
- * Bump to 30 during live matches, or 300 between match days.
+ * ISR: this only governs the *first* server-rendered paint. Once mounted,
+ * HomeClient polls `/api/live` every 25s for true live updates (see
+ * `use-live-data.ts`), so freshness no longer depends on page regeneration
+ * or on a visitor happening to request the page. We keep a short window so
+ * the initial HTML is never badly stale on a cold load.
  */
-export const revalidate = 60;
+export const revalidate = 30;
 
 export default async function Page() {
   const data = await loadSweepstakeData();

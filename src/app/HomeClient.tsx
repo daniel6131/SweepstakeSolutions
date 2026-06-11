@@ -6,12 +6,14 @@ import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Header } from '@/components/layout/Header';
+import { LiveIndicator } from '@/components/layout/LiveIndicator';
 import { Nav } from '@/components/layout/Nav';
 import { Stickers } from '@/components/layout/Stickers';
 import { LeaderboardTab } from '@/components/leaderboard/LeaderboardTab';
 import { THEMES } from '@/data/themes';
 import type { SweepstakeData } from '@/lib/load-data';
 import { mockSweepstakeData } from '@/lib/mock-data'; // TEMP: ?demo preview
+import { useLiveData } from '@/lib/use-live-data';
 import { getLenis, useSmoothScroll } from '@/lib/use-smooth-scroll';
 import type { TabKey } from '@/types';
 
@@ -31,9 +33,20 @@ const TeamsTab = dynamic(() => import('@/components/teams/TeamsTab').then((m) =>
 
 gsap.registerPlugin(ScrollTrigger);
 
+/** URL slug ⇄ tab, so a refresh restores the tab the user was on. */
+const SLUG_TO_TAB: Record<string, TabKey> = {
+  leaderboard: 'Leaderboard',
+  fixtures: 'Fixtures',
+  groups: 'Groups',
+  teams: 'Teams',
+};
+
 type Props = { data: SweepstakeData };
 
-export default function HomeClient({ data }: Props) {
+export default function HomeClient({ data: initialData }: Props) {
+  // Server-rendered snapshot seeds the UI; the hook then polls `/api/live` for
+  // true live updates (pausing when the tab is hidden, catching up on return).
+  const { data, syncedAt, refreshing } = useLiveData(initialData);
   const [tab, setTab] = useState<TabKey>('Leaderboard');
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -49,7 +62,17 @@ export default function HomeClient({ data }: Props) {
   useSmoothScroll();
 
   useEffect(() => {
-    const isDemo = new URLSearchParams(window.location.search).has('demo'); // TEMP: ?demo
+    const params = new URLSearchParams(window.location.search);
+    // Restore the tab from the URL immediately (before the reveal) so a refresh
+    // lands back on the same tab instead of resetting to Leaderboard.
+    const restored = SLUG_TO_TAB[params.get('tab') ?? ''];
+    if (restored) {
+      // Set the ground theme synchronously, then flip the tab on the next
+      // microtask (before the reveal) — keeps the restore off the effect body.
+      document.documentElement.setAttribute('data-theme', restored.toLowerCase());
+      queueMicrotask(() => setTab(restored));
+    }
+    const isDemo = params.has('demo'); // TEMP: ?demo
     const t = setTimeout(() => {
       setMounted(true);
       setDemo(isDemo);
@@ -144,6 +167,12 @@ export default function HomeClient({ data }: Props) {
   const handleTabChange = useCallback(
     (newTab: TabKey) => {
       if (newTab === tab || isTransitioning.current) return;
+
+      // Keep the URL in sync (replace, not push) so a refresh restores this tab
+      // without polluting the back-button history.
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', newTab.toLowerCase());
+      window.history.replaceState(null, '', url);
 
       const nextTheme = THEMES[newTab];
 
@@ -309,6 +338,15 @@ export default function HomeClient({ data }: Props) {
           </footer>
         </main>
       </div>
+
+      {/* Live "bug" — broadcast-style real-time status, bottom-left corner */}
+      <LiveIndicator
+        liveMatchCount={view.liveMatchCount}
+        syncedAt={syncedAt}
+        fetchedAt={data.fetchedAt}
+        refreshing={refreshing}
+        dataSource={view.dataSource}
+      />
 
       {/* Circle wipe overlay — z-200 = above nav (z-100), menu (z-95), everything */}
       <div
