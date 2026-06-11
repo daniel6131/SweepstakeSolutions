@@ -70,7 +70,12 @@ export default function HomeClient({ data }: Props) {
   // GSAP reveal on tab change — gated behind prefers-reduced-motion
   useEffect(() => {
     if (!contentRef.current) return;
-    const els = contentRef.current.querySelectorAll('[data-reveal]');
+    // Only animate the near-the-fold elements. A tab like Fixtures has ~90
+    // [data-reveal] nodes (one per fixture card); staggering all of them ran the
+    // entrance for ~7s and saturated the mobile compositor, delaying taps (the
+    // Knockout toggle / nav needed a double-tap). Off-screen nodes are left
+    // visible — the user scrolls to them already settled.
+    const els = Array.from(contentRef.current.querySelectorAll('[data-reveal]')).slice(0, 10);
     if (!els.length) return;
 
     const mm = gsap.matchMedia();
@@ -180,6 +185,12 @@ export default function HomeClient({ data }: Props) {
           document.documentElement.setAttribute('data-theme', newTab.toLowerCase());
           setTab(newTab);
 
+          // Stop intercepting taps the moment the new page is swapped in. The
+          // dissolve that follows is purely visual (opacity), so the revealed
+          // page is interactive immediately — without this the overlay keeps
+          // eating the first tap (e.g. the Knockout toggle or nav) for ~0.35s.
+          el.style.pointerEvents = 'none';
+
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               gsap.to(el, {
@@ -187,7 +198,6 @@ export default function HomeClient({ data }: Props) {
                 duration: 0.35,
                 ease: 'power2.out',
                 onComplete: () => {
-                  el.style.pointerEvents = 'none';
                   isTransitioning.current = false;
                 },
               });
