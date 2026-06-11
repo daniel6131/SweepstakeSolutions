@@ -434,6 +434,10 @@ function MobileBracket({
   const animating = useRef(false);
   const fromHeightRef = useRef(0);
   const reducedRef = useRef(false);
+  // Clones of the departing round's cards, captured before React removes them,
+  // so they can animate out on a layer behind the surviving tree (Flip can't
+  // reliably animate framework-removed nodes) — identical to the desktop tree.
+  const leavingClonesRef = useRef<{ el: HTMLElement; left: number }[]>([]);
   const [focus, setFocus] = useState(0);
 
   const safeFocus = Math.min(focus, rounds.length - 1);
@@ -457,15 +461,38 @@ function MobileBracket({
   }, []);
 
   const selectRound = (index: number) => {
-    if (index === safeFocus || animating.current) return;
+    const clamped = Math.max(0, Math.min(rounds.length - 1, index));
+    if (clamped === safeFocus || animating.current) return;
+    leavingClonesRef.current = [];
     if (!reducedRef.current && treeRef.current) {
       flipState.current = Flip.getState(treeRef.current.querySelectorAll('[data-flip-id]'), {
         props: 'opacity',
       });
       fromHeightRef.current = height;
       animating.current = true;
+
+      // Advancing drops leading round(s) — clone their cards now, while still
+      // mounted, so we can animate the exit ourselves on a layer behind the tree.
+      if (clamped > safeFocus) {
+        const leavingIds = new Set<string>();
+        rounds.slice(safeFocus, clamped).forEach((round) => {
+          round.matches.forEach((m) => leavingIds.add(`m-${m.match}`));
+        });
+        treeRef.current.querySelectorAll<HTMLElement>('[data-flip-id]').forEach((el) => {
+          if (!leavingIds.has(el.getAttribute('data-flip-id') ?? '')) return;
+          const clone = el.cloneNode(true) as HTMLElement;
+          clone.removeAttribute('data-flip-id');
+          clone.style.position = 'absolute';
+          clone.style.left = `${el.offsetLeft}px`;
+          clone.style.top = `${el.offsetTop}px`;
+          clone.style.width = `${el.offsetWidth}px`;
+          clone.style.margin = '0';
+          clone.style.pointerEvents = 'none';
+          leavingClonesRef.current.push({ el: clone, left: el.offsetLeft });
+        });
+      }
     }
-    setFocus(index);
+    setFocus(clamped);
   };
 
   // Run the collapse / expand morph once the focused layout has re-rendered.
@@ -537,14 +564,22 @@ function MobileBracket({
       );
     }
 
+    // Reappearing round (retreat): slide in from the left while expanding.
     const collapsed = {
-      xPercent: -70,
-      scaleX: 0.4,
+      xPercent: -115,
+      scaleX: 0.18,
+      scaleY: 0.78,
       opacity: 0,
       transformOrigin: 'left center' as const,
     };
 
+    // Only the live nodes are targets, so Flip animates the surviving cards and
+    // detects entering ones; leaving cards are handled via clones below, so Flip
+    // never touches them (no onLeave — that was what painted over the tree).
+    const liveTargets = tree ? Array.from(tree.querySelectorAll('[data-flip-id]')) : [];
+
     Flip.from(state, {
+      targets: liveTargets,
       duration: MORPH_DURATION,
       ease: MORPH_EASE,
       absolute: true,
@@ -557,19 +592,34 @@ function MobileBracket({
           stagger: 0.02,
           onUpdate: redraw,
         }),
-      onLeave: (els) => {
-        gsap.to(els, {
-          ...collapsed,
-          duration: MORPH_DURATION,
-          ease: MORPH_EASE,
-          onUpdate: redraw,
-        });
-      },
       onComplete: () => {
         animating.current = false;
         redraw();
       },
     });
+
+    // Departing round (advance): animate the cloned cards out on a layer behind
+    // the surviving tree — they collapse and slide straight off the left.
+    const clones = leavingClonesRef.current;
+    leavingClonesRef.current = [];
+    if (clones.length && scrollRef.current && tree) {
+      const layer = document.createElement('div');
+      layer.style.cssText = 'position:absolute;inset:0;z-index:0;pointer-events:none;';
+      scrollRef.current.insertBefore(layer, tree);
+      clones.forEach(({ el, left }) => {
+        layer.appendChild(el);
+        gsap.to(el, {
+          x: -(left + M_CARD_W),
+          scaleX: 0.5,
+          scaleY: 0.5,
+          opacity: 0,
+          transformOrigin: 'left center',
+          duration: MORPH_DURATION,
+          ease: MORPH_EASE,
+        });
+      });
+      gsap.delayedCall(MORPH_DURATION + 0.1, () => layer.remove());
+    }
 
     redraw();
   }, [focus, height, positionedRounds, finalMatch]);
@@ -673,7 +723,7 @@ function MobileBracket({
 
       {/* Clipped tree — a horizontal swipe steps one round (with the morph);
           vertical gestures pass through to the page (touch-action: pan-y). */}
-      <div ref={scrollRef} className="overflow-hidden" style={{ touchAction: 'pan-y' }}>
+      <div ref={scrollRef} className="relative overflow-hidden" style={{ touchAction: 'pan-y' }}>
         <div ref={treeRef} className="relative" style={{ width: totalWidth, height }}>
           <svg
             ref={svgRef}
