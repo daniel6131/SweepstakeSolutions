@@ -568,12 +568,79 @@ function MobileBracket({
       onComplete: () => {
         animating.current = false;
         redraw();
-        scrollRef.current?.scrollTo({ left: 0, behavior: 'smooth' });
       },
     });
 
     redraw();
   }, [focus, height, positionedRounds, finalMatch]);
+
+  // One round per horizontal swipe/wheel — same discrete stepping as desktop, so
+  // navigating the bracket by gesture runs the collapse/expand morph too. A ref
+  // keeps the listeners (attached once) reading the latest focus.
+  const stepFocus = (delta: number) =>
+    selectRound(Math.max(0, Math.min(rounds.length - 1, safeFocus + delta)));
+  const stepRef = useRef<(delta: number) => void>(() => {});
+  useEffect(() => {
+    stepRef.current = stepFocus;
+  });
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    let lastStepAt = -Infinity;
+    const onWheel = (event: WheelEvent) => {
+      if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+      event.preventDefault();
+      if (animating.current || Math.abs(event.deltaX) < STEP_WHEEL_DELTA) return;
+      const now = event.timeStamp;
+      if (now - lastStepAt < STEP_COOLDOWN_MS) return;
+      lastStepAt = now;
+      stepRef.current(event.deltaX > 0 ? 1 : -1);
+    };
+
+    let startX = 0;
+    let startY = 0;
+    let swiped = false;
+    let horizontal: boolean | null = null;
+    const onTouchStart = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      swiped = false;
+      horizontal = null;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      if (horizontal === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+        horizontal = Math.abs(dx) > Math.abs(dy);
+      }
+      if (!horizontal) return; // vertical swipe → page scrolls
+      event.preventDefault();
+      if (swiped || animating.current || Math.abs(dx) < STEP_TOUCH_DELTA) return;
+      swiped = true;
+      stepRef.current(dx < 0 ? 1 : -1);
+    };
+    const onTouchEnd = () => {
+      swiped = false;
+      horizontal = null;
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+    };
+  }, []);
 
   return (
     <div className="relative z-10">
@@ -604,11 +671,9 @@ function MobileBracket({
         })}
       </div>
 
-      {/* Horizontally-scrollable tree (native swipe — Lenis doesn't sync touch) */}
-      <div
-        ref={scrollRef}
-        className="overflow-x-auto overflow-y-hidden"
-        style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+      {/* Clipped tree — a horizontal swipe steps one round (with the morph);
+          vertical gestures pass through to the page (touch-action: pan-y). */}
+      <div ref={scrollRef} className="overflow-hidden" style={{ touchAction: 'pan-y' }}>
         <div ref={treeRef} className="relative" style={{ width: totalWidth, height }}>
           <svg
             ref={svgRef}
@@ -1038,6 +1103,7 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
 
     const onTouchStart = (event: TouchEvent) => {
       const touch = event.touches[0];
+      if (!touch) return;
       startX = touch.clientX;
       startY = touch.clientY;
       swiped = false;
@@ -1045,6 +1111,7 @@ export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
     };
     const onTouchMove = (event: TouchEvent) => {
       const touch = event.touches[0];
+      if (!touch) return;
       const dx = touch.clientX - startX;
       const dy = touch.clientY - startY;
       if (horizontal === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
