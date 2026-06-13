@@ -19,15 +19,14 @@ const COMPETITION = 'WC'; // FIFA World Cup
 const WORLD_CUP_SEASON = 2026;
 
 /* ── In-memory cache ────────────────────────────────────────────
-   Vercel serverless functions have ephemeral memory, so this cache
-   lives only for the lifetime of a single function invocation/container.
-   ISR handles the durable caching layer (revalidate every 60s). This
-   in-memory cache prevents duplicate API calls within a single request. */
+   Only `refreshSnapshot` reaches this client now, and the canonical-snapshot
+   layer (KV lock + freshness policy) is what governs how often we refresh. So
+   this tiny in-memory cache only dedupes a genuine within-request double call;
+   each lock-gated refresh (≥15s apart) still gets fresh upstream data. */
 
 type CacheEntry<T> = { data: T; fetchedAt: number };
 const cache = new Map<string, CacheEntry<unknown>>();
-const CACHE_TTL_MS = 18_000; // 18s — just under the fetch/page revalidation window
-const FETCH_REVALIDATE_SECONDS = 20; // upstream gate: ≤3 calls/min globally, well under the 10/min free tier
+const CACHE_TTL_MS = 5_000; // brief within-request dedupe only
 const LIVE_STATUSES = new Set(['IN_PLAY', 'PAUSED', 'SUSPENDED', 'EXTRA_TIME', 'PENALTY_SHOOTOUT']);
 const FINISHED_STATUSES = new Set(['FINISHED', 'AWARDED']);
 const KNOCKOUT_STAGE_MAP: Partial<Record<string, KnockoutRoundKey>> = {
@@ -102,8 +101,9 @@ async function apiFetch<T>(endpoint: string): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
   const res = await fetch(url, {
     headers: { 'X-Auth-Token': token },
-    // Use time-based revalidation so the homepage can stay statically rendered via ISR.
-    next: { revalidate: FETCH_REVALIDATE_SECONDS },
+    // No Data Cache: the snapshot refresh is already lock-gated, so each refresh
+    // should pull genuinely live data rather than a revalidation-cached copy.
+    cache: 'no-store',
   });
 
   if (!res.ok) {
