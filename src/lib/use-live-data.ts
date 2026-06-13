@@ -4,8 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { SweepstakeData } from '@/lib/load-data';
 
-/** How often we poll `/api/live` while the tab is visible. */
-const POLL_INTERVAL_MS = 25_000;
+/** How often we poll `/api/live` while the tab is visible. Reads are cheap KV
+ *  snapshot lookups (not upstream calls), so we can sync briskly and every
+ *  device converges on the same canonical data within a poll. */
+const POLL_INTERVAL_MS = 15_000;
 
 export type LiveData = {
   /** Latest data — starts as the server-rendered snapshot, then updates in place. */
@@ -21,8 +23,9 @@ export type LiveData = {
 /**
  * Keeps `SweepstakeData` live on the client without depending on page ISR.
  *
- * - Hydrates instantly from the server-rendered snapshot (no loading flash).
- * - Polls `/api/live` every 25s while the tab is visible.
+ * - Hydrates instantly from the server-rendered snapshot (no loading flash),
+ *   then immediately syncs on mount so an opened-after-hours page isn't stale.
+ * - Polls `/api/live` every 15s while the tab is visible.
  * - Pauses polling when the tab is hidden, and refreshes immediately when the
  *   user returns or the network reconnects — so it always feels up-to-date.
  * - Never throws: on a failed fetch it keeps the last good data.
@@ -74,6 +77,7 @@ export function useLiveData(initial: SweepstakeData): LiveData {
     };
     const onOnline = () => void refresh();
 
+    void refresh(); // sync immediately on mount — no waiting a full interval
     start();
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('online', onOnline);

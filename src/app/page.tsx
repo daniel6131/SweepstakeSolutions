@@ -1,17 +1,20 @@
-import { loadSweepstakeData } from '@/lib/load-data';
+import { after } from 'next/server';
+
+import { getSnapshotForRead } from '@/lib/refresh-snapshot';
 import HomeClient from './HomeClient';
 
 /**
- * ISR: this only governs the *first* server-rendered paint. Once mounted,
- * HomeClient polls `/api/live` every 25s for true live updates (see
- * `use-live-data.ts`), so freshness no longer depends on page regeneration
- * or on a visitor happening to request the page. We keep a short window so
- * the initial HTML is never badly stale on a cold load.
+ * The first paint reads the SAME canonical snapshot from KV that `/api/live`
+ * serves, so every device starts from identical data (no per-device compute).
+ * Rendered per-request (a fast KV read) rather than ISR, so a freshly-opened
+ * page is never stale; if the snapshot has aged out, `getSnapshotForRead`
+ * refreshes it (inline when very stale, in the background otherwise).
  */
-export const revalidate = 30;
+export const dynamic = 'force-dynamic';
 
 export default async function Page() {
-  const data = await loadSweepstakeData();
+  const { snapshot, background } = await getSnapshotForRead();
+  if (background) after(background);
 
-  return <HomeClient data={data} />;
+  return <HomeClient data={snapshot.data} />;
 }
