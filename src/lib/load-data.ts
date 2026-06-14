@@ -18,7 +18,9 @@ import {
   type ProjectedKnockoutBracket,
 } from '@/lib/knockout';
 import { loadCurrentTournamentData } from '@/lib/current-tournament';
+import { computeLedgerOfFate } from '@/lib/ledger-of-fate';
 import { computeGroupStandings, computeLeaderboard } from '@/lib/scoring';
+import type { LedgerOfFate } from '@/lib/ledger-of-fate';
 import type {
   GroupId,
   GroupStanding,
@@ -32,6 +34,7 @@ export type SweepstakeData = {
   groups: TournamentGroups;
   participants: Participant[];
   leaderboard: LeaderboardEntry[];
+  ledger: LedgerOfFate;
   standings: Record<GroupId, GroupStanding[]>;
   bracket: ProjectedKnockoutBracket;
   dataSource: 'live' | 'static';
@@ -59,16 +62,20 @@ export async function loadSweepstakeData(): Promise<SweepstakeData> {
   const standings = computeGroupStandings(fixtures, groups);
   const knockoutResults = buildKnockoutResultsFromLiveMatches(standings, knockoutMatches);
   const bracket = buildProjectedKnockoutBracket(standings, knockoutResults);
-  const leaderboard = computeLeaderboard(
-    [...fixtures, ...getCompletedKnockoutScoringMatches(bracket), ...extraScoringMatches],
-    participants
-  );
+  const scoringMatches = [
+    ...fixtures,
+    ...getCompletedKnockoutScoringMatches(bracket),
+    ...extraScoringMatches,
+  ];
+  const leaderboard = computeLeaderboard(scoringMatches, participants);
+  const ledger = computeLedgerOfFate(scoringMatches, participants);
 
   return {
     fixtures,
     groups,
     participants,
     leaderboard,
+    ledger,
     standings,
     bracket,
     dataSource,
