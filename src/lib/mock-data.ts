@@ -8,6 +8,7 @@
  * this file and the `demo` wiring in HomeClient once previewing is done.
  */
 import { buildProjectedKnockoutBracket } from '@/lib/knockout';
+import { computeLedgerOfFate } from '@/lib/ledger-of-fate';
 import type { SweepstakeData } from '@/lib/load-data';
 import { computeGroupStandings, computeLeaderboard } from '@/lib/scoring';
 import type { Fixture } from '@/types';
@@ -41,6 +42,7 @@ export function mockSweepstakeData(data: SweepstakeData): SweepstakeData {
   const standings = computeGroupStandings(fixtures, data.groups);
   const bracket = buildProjectedKnockoutBracket(standings);
   const leaderboard = computeLeaderboard(fixtures, data.participants);
+  const ledger = computeLedgerOfFate(fixtures, data.participants);
 
-  return { ...data, fixtures, standings, bracket, leaderboard };
+  return { ...data, fixtures, standings, bracket, leaderboard, ledger };
 }

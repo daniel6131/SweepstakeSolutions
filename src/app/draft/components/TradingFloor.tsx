@@ -49,8 +49,8 @@ export function TradingFloor({
           className="font-heading mt-2 text-xs font-semibold uppercase tracking-[4px] md:text-sm"
           style={{ color: `${C.accent}40` }}>
           {totalConflicts > 0
-            ? `${totalConflicts} CONFLICT${totalConflicts > 1 ? 'S' : ''} — TAP TWO TEAMS TO SWAP`
-            : 'NO CONFLICTS — READY TO LOCK IN'}
+            ? `${totalConflicts} CONFLICT${totalConflicts > 1 ? 'S' : ''} · TAP TWO TEAMS TO SWAP`
+            : 'NO CONFLICTS · READY TO LOCK IN'}
         </div>
         {selected && (
           <div
