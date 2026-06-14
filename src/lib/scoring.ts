@@ -37,7 +37,7 @@ type HeadToHeadRecord = {
 /**
  * Build a per-team record from all completed fixtures.
  */
-function buildTeamRecords(fixtures: ScoringMatch[]): Map<string, TeamRecord> {
+export function buildTeamRecords(fixtures: ScoringMatch[]): Map<string, TeamRecord> {
   const records = new Map<string, TeamRecord>();
 
   const ensure = (team: string) => {

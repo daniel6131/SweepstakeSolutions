@@ -227,7 +227,7 @@ export function FixtureFilterPanel({
           style={{ background: theme.accent, color: theme.bg }}>
           {resultCount > 0
             ? `Show ${resultCount} ${resultCount === 1 ? 'match' : 'matches'}`
-            : 'No matches — adjust filters'}
+            : 'No matches. Adjust filters'}
         </button>
       </footer>
     </dialog>

@@ -51,7 +51,11 @@ export type SnapshotRead = {
  */
 export async function getSnapshotForRead(): Promise<SnapshotRead> {
   const current = await readSnapshot();
-  const freshness = classifyAge(current?.updatedAt, Date.now());
+  // A snapshot persisted by an older build may predate the `ledger` field. Never
+  // serve it as current: force a recompute so the Ledger view always has data
+  // (otherwise the toggle vanishes and the page falls back to the plain table).
+  const freshness =
+    current && !current.data.ledger ? 'expired' : classifyAge(current?.updatedAt, Date.now());
 
   if (current && freshness === 'fresh') {
     return { snapshot: current, background: null };

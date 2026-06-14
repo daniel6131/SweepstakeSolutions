@@ -10,19 +10,19 @@ export const metadata: Metadata = {
     template: '%s | WC Sweepstake 2026',
   },
   description:
-    'Track your sweepstake standings for the 2026 FIFA World Cup — USA, Mexico & Canada.',
+    'Track your sweepstake standings for the 2026 FIFA World Cup across the USA, Mexico & Canada.',
   openGraph: {
     type: 'website',
     title: 'World Cup Sweepstake 2026',
     description:
-      'Track your sweepstake standings for the 2026 FIFA World Cup — USA, Mexico & Canada.',
+      'Track your sweepstake standings for the 2026 FIFA World Cup across the USA, Mexico & Canada.',
     siteName: 'WC Sweepstake 2026',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'World Cup Sweepstake 2026',
     description:
-      'Track your sweepstake standings for the 2026 FIFA World Cup — USA, Mexico & Canada.',
+      'Track your sweepstake standings for the 2026 FIFA World Cup across the USA, Mexico & Canada.',
   },
 };
 
