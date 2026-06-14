@@ -1,3 +1,4 @@
+import { ShareImageButton } from '@/components/share/ShareImageButton';
 import { Flag } from '@/components/ui/Flag';
 import type { CSSProperties } from 'react';
 import type { LeaderboardEntry, ThemeColors } from '@/types';
@@ -143,6 +144,14 @@ export function LeaderboardTable({ entries, theme }: Props) {
                   </span>
                 </span>
               </div>
+
+              <ShareImageButton
+                basePath={`/api/share/${encodeURIComponent(p.name)}?card=standing`}
+                filename={`${p.name}-standing.png`}
+                title={`Share ${p.name}'s standing`}
+                ariaLabel={`Share ${p.name}'s standing`}
+                theme={theme}
+              />
             </div>
 
             {/* Race line: gap bar (relative to leader) + gap label */}

@@ -1,5 +1,6 @@
+import { ShareHandButton } from '@/components/share/ShareHandButton';
 import { Flag } from '@/components/ui/Flag';
-import type { DraftPot } from '@/data/draftPots';
+import { POT_LABEL, fmtSigned, ordinalSuffix } from '@/lib/ledger-format';
 import type { LedgerEntry, LedgerTeam, PotVerdict } from '@/lib/ledger-of-fate';
 import type { ThemeColors } from '@/types';
 
@@ -7,13 +8,6 @@ type Props = {
   entry: LedgerEntry;
   rank: number;
   theme: ThemeColors;
-};
-
-const POT_LABEL: Record<DraftPot, string> = {
-  1: 'Top Seed',
-  2: 'Contender',
-  3: 'Dark Horse',
-  4: 'Long Shot',
 };
 
 const VERDICT_META: Record<PotVerdict, { label: string; color: string; hint: string }> = {
@@ -29,17 +23,6 @@ const VERDICT_META: Record<PotVerdict, { label: string; color: string; hint: str
   },
   PAR: { label: 'PAR', color: 'var(--color-fg-muted)', hint: 'a middling draw for its pot' },
 };
-
-function ordinalSuffix(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = n % 100;
-  return s[(v - 20) % 10] ?? s[v] ?? s[0]!;
-}
-
-function fmtSigned(n: number): string {
-  const rounded = Math.round(n * 10) / 10;
-  return rounded > 0 ? `+${rounded.toFixed(1)}` : rounded.toFixed(1);
-}
 
 /** Custom, on-theme hover tooltip (no default system chrome). Hidden on touch. */
 function Tooltip({ text, align = 'center' }: { text: string; align?: 'center' | 'right' }) {
@@ -160,6 +143,7 @@ export function LedgerHandCard({ entry, rank, theme }: Props) {
           </span>
           <Tooltip text={parTip} align="right" />
         </div>
+        <ShareHandButton name={entry.name} theme={theme} />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-4">

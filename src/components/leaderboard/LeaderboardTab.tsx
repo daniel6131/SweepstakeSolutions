@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { LeaderboardTable } from '@/components/leaderboard/LeaderboardTable';
 import { LedgerOfFate } from '@/components/leaderboard/LedgerOfFate';
 import { Podium } from '@/components/leaderboard/Podium';
+import { ShareImageButton } from '@/components/share/ShareImageButton';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import type { LedgerOfFate as LedgerOfFateData } from '@/lib/ledger-of-fate';
 import type { LeaderboardEntry, ThemeColors } from '@/types';
@@ -24,8 +25,16 @@ const VIEWS: { key: View; label: string }[] = [
 
 export function LeaderboardTab({ entries, ledger, theme }: Props) {
   const [view, setView] = useState<View>('table');
-  // Defensive: a stale persisted snapshot may predate the ledger field.
-  const hasLedger = Boolean(ledger && ledger.entries.length > 0);
+
+  // Keep the last good ledger so a transient empty/missing live poll never
+  // collapses the toggle or kicks the user off the Ledger view mid-session.
+  // (Adjusting state during render is the supported way to derive from props.)
+  const [lastGoodLedger, setLastGoodLedger] = useState<LedgerOfFateData | undefined>(ledger);
+  if (ledger && ledger.entries.length > 0 && ledger !== lastGoodLedger) {
+    setLastGoodLedger(ledger);
+  }
+  const effectiveLedger = ledger && ledger.entries.length > 0 ? ledger : lastGoodLedger;
+  const hasLedger = Boolean(effectiveLedger && effectiveLedger.entries.length > 0);
   const showLedger = hasLedger && view === 'ledger';
 
   return (
@@ -64,10 +73,19 @@ export function LeaderboardTab({ entries, ledger, theme }: Props) {
         </div>
       )}
 
-      {showLedger && ledger ? (
-        <LedgerOfFate ledger={ledger} theme={theme} />
+      {showLedger && effectiveLedger ? (
+        <LedgerOfFate ledger={effectiveLedger} theme={theme} />
       ) : (
         <>
+          <div className="mb-5 flex justify-end" data-reveal>
+            <ShareImageButton
+              basePath="/api/share/standings"
+              filename="sweepstake-standings.png"
+              title="World Cup Sweepstake: The Standings"
+              label="Share standings"
+              theme={theme}
+            />
+          </div>
           <Podium top3={entries.slice(0, 3)} theme={theme} />
           <LeaderboardTable entries={entries} theme={theme} />
         </>
