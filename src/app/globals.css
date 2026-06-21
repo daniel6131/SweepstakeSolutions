@@ -386,6 +386,39 @@
   }
 }
 
+/* Provisional Hell: a live leaderboard row carries a breathing accent edge,
+   drawn as a ::before bar so it composes with the leader row's inline box-shadow
+   instead of overriding it. Its score chips carry a pulsing dot. Both animate
+   opacity only, and the global prefers-reduced-motion block neutralizes them,
+   leaving a static but still-visible marker. */
+@keyframes provisional-breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.provisional-live-row::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 2px;
+  background: var(--color-accent);
+  opacity: 0.55; /* resting state (also the reduced-motion fallback) */
+  pointer-events: none;
+  animation: provisional-breathe 2.4s var(--ease-smooth) infinite;
+}
+.provisional-live-dot {
+  display: inline-flex;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  animation: live-dot 1.6s ease-in-out infinite;
+}
+
 @keyframes badge-pop {
   0% {
     transform: scale(0) rotate(-14deg);
@@ -750,6 +783,12 @@
   }
 
   .animate-marquee {
+    animation: none;
+  }
+
+  /* Keep the live marker static but still visible (resting edge / dot). */
+  .provisional-live-row::before,
+  .provisional-live-dot {
     animation: none;
   }
 

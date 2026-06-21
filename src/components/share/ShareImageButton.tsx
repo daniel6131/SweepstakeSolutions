@@ -15,6 +15,8 @@ type Props = {
   ariaLabel?: string;
   /** 'chip' is the filled accent button; 'ghost' is a subtle muted icon. */
   variant?: 'chip' | 'ghost';
+  /** 'sm' is a compact icon-only trigger for tucking into a row corner. */
+  size?: 'sm' | 'md';
   theme: ThemeColors;
 };
 
@@ -33,6 +35,7 @@ export function ShareImageButton({
   label = 'Share',
   ariaLabel,
   variant = 'chip',
+  size = 'md',
   theme,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -162,9 +165,9 @@ export function ShareImageButton({
         type="button"
         onClick={openModal}
         aria-label={ariaLabel ?? label}
-        className={`inline-flex shrink-0 cursor-pointer items-center justify-center rounded-full p-2 transition-colors ${
-          variant === 'ghost' ? 'hover:bg-(--color-accent-a8)' : 'hover:opacity-80'
-        }`}
+        className={`inline-flex shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors ${
+          size === 'sm' ? 'p-1.5' : 'p-2'
+        } ${variant === 'ghost' ? 'hover:bg-(--color-accent-a8)' : 'hover:opacity-80'}`}
         style={
           variant === 'ghost'
             ? { color: 'var(--color-fg-muted)' }
@@ -174,7 +177,7 @@ export function ShareImageButton({
                 border: '1px solid var(--card-border)',
               }
         }>
-        <Share2 size={15} aria-hidden />
+        <Share2 size={size === 'sm' ? 13 : 15} aria-hidden />
       </button>
 
       <dialog
