@@ -11,6 +11,7 @@
     "build:analyze": "ANALYZE=true next build",
     "draft:status": "node scripts/draft-smoke.mjs status",
     "draft:backup": "node scripts/draft-backup.mjs",
+    "snapshot:bust": "node scripts/snapshot-bust.mjs",
     "load-test": "node scripts/load-test.mjs",
     "gen:image": "node scripts/gen-image.mjs",
     "start": "next start",
@@ -27,7 +28,9 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "@vercel/kv": "^3.0.0",
+    "@vercel/speed-insights": "^2.0.0",
     "gsap": "^3.12.7",
     "lenis": "^1.3.0",
     "lucide-react": "^0.575.0",

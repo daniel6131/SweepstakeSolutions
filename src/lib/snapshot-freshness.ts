@@ -1,9 +1,10 @@
 /**
  * Snapshot freshness policy (pure — no I/O, so it's trivially unit-testable).
  *
- * Tuned for the football-data.org paid tier (~20 req/min). The upstream is only
- * touched by the lock-guarded refresh, so on-demand refreshes run at most once
- * per STALE window (~4/min) + the 1/min cron — well under budget.
+ * Sized for the football-data.org FREE tier (10 req/min). Upstream is only
+ * touched by the lock-guarded refresh, so even under load the budget is roughly
+ * one fetch per STALE window (about 4/min) plus the cron, comfortably under
+ * 10/min. See docs/CACHING.md for the full budget math.
  */
 
 /** Below this age a snapshot is current; no refresh needed. */

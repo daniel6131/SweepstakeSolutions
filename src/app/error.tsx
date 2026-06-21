@@ -11,7 +11,13 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error(error);
+    // structured so it's actually searchable in the Vercel logs / RUM, not just
+    // a raw stack dump
+    console.error('[error-boundary]', {
+      message: error.message,
+      digest: error.digest,
+      stack: error.stack,
+    });
   }, [error]);
 
   return (
