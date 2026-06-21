@@ -73,7 +73,13 @@ export function DevConsoleClient({ initialFixtures, participants, sourceLabel }:
   const fixturesPersistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const knockoutPersistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Restore from localStorage on mount
+  // Restore from localStorage on mount.
+  //
+  // The dev console is a local what-if tool on purpose: overrides only live in
+  // this browser, never touch the KV snapshot, so they don't leak to other
+  // devices and get wiped on the next refresh. Keeps it from ever mutating prod.
+  // If I ever want real manual corrections, persist to KV and overlay them in
+  // refreshSnapshot.
   useEffect(() => {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return;

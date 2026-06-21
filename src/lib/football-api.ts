@@ -115,6 +115,13 @@ async function apiFetch<T>(endpoint: string): Promise<T> {
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');
+    // pull 429s out as their own log line so I can alert on the rate limit
+    // separately from ordinary 5xx noise. Caller falls back to last-good/static.
+    if (res.status === 429) {
+      console.error(
+        `[football-api] RATE_LIMIT_429 endpoint=${endpoint} retry-after=${res.headers.get('retry-after') ?? 'n/a'} — degrading to last-known-good/static data`
+      );
+    }
     throw new Error(`football-data.org ${res.status}: ${body.slice(0, 200)}`);
   }
 

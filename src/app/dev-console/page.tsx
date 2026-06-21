@@ -7,7 +7,6 @@ import { authenticateDevConsole, logoutDevConsole } from '@/app/dev-console/acti
 import {
   DEV_CONSOLE_COOKIE,
   isDevConsoleEnabled,
-  isDevConsoleProtected,
   isValidDevConsoleCookie,
 } from '@/lib/dev-console';
 import { loadSweepstakeData } from '@/lib/load-data';
@@ -33,9 +32,11 @@ export default async function DevConsolePage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const cookieStore = await cookies();
+  // open locally with no password, closed in prod, so an enabled console with no
+  // password set stays locked rather than wide open.
   const isAuthorized = isValidDevConsoleCookie(cookieStore.get(DEV_CONSOLE_COOKIE)?.value);
 
-  if (isDevConsoleProtected() && !isAuthorized) {
+  if (!isAuthorized) {
     return (
       <main className="min-h-screen bg-[#08111b] px-4 py-10 text-white md:px-6">
         <div className="mx-auto max-w-xl">

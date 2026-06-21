@@ -11,11 +11,15 @@ import { after } from 'next/server';
 import { FateShareCard } from '@/components/share/FateShareCard';
 import { PositionShareCard } from '@/components/share/PositionShareCard';
 import { COUNTRY_CODES } from '@/data/countryCodes';
+import { PARTICIPANTS } from '@/data/participants';
 import { mockSweepstakeData } from '@/lib/mock-data';
 import { loadOgFonts } from '@/lib/og-fonts';
+import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { getSnapshotForRead } from '@/lib/refresh-snapshot';
 
 export const dynamic = 'force-dynamic';
+
+const VALID_PLAYER_NAMES = new Set(PARTICIPANTS.map((p) => p.name.toLowerCase()));
 
 function flagUrlFor(team: string): string {
   const code = COUNTRY_CODES[team];
@@ -25,6 +29,15 @@ function flagUrlFor(team: string): string {
 export async function GET(req: Request, ctx: { params: Promise<{ player: string }> }) {
   const { player } = await ctx.params;
   const name = decodeURIComponent(player);
+
+  // these renders aren't cheap, so rate-limit them and bail on unknown names
+  // before we touch the snapshot or load fonts
+  const limit = await rateLimit(`share:${clientIp(req)}`, 60, 60);
+  if (!limit.ok) return new Response('Too many requests', { status: 429 });
+  if (!VALID_PLAYER_NAMES.has(name.toLowerCase())) {
+    return new Response('Player not found', { status: 404 });
+  }
+
   const url = new URL(req.url);
   const origin = url.origin;
 

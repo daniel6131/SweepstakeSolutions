@@ -71,3 +71,7 @@ skills-lock.json
 
 # Generated reference imagery (scripts/gen-image.mjs) — move final assets into public/
 references/
+
+# Local draft state fallback (used only when KV is not configured in dev).
+# Never commit live draft state: it leaks the ceremony surprise in a public repo.
+data/

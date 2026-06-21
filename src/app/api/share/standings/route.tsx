@@ -11,6 +11,7 @@ import { LeaderboardShareCard } from '@/components/share/LeaderboardShareCard';
 import { COUNTRY_CODES } from '@/data/countryCodes';
 import { mockSweepstakeData } from '@/lib/mock-data';
 import { loadOgFonts } from '@/lib/og-fonts';
+import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { getSnapshotForRead } from '@/lib/refresh-snapshot';
 
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,10 @@ function flagUrlFor(team: string): string {
 }
 
 export async function GET(req: Request) {
+  // rate-limit the render (fails open if KV is down)
+  const limit = await rateLimit(`share:${clientIp(req)}`, 60, 60);
+  if (!limit.ok) return new Response('Too many requests', { status: 429 });
+
   const url = new URL(req.url);
   const origin = url.origin;
 
