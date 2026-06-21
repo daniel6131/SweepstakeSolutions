@@ -13,6 +13,7 @@ import type { TournamentGroups } from '@/types';
 import type { DraftPot } from '@/data/draftPots';
 
 const KV_KEY = 'draft:state';
+const LOCK_BACKUP_PREFIX = 'draft:locked:';
 const isKVEnabled = (): boolean => Boolean(process.env.KV_REST_API_URL);
 
 export type Assignment = {
@@ -90,6 +91,12 @@ async function readState(): Promise<DraftState | null> {
     const { kv } = await import('@vercel/kv');
     return kv.get<DraftState>(KV_KEY);
   }
+  // prod has no business reading the local file (it's gitignored and the
+  // serverless fs is throwaway). Shout instead of serving stale state.
+  if (process.env.NODE_ENV === 'production') {
+    console.error('[draft-db] KV not configured in production, refusing the local-file fallback');
+    return null;
+  }
   // Filesystem fallback for local development
   const { existsSync, readFileSync } = await import('fs');
   const { join } = await import('path');
@@ -107,6 +114,10 @@ async function writeState(state: DraftState): Promise<void> {
     const { kv } = await import('@vercel/kv');
     await kv.set(KV_KEY, state);
     return;
+  }
+  // don't write to the throwaway serverless fs in prod
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('[draft-db] cannot persist draft state: KV not configured in production');
   }
   // Filesystem fallback for local development
   const { existsSync, mkdirSync, writeFileSync } = await import('fs');
@@ -129,6 +140,32 @@ export async function getDraftState(groups: TournamentGroups = GROUPS): Promise<
 /** Write state */
 export async function saveDraftState(state: DraftState): Promise<void> {
   await writeState(state);
+}
+
+/**
+ * Stamp an immutable copy of the locked draft (plus a `latest` pointer) when we
+ * lock. The live state is one mutable KV key, so if someone resets it the team
+ * assignments are gone for good without this. Never let a backup failure block
+ * the lock itself. Restore with `npm run draft:backup -- restore`.
+ */
+async function backupLockedState(state: DraftState): Promise<void> {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  try {
+    if (isKVEnabled()) {
+      const { kv } = await import('@vercel/kv');
+      await kv.set(`${LOCK_BACKUP_PREFIX}${stamp}`, state);
+      await kv.set(`${LOCK_BACKUP_PREFIX}latest`, state);
+      return;
+    }
+    if (process.env.NODE_ENV === 'production') return;
+    const { existsSync, mkdirSync, writeFileSync } = await import('fs');
+    const { join } = await import('path');
+    const dir = join(process.cwd(), 'data', 'backups');
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `draft-locked-${stamp}.json`), JSON.stringify(state, null, 2));
+  } catch (error) {
+    console.error('[draft-db] Failed to write locked-draft backup:', error);
+  }
 }
 
 /** Check if draft is locked (for use by the main app) */
@@ -258,6 +295,7 @@ export async function lockDraft(): Promise<DraftState> {
   if (state.status !== 'trading') throw new Error('Not in trading phase');
   state.status = 'locked';
   await saveDraftState(state);
+  await backupLockedState(state);
   return state;
 }
 

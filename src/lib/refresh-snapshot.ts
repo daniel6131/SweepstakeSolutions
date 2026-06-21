@@ -65,10 +65,24 @@ export type SnapshotRead = {
 };
 
 /**
- * Return the snapshot for a read (page render or `/api/live`), applying the
- * stale-while-revalidate policy from `snapshot-freshness.ts`.
+ * Snapshot for a read (page render or `/api/live`), with the stale-while-
+ * revalidate policy from `snapshot-freshness.ts`.
+ *
+ * If KV falls over mid-match, compute a snapshot directly (which itself degrades
+ * to static fixtures) rather than 500ing the page. See the KV-outage note in the
+ * runbook.
  */
 export async function getSnapshotForRead(): Promise<SnapshotRead> {
+  try {
+    return await resolveSnapshotForRead();
+  } catch (err) {
+    console.error('[snapshot] read path failed, degrading to a computed snapshot:', err);
+    const data = await loadSweepstakeData();
+    return { snapshot: { data, updatedAt: Date.now() }, background: null };
+  }
+}
+
+async function resolveSnapshotForRead(): Promise<SnapshotRead> {
   const current = await readSnapshot();
   // A snapshot persisted by an older build may predate a newer field (`ledger`,
   // then `provisional`). Never serve it as current: force a recompute so the
