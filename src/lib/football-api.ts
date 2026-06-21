@@ -4,7 +4,7 @@
  * Server-side only. Fetches World Cup match data and transforms it
  * into our internal Fixture format.
  *
- * Free tier: 10 requests/minute — we cache aggressively to stay well under.
+ * Paid tier: 20 requests/minute, but we still cache aggressively to stay under.
  *
  * Endpoints used:
  *   GET /v4/competitions/WC/matches   → all matches for current WC season

@@ -1,9 +1,11 @@
 # Caching and the request budget
 
-The whole live-data design exists to keep us under the football-data.org free
-tier limit of **10 requests per minute** while still showing near-live scores.
+The whole live-data design exists to keep us under the football-data.org paid
+tier limit of **20 requests per minute** while still showing near-live scores.
 This is the one number that can take the site down on a match day, so the layers
-below all point at protecting it.
+below all point at protecting it. (The plan also exposes live scores, fixtures,
+schedules, and league tables; we compute the tables ourselves from the same
+match feed, so we never spend a request on the standings endpoint.)
 
 ## The layers
 
@@ -36,11 +38,14 @@ below all point at protecting it.
 ## Budget math
 
 - A refresh happens at most once per `STALE_MS` window: about **4/min**.
-- Plus the cron warmer: once daily on Hobby, or 1/min if you move to Pro.
-- Worst case at 1/min cron + on-demand: still about **5/min**, under the 10/min
-  ceiling, with headroom for a retry.
+- Plus the cron warmer: once daily on Hobby, or 1/min if you move to Vercel Pro.
+- Worst case at 1/min cron + on-demand: still about **5/min**, well under the
+  20/min ceiling, with plenty of headroom for a retry.
 - The single retry on a transient 5xx (`football-api.ts`) can add at most one
   extra call per refresh, still inside budget.
+- There is enough headroom at 20/min to refresh faster (lower `STALE_MS`) for
+  fresher live scores if we want it; at 8s windows that is about 8/min, still
+  comfortably under the ceiling.
 
 ## Invalidation
 
