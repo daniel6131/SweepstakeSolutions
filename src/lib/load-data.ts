@@ -19,8 +19,10 @@ import {
 } from '@/lib/knockout';
 import { loadCurrentTournamentData } from '@/lib/current-tournament';
 import { computeLedgerOfFate } from '@/lib/ledger-of-fate';
+import { computeProvisional, isLiveFixture } from '@/lib/provisional';
 import { computeGroupStandings, computeLeaderboard } from '@/lib/scoring';
 import type { LedgerOfFate } from '@/lib/ledger-of-fate';
+import type { Provisional } from '@/lib/provisional';
 import type {
   GroupId,
   GroupStanding,
@@ -35,6 +37,8 @@ export type SweepstakeData = {
   participants: Participant[];
   leaderboard: LeaderboardEntry[];
   ledger: LedgerOfFate;
+  /** Live "if it ended now" overlay: the leaderboard diffed against a finished-only baseline. */
+  provisional: Provisional;
   standings: Record<GroupId, GroupStanding[]>;
   bracket: ProjectedKnockoutBracket;
   dataSource: 'live' | 'static';
@@ -70,12 +74,33 @@ export async function loadSweepstakeData(): Promise<SweepstakeData> {
   const leaderboard = computeLeaderboard(scoringMatches, participants);
   const ledger = computeLedgerOfFate(scoringMatches, participants);
 
+  // Provisional Hell: the displayed `leaderboard` already folds in live scores
+  // (an in-play match arrives with its running score), so it IS the "if it
+  // ended now" table. We recompute a finished-only baseline and diff them so the
+  // UI can show who is climbing or being overtaken live. The two tables differ
+  // only by live GROUP fixtures (live knockout/third-place matches aren't scored
+  // until they finish), which is exactly the group-stage window this targets.
+  const liveFixtures = fixtures.filter(isLiveFixture);
+  const settledScoringMatches = [
+    ...fixtures.filter((f) => f.status !== 'live'),
+    ...getCompletedKnockoutScoringMatches(bracket),
+    ...extraScoringMatches,
+  ];
+  const settledLeaderboard = computeLeaderboard(settledScoringMatches, participants);
+  const provisional = computeProvisional(
+    leaderboard,
+    settledLeaderboard,
+    liveFixtures,
+    participants
+  );
+
   return {
     fixtures,
     groups,
     participants,
     leaderboard,
     ledger,
+    provisional,
     standings,
     bracket,
     dataSource,

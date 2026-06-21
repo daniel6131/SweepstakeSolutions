@@ -288,7 +288,12 @@ export default function HomeClient({ data: initialData }: Props) {
             ref={contentRef}
             className="mx-auto max-w-285 px-4 pt-8 pb-20 md:px-6 md:pt-12 md:pb-28 lg:px-8">
             {tab === 'Leaderboard' && (
-              <LeaderboardTab entries={view.leaderboard} ledger={view.ledger} theme={theme} />
+              <LeaderboardTab
+                entries={view.leaderboard}
+                ledger={view.ledger}
+                provisional={view.provisional}
+                theme={theme}
+              />
             )}
             {tab === 'Fixtures' && (
               <FixturesTab
