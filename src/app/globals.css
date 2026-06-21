@@ -543,6 +543,20 @@
   }
 }
 
+/* ── Fixtures date rail — sticky TV-guide ticker that scroll-spies the day in view.
+   Docks just under the fixed nav; the day sections carry a matching scroll-margin
+   so a jumped-to day lands clear of both the nav and this rail. ── */
+.fixtures-rail {
+  position: sticky;
+  top: calc(env(safe-area-inset-top, 0px) + 3.5rem);
+  z-index: 30;
+}
+@media (min-width: 768px) {
+  .fixtures-rail {
+    top: 4rem;
+  }
+}
+
 /* ── Standard animations ── */
 .animate-fade-up {
   animation: fadeUp 0.7s var(--ease-expo-out) forwards;

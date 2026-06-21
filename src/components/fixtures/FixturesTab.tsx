@@ -3,6 +3,7 @@
 import { FixtureCard } from '@/components/fixtures/FixtureCard';
 import { FixtureFilterBar } from '@/components/fixtures/FixtureFilterBar';
 import { FixtureFilterPanel } from '@/components/fixtures/FixtureFilterPanel';
+import { FixturesTodayLead } from '@/components/fixtures/FixturesTodayLead';
 import { KnockoutBracket } from '@/components/fixtures/KnockoutBracket';
 import { NationMarquee } from '@/components/fixtures/NationMarquee';
 import { SectionHeading } from '@/components/ui/SectionHeading';
@@ -14,8 +15,9 @@ import {
   type FixtureFilterState,
 } from '@/lib/fixture-filters';
 import type { ProjectedKnockoutBracket } from '@/lib/knockout';
-import { getFixtureDisplayParts, getFixtureSortTimestamp } from '@/lib/match-time';
+import { getDayKey, getFixtureDisplayParts, getFixtureSortTimestamp } from '@/lib/match-time';
 import { getLenis } from '@/lib/use-smooth-scroll';
+import { useLiveClock } from '@/lib/use-live-clock';
 import type { Fixture, GroupId, Participant, ThemeColors, TournamentGroups } from '@/types';
 import { SearchX } from 'lucide-react';
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
@@ -29,11 +31,54 @@ type Props = {
   theme: ThemeColors;
 };
 
+type DayGroup = {
+  dayKey: string;
+  dateLabel: string;
+  fixtures: Fixture[];
+  dayGroups: GroupId[];
+};
+
+/** Stable DOM id for a day section, keyed off the (filter-independent) day key. */
+function dayId(dayKey: string): string {
+  return `fixtures-day-${dayKey.replace(/\s+/g, '-')}`;
+}
+
+/** Group a fixture list into chronological day buckets. */
+function groupByDay(list: Fixture[], timeZone: string | null): DayGroup[] {
+  return list
+    .slice()
+    .sort((a, b) => getFixtureSortTimestamp(a) - getFixtureSortTimestamp(b))
+    .reduce<DayGroup[]>((acc, fixture) => {
+      const display = getFixtureDisplayParts(fixture, timeZone);
+      const current = acc[acc.length - 1];
+      if (current && current.dayKey === display.dayKey) {
+        current.fixtures.push(fixture);
+        if (!current.dayGroups.includes(fixture.group)) {
+          current.dayGroups.push(fixture.group);
+          current.dayGroups.sort();
+        }
+        return acc;
+      }
+      acc.push({
+        dayKey: display.dayKey,
+        dateLabel: display.dateLabel,
+        fixtures: [fixture],
+        dayGroups: [fixture.group],
+      });
+      return acc;
+    }, []);
+}
+
 function scrollToFixtureDay(id: string, opts?: { immediate?: boolean; updateHash?: boolean }) {
   const target = document.getElementById(id);
   if (!target) return;
 
-  const navOffset = window.innerWidth >= 768 ? 96 : 84;
+  // Land the day header just below the fixed nav AND the sticky date rail.
+  const navHeight = window.innerWidth >= 768 ? 64 : 56;
+  const railHeight =
+    document.querySelector('[data-fixtures-rail]')?.getBoundingClientRect().height ?? 56;
+  const navOffset = navHeight + railHeight + 14;
+
   if (opts?.updateHash !== false) window.history.replaceState(null, '', `#${id}`);
 
   // Lenis owns the scroll position — native scrollTo gets reverted next frame.
@@ -46,35 +91,33 @@ function scrollToFixtureDay(id: string, opts?: { immediate?: boolean; updateHash
     return;
   }
 
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const top = target.getBoundingClientRect().top + window.scrollY - navOffset;
-  window.scrollTo({ top: Math.max(0, top), behavior: opts?.immediate ? 'auto' : 'smooth' });
+  window.scrollTo({
+    top: Math.max(0, top),
+    behavior: opts?.immediate || reduce ? 'auto' : 'smooth',
+  });
 }
 
 /**
- * The day group to land on. Prefers the tournament's live edge from match status
- * (the first day with a match still to be decided) so it follows where the
- * tournament actually is, independent of the viewer's device clock. Falls back to
- * the viewer's calendar day only when the data carries no status (static data).
- * Returns -1 when there are no groups.
+ * The live-edge day: the first day with a match still to be decided (status-driven,
+ * independent of the viewer's clock). Falls back to the viewer's calendar day when
+ * the data carries no status (static data). Returns -1 when there are no days.
  */
-function findCurrentDayIndex(
-  groups: Array<{ fixtures: Fixture[] }>,
-  nowMs: number,
+function findLiveEdgeIndex(
+  days: DayGroup[],
+  nowMs: number | null,
   timeZone: string | null
 ): number {
-  if (groups.length === 0) return -1;
+  if (days.length === 0) return -1;
 
-  // Status-driven: the first day that still has a live or upcoming match. This is
-  // where the action is, and it does not depend on the viewer's clock being set
-  // to the tournament dates.
-  const hasStatus = groups.some((group) => group.fixtures.some((f) => f.status != null));
+  const hasStatus = days.some((day) => day.fixtures.some((f) => f.status != null));
   if (hasStatus) {
-    const edge = groups.findIndex((group) => group.fixtures.some((f) => f.status !== 'finished'));
-    return edge === -1 ? groups.length - 1 : edge;
+    const edge = days.findIndex((day) => day.fixtures.some((f) => f.status !== 'finished'));
+    return edge === -1 ? days.length - 1 : edge;
   }
 
-  // Static fallback (no live status): the viewer's calendar day, else the next
-  // upcoming day, else the last day.
+  if (nowMs == null) return -1;
   const dayNumber = (ms: number) =>
     Number(
       new Intl.DateTimeFormat('en-CA', {
@@ -87,16 +130,17 @@ function findCurrentDayIndex(
         .replace(/-/g, '')
     );
   const today = dayNumber(nowMs);
-  const upcoming = groups.findIndex(
-    (group) => dayNumber(getFixtureSortTimestamp(group.fixtures[0])) >= today
+  const upcoming = days.findIndex(
+    (day) => dayNumber(getFixtureSortTimestamp(day.fixtures[0])) >= today
   );
-  return upcoming === -1 ? groups.length - 1 : upcoming;
+  return upcoming === -1 ? days.length - 1 : upcoming;
 }
 
 export function FixturesTab({ fixtures, bracket, groups, participants, theme }: Props) {
   const [view, setView] = useState<'schedule' | 'knockout'>('schedule');
   const [filters, setFilters] = useState<FixtureFilterState>(EMPTY_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [spiedDayKey, setSpiedDayKey] = useState<string>('');
   const dateRailRef = useRef<HTMLDivElement>(null);
   const dragStateRef = useRef({
     active: false,
@@ -107,6 +151,7 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
     captured: false,
   });
   const [dateRailDragging, setDateRailDragging] = useState(false);
+  const userScrolledRef = useRef(false);
   const timeZone = useSyncExternalStore(
     () => () => undefined,
     () => Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -115,15 +160,14 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
 
   const ownerByTeam = useMemo(() => {
     const lookup = new Map<string, string>();
-
     for (const participant of participants) {
       for (const team of participant.teams) {
         lookup.set(team, participant.name);
       }
     }
-
     return lookup;
   }, [participants]);
+
   const filterOptions = useMemo(
     () => buildFilterOptions(fixtures, participants),
     [fixtures, participants]
@@ -134,81 +178,135 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
   );
   const activeFilterCount = countActiveFilters(filters);
 
+  // The rail is the stable tournament reference frame: ALL days (unfiltered).
+  // The feed is the filtered view. A filtered-out day stays in the rail (muted)
+  // so positions never shift and the live/today signal is never hidden.
+  const allDays = useMemo(() => groupByDay(fixtures, timeZone), [fixtures, timeZone]);
   const groupedFixtures = useMemo(
-    () =>
-      filteredFixtures
-        .slice()
-        .sort((a, b) => getFixtureSortTimestamp(a) - getFixtureSortTimestamp(b))
-        .reduce<
-          Array<{
-            dayKey: string;
-            dateLabel: string;
-            fixtures: Fixture[];
-            dayGroups: GroupId[];
-          }>
-        >((acc, fixture) => {
-          const display = getFixtureDisplayParts(fixture, timeZone);
-          const currentGroup = acc[acc.length - 1];
-          if (currentGroup && currentGroup.dayKey === display.dayKey) {
-            currentGroup.fixtures.push(fixture);
-            if (!currentGroup.dayGroups.includes(fixture.group)) {
-              currentGroup.dayGroups.push(fixture.group);
-              currentGroup.dayGroups.sort();
-            }
-            return acc;
-          }
-
-          acc.push({
-            dayKey: display.dayKey,
-            dateLabel: display.dateLabel,
-            fixtures: [fixture],
-            dayGroups: [fixture.group],
-          });
-          return acc;
-        }, []),
+    () => groupByDay(filteredFixtures, timeZone),
     [filteredFixtures, timeZone]
   );
-  const knockoutBracket = useMemo(() => (view === 'knockout' ? bracket : null), [bracket, view]);
-
-  // Capture the clock after mount (keeps render pure) so we can resolve the
-  // current day. Mirrors the LiveIndicator's deferred-now pattern.
-  const [nowMs, setNowMs] = useState<number | null>(null);
-  useEffect(() => {
-    const t = window.setTimeout(() => setNowMs(Date.now()), 0);
-    return () => clearTimeout(t);
-  }, []);
-
-  // The current day's group, used both to highlight the jump rail and to land
-  // there on open.
-  const currentDayIndex = useMemo(
-    () =>
-      nowMs != null && groupedFixtures.length > 0
-        ? findCurrentDayIndex(groupedFixtures, nowMs, timeZone)
-        : -1,
-    [groupedFixtures, timeZone, nowMs]
+  const visibleCountByKey = useMemo(
+    () => new Map(groupedFixtures.map((day) => [day.dayKey, day.fixtures.length])),
+    [groupedFixtures]
+  );
+  const matchdayByKey = useMemo(
+    () => new Map(allDays.map((day, index) => [day.dayKey, index + 1])),
+    [allDays]
   );
 
-  // Jump to that day once per mount: a live poll must not yank the user back, and
-  // a deep link to a specific day still wins.
-  const didAutoJumpRef = useRef(false);
-  useEffect(() => {
-    if (view !== 'schedule' || didAutoJumpRef.current || currentDayIndex <= 0) return;
-    didAutoJumpRef.current = true;
-    if (window.location.hash.startsWith('#fixtures-day-')) return;
+  const knockoutBracket = useMemo(() => (view === 'knockout' ? bracket : null), [bracket, view]);
 
-    const raf = requestAnimationFrame(() => {
-      const rail = dateRailRef.current;
-      const chip = rail?.querySelector<HTMLElement>(`[data-day-chip="${currentDayIndex}"]`);
-      if (rail && chip) {
-        rail.scrollLeft = chip.offsetLeft - rail.clientWidth / 2 + chip.clientWidth / 2;
+  // Tick the clock only while something is live (cheap: one timer, minute-grain).
+  const hasLive = useMemo(() => fixtures.some((f) => f.status === 'live'), [fixtures]);
+  const nowMs = useLiveClock(hasLive);
+
+  const liveEdgeIndex = useMemo(
+    () => findLiveEdgeIndex(allDays, nowMs, timeZone),
+    [allDays, nowMs, timeZone]
+  );
+  const liveEdgeDayKey = liveEdgeIndex >= 0 ? (allDays[liveEdgeIndex]?.dayKey ?? '') : '';
+
+  // The "current day" to surface as a lead block on arrival: the viewer's
+  // calendar day if it has matches, else the live edge (next undecided day).
+  // Shown only when that day isn't already the first in the list (otherwise it's
+  // right there and a lead would just duplicate the top).
+  const todayKey = nowMs != null && timeZone ? getDayKey(nowMs, timeZone) : '';
+  const todayIndex = todayKey ? allDays.findIndex((day) => day.dayKey === todayKey) : -1;
+  const featuredIndex = todayIndex >= 0 ? todayIndex : liveEdgeIndex;
+  const featuredDayKey = featuredIndex >= 0 ? (allDays[featuredIndex]?.dayKey ?? '') : '';
+  const featuredDay = featuredDayKey
+    ? groupedFixtures.find((day) => day.dayKey === featuredDayKey)
+    : undefined;
+  const featuredIsFirst = groupedFixtures[0]?.dayKey === featuredDayKey;
+  const featuredHasLive = featuredDay?.fixtures.some((f) => f.status === 'live') ?? false;
+  const showTodayLead = Boolean(featuredDay) && !featuredIsFirst;
+  const todayOverline = featuredHasLive ? 'Live now' : todayIndex >= 0 ? 'Today' : 'Up next';
+
+  // Scroll-spy: highlight the day occupying the top third of the viewport, so the
+  // rail always shows where you are as you flick through the whole tournament.
+  useEffect(() => {
+    if (view !== 'schedule' || groupedFixtures.length === 0) return;
+    const sections = Array.from(document.querySelectorAll<HTMLElement>('[data-fixtures-day]'));
+    if (sections.length === 0) return;
+
+    let raf = 0;
+    const compute = () => {
+      const line = (window.visualViewport?.height ?? window.innerHeight) * 0.33;
+      let activeKey = sections[0].dataset.fixturesDay ?? '';
+      for (const section of sections) {
+        if (section.getBoundingClientRect().top - line <= 0) {
+          activeKey = section.dataset.fixturesDay ?? activeKey;
+        } else {
+          break;
+        }
       }
-      scrollToFixtureDay(`fixtures-day-${currentDayIndex + 1}`, {
-        immediate: true,
-        updateHash: false,
-      });
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [view, currentDayIndex]);
+      setSpiedDayKey((prev) => (prev === activeKey ? prev : activeKey));
+    };
+    const onScroll = () => {
+      userScrolledRef.current = true;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(compute);
+    };
+
+    compute();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      cancelAnimationFrame(raf);
+    };
+  }, [view, groupedFixtures]);
+
+  // Center the live-edge chip in the rail on arrival (horizontal rail scroll only,
+  // never a page jump). This is the one-tap "where the action is" affordance that
+  // replaces the old, disorienting auto-scroll.
+  const didCenterRef = useRef(false);
+  useEffect(() => {
+    if (view !== 'schedule' || didCenterRef.current || !liveEdgeDayKey) return;
+    const rail = dateRailRef.current;
+    const chip = rail?.querySelector<HTMLElement>(`[data-day-key="${CSS.escape(liveEdgeDayKey)}"]`);
+    if (rail && chip) {
+      didCenterRef.current = true;
+      rail.scrollLeft = chip.offsetLeft - rail.clientWidth / 2 + chip.clientWidth / 2;
+    }
+  }, [view, liveEdgeDayKey]);
+
+  // Keep the active (spied) chip centered as the user scrolls — but not until they
+  // actually scroll (so it doesn't fight the arrival centering above), and never
+  // while they're dragging the rail.
+  useEffect(() => {
+    if (!spiedDayKey || !userScrolledRef.current || dragStateRef.current.active) return;
+    const rail = dateRailRef.current;
+    const chip = rail?.querySelector<HTMLElement>(`[data-day-key="${CSS.escape(spiedDayKey)}"]`);
+    if (!rail || !chip) return;
+    const target = chip.offsetLeft - rail.clientWidth / 2 + chip.clientWidth / 2;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    rail.scrollTo({ left: target, behavior: reduce ? 'auto' : 'smooth' });
+  }, [spiedDayKey]);
+
+  // Keyboard: ←/→ cycle to the previous/next day (progressive enhancement).
+  useEffect(() => {
+    if (view !== 'schedule') return;
+    const onKey = (event: KeyboardEvent) => {
+      if (filtersOpen || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
+      const tag = (document.activeElement?.tagName ?? '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      const keys = groupedFixtures.map((day) => day.dayKey);
+      const current = keys.indexOf(spiedDayKey);
+      if (current === -1) return;
+      const next =
+        event.key === 'ArrowRight'
+          ? Math.min(keys.length - 1, current + 1)
+          : Math.max(0, current - 1);
+      if (next === current) return;
+      event.preventDefault();
+      scrollToFixtureDay(dayId(keys[next]));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [view, filtersOpen, groupedFixtures, spiedDayKey]);
 
   function handleDateRailPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     const rail = dateRailRef.current;
@@ -369,10 +467,22 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
             </div>
           ) : (
             <>
-              <div className="mb-8 md:mb-10" data-reveal>
+              {showTodayLead && featuredDay && (
+                <FixturesTodayLead
+                  fixtures={featuredDay.fixtures}
+                  dateLabel={featuredDay.dateLabel}
+                  overline={todayOverline}
+                  live={featuredHasLive}
+                  ownerByTeam={ownerByTeam}
+                  theme={theme}
+                  timeZone={timeZone}
+                  nowMs={nowMs}
+                />
+              )}
+              <div data-fixtures-rail className="fixtures-rail mb-8 md:mb-10">
                 <div
                   ref={dateRailRef}
-                  className={`overflow-x-auto rounded-full select-none ${
+                  className={`overflow-x-auto rounded-2xl select-none ${
                     dateRailDragging ? 'cursor-grabbing' : 'cursor-grab'
                   }`}
                   data-lenis-prevent
@@ -384,47 +494,71 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
                   onPointerCancel={handleDateRailPointerUp}
                   onWheel={handleDateRailWheel}
                   style={{
-                    background: `${theme.accent}06`,
-                    border: `1px solid ${theme.accent}10`,
+                    background: 'color-mix(in srgb, var(--color-bg) 82%, transparent)',
+                    border: `1px solid ${theme.accent}1f`,
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
                     scrollbarWidth: 'none',
                     WebkitOverflowScrolling: 'touch',
                     overscrollBehaviorX: 'contain',
                     overflowY: 'hidden',
                     touchAction: 'pan-x',
                   }}>
-                  <div className="flex min-w-full items-center justify-between gap-1 px-3 py-2 md:gap-1.5 md:px-4">
+                  <div className="flex min-w-full items-center gap-1 px-3 py-2 md:gap-1.5 md:px-4">
                     <span
                       className="font-heading shrink-0 pr-1 text-[9px] font-bold uppercase tracking-[3px] md:text-[10px]"
                       style={{ color: `${theme.accent}45` }}>
                       Jump to
                     </span>
-                    {groupedFixtures.map(({ dateLabel, fixtures }, index) => {
-                      const isCurrent = index === currentDayIndex;
+                    {allDays.map(({ dayKey, dateLabel, fixtures: dayFixtures }) => {
+                      const isVisible = visibleCountByKey.has(dayKey);
+                      const isActive = isVisible && dayKey === spiedDayKey;
+                      const dayHasLive = dayFixtures.some((f) => f.status === 'live');
+                      const count = visibleCountByKey.get(dayKey);
                       return (
                         <button
-                          key={`${dateLabel}-${index}`}
+                          key={dayKey}
                           type="button"
-                          data-day-chip={index}
-                          aria-current={isCurrent ? 'date' : undefined}
+                          data-day-key={dayKey}
+                          aria-current={isActive ? 'date' : undefined}
+                          aria-disabled={isVisible ? undefined : true}
+                          tabIndex={isVisible ? undefined : -1}
                           onClick={(event) => {
-                            if (dragStateRef.current.moved) {
+                            if (dragStateRef.current.moved || !isVisible) {
                               event.preventDefault();
                               return;
                             }
-                            scrollToFixtureDay(`fixtures-day-${index + 1}`);
+                            scrollToFixtureDay(dayId(dayKey));
                           }}
-                          className="font-heading shrink-0 cursor-pointer rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[1.5px] transition-colors duration-200 md:px-2.5 md:text-[11px]"
+                          className="font-heading inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-2 text-[10px] font-bold uppercase tracking-[1.5px] transition-colors duration-200 md:min-h-0 md:px-3 md:text-[11px]"
                           style={
-                            isCurrent
+                            isActive
                               ? { color: theme.bg, background: theme.accent }
-                              : { color: `${theme.accent}78`, background: 'transparent' }
+                              : isVisible
+                                ? { color: `${theme.accent}9e`, background: 'transparent' }
+                                : {
+                                    color: `${theme.accent}33`,
+                                    background: 'transparent',
+                                    cursor: 'default',
+                                    pointerEvents: 'none',
+                                  }
                           }>
-                          {dateLabel}
-                          <span
-                            style={{ color: isCurrent ? `${theme.bg}99` : `${theme.accent}45` }}>
-                            {' '}
-                            · {fixtures.length}
-                          </span>
+                          {dayHasLive && (
+                            <span
+                              className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full"
+                              style={{
+                                background: isActive ? theme.bg : theme.accent,
+                                animation: 'live-dot 1.6s ease-in-out infinite',
+                              }}
+                            />
+                          )}
+                          <span>{dateLabel}</span>
+                          {isVisible && count != null && (
+                            <span
+                              style={{ color: isActive ? `${theme.bg}99` : `${theme.accent}45` }}>
+                              · {count}
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -433,72 +567,69 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
               </div>
 
               <div className="space-y-8 md:space-y-10">
-                {groupedFixtures.map(
-                  ({ dayKey, dateLabel, fixtures: dayFixtures, dayGroups }, index) => {
-                    return (
-                      <section
-                        key={dayKey}
-                        id={`fixtures-day-${index + 1}`}
-                        className="overflow-hidden rounded-[28px] p-4 md:p-6"
-                        style={{
-                          scrollMarginTop: '92px',
-                          background: `linear-gradient(180deg, ${theme.card}f2 0%, ${theme.card}cc 100%)`,
-                          border: '1px solid var(--card-border)',
-                          boxShadow: 'var(--card-highlight), var(--shadow-card-lg)',
-                        }}
-                        data-reveal>
+                {groupedFixtures.map(({ dayKey, dateLabel, fixtures: dayFixtures, dayGroups }) => (
+                  <section
+                    key={dayKey}
+                    id={dayId(dayKey)}
+                    data-fixtures-day={dayKey}
+                    className="scroll-mt-[132px] overflow-hidden rounded-[28px] p-4 md:scroll-mt-[150px] md:p-6"
+                    style={{
+                      background: `linear-gradient(180deg, ${theme.card}f2 0%, ${theme.card}cc 100%)`,
+                      border: '1px solid var(--card-border)',
+                      boxShadow: 'var(--card-highlight), var(--shadow-card-lg)',
+                    }}
+                    data-reveal>
+                    <div
+                      className="mb-5 flex flex-col gap-4 border-b pb-4 md:mb-6 md:flex-row md:items-end md:justify-between md:pb-5"
+                      style={{ borderColor: `${theme.accent}10` }}>
+                      <div>
                         <div
-                          className="mb-5 flex flex-col gap-4 border-b pb-4 md:mb-6 md:flex-row md:items-end md:justify-between md:pb-5"
-                          style={{ borderColor: `${theme.accent}10` }}>
-                          <div>
-                            <div
-                              className="font-heading mb-2 text-[10px] font-bold uppercase tracking-[3px] md:text-[11px]"
-                              style={{ color: `${theme.accent}50` }}>
-                              Matchday {index + 1}
-                            </div>
-                            <h3
-                              className="font-display text-[28px] leading-none tracking-[-0.03em] md:text-[40px]"
-                              style={{ color: theme.accent }}>
-                              {dateLabel}
-                            </h3>
-                          </div>
-
-                          <div className="flex flex-wrap gap-2">
-                            <div
-                              className="font-heading rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[2px]"
-                              style={{
-                                color: theme.bg,
-                                background: theme.accent,
-                              }}>
-                              {dayFixtures.length} matches
-                            </div>
-                            <div
-                              className="font-heading rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[2px]"
-                              style={{
-                                color: `${theme.accent}78`,
-                                background: `${theme.accent}08`,
-                                border: `1px solid ${theme.accent}14`,
-                              }}>
-                              Groups {dayGroups.join(' · ')}
-                            </div>
-                          </div>
+                          className="font-heading mb-2 text-[10px] font-bold uppercase tracking-[3px] md:text-[11px]"
+                          style={{ color: `${theme.accent}50` }}>
+                          Matchday {matchdayByKey.get(dayKey) ?? 1}
                         </div>
+                        <h3
+                          className="font-display text-[28px] leading-none tracking-[-0.03em] md:text-[40px]"
+                          style={{ color: theme.accent }}>
+                          {dateLabel}
+                        </h3>
+                      </div>
 
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(320px,1fr))] md:gap-4">
-                          {dayFixtures.map((fixture) => (
-                            <FixtureCard
-                              key={`${fixture.utcDate ?? fixture.date}-${fixture.t1}-${fixture.t2}`}
-                              fixture={fixture}
-                              ownerByTeam={ownerByTeam}
-                              theme={theme}
-                              timeZone={timeZone}
-                            />
-                          ))}
+                      <div className="flex flex-wrap gap-2">
+                        <div
+                          className="font-heading rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[2px]"
+                          style={{
+                            color: theme.bg,
+                            background: theme.accent,
+                          }}>
+                          {dayFixtures.length} matches
                         </div>
-                      </section>
-                    );
-                  }
-                )}
+                        <div
+                          className="font-heading rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[2px]"
+                          style={{
+                            color: `${theme.accent}78`,
+                            background: `${theme.accent}08`,
+                            border: `1px solid ${theme.accent}14`,
+                          }}>
+                          Groups {dayGroups.join(' · ')}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(320px,1fr))] md:gap-4">
+                      {dayFixtures.map((fixture) => (
+                        <FixtureCard
+                          key={`${fixture.utcDate ?? fixture.date}-${fixture.t1}-${fixture.t2}`}
+                          fixture={fixture}
+                          ownerByTeam={ownerByTeam}
+                          theme={theme}
+                          timeZone={timeZone}
+                          nowMs={nowMs}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
               </div>
             </>
           )}

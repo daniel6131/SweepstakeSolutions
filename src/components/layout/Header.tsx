@@ -73,10 +73,26 @@ export function Header({ theme, visible, tab }: HeaderProps) {
   }, [visible]);
 
   useEffect(() => {
+    // handleScroll is the only writer of the sticky hero's opacity and it runs
+    // only from these listeners. Two gaps used to leave the hero blank until the
+    // user scrolled:
+    //   1. Viewport changes (mobile address-bar show/hide, orientation) resize the
+    //      hero without firing 'scroll', so add resize + visualViewport listeners.
+    //   2. After a tab switch Lenis jumps to the top via an `immediate` scrollTo,
+    //      which suppresses the native 'scroll' event, so scrollPageToTop() in
+    //      HomeClient dispatches a synthetic 'scroll' that these listeners catch.
+    // The handleScroll() call on attach covers first load and hard navigation.
+    const vv = window.visualViewport;
     window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll, { passive: true });
+    vv?.addEventListener('resize', handleScroll, { passive: true });
+    vv?.addEventListener('scroll', handleScroll, { passive: true });
     handleScroll();
     return () => {
       window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+      vv?.removeEventListener('resize', handleScroll);
+      vv?.removeEventListener('scroll', handleScroll);
       cancelAnimationFrame(rafId.current);
     };
   }, [handleScroll]);
