@@ -19,7 +19,7 @@ import { getLenis } from '@/lib/use-smooth-scroll';
 import type { Fixture, GroupId, Participant, ThemeColors, TournamentGroups } from '@/types';
 import { SearchX } from 'lucide-react';
 import type { PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
-import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 type Props = {
   fixtures: Fixture[];
@@ -29,22 +29,68 @@ type Props = {
   theme: ThemeColors;
 };
 
-function scrollToFixtureDay(id: string) {
+function scrollToFixtureDay(id: string, opts?: { immediate?: boolean; updateHash?: boolean }) {
   const target = document.getElementById(id);
   if (!target) return;
 
   const navOffset = window.innerWidth >= 768 ? 96 : 84;
-  window.history.replaceState(null, '', `#${id}`);
+  if (opts?.updateHash !== false) window.history.replaceState(null, '', `#${id}`);
 
   // Lenis owns the scroll position — native scrollTo gets reverted next frame.
   const lenis = getLenis();
   if (lenis) {
-    lenis.scrollTo(target, { offset: -navOffset });
+    // A tab switch changes page height without a window resize, so Lenis can hold
+    // a stale (shorter) scroll limit and clamp the jump short. Recompute first.
+    lenis.resize();
+    lenis.scrollTo(target, { offset: -navOffset, immediate: opts?.immediate });
     return;
   }
 
   const top = target.getBoundingClientRect().top + window.scrollY - navOffset;
-  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  window.scrollTo({ top: Math.max(0, top), behavior: opts?.immediate ? 'auto' : 'smooth' });
+}
+
+/**
+ * The day group to land on. Prefers the tournament's live edge from match status
+ * (the first day with a match still to be decided) so it follows where the
+ * tournament actually is, independent of the viewer's device clock. Falls back to
+ * the viewer's calendar day only when the data carries no status (static data).
+ * Returns -1 when there are no groups.
+ */
+function findCurrentDayIndex(
+  groups: Array<{ fixtures: Fixture[] }>,
+  nowMs: number,
+  timeZone: string | null
+): number {
+  if (groups.length === 0) return -1;
+
+  // Status-driven: the first day that still has a live or upcoming match. This is
+  // where the action is, and it does not depend on the viewer's clock being set
+  // to the tournament dates.
+  const hasStatus = groups.some((group) => group.fixtures.some((f) => f.status != null));
+  if (hasStatus) {
+    const edge = groups.findIndex((group) => group.fixtures.some((f) => f.status !== 'finished'));
+    return edge === -1 ? groups.length - 1 : edge;
+  }
+
+  // Static fallback (no live status): the viewer's calendar day, else the next
+  // upcoming day, else the last day.
+  const dayNumber = (ms: number) =>
+    Number(
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: timeZone ?? undefined,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      })
+        .format(new Date(ms))
+        .replace(/-/g, '')
+    );
+  const today = dayNumber(nowMs);
+  const upcoming = groups.findIndex(
+    (group) => dayNumber(getFixtureSortTimestamp(group.fixtures[0])) >= today
+  );
+  return upcoming === -1 ? groups.length - 1 : upcoming;
 }
 
 export function FixturesTab({ fixtures, bracket, groups, participants, theme }: Props) {
@@ -123,6 +169,46 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
     [filteredFixtures, timeZone]
   );
   const knockoutBracket = useMemo(() => (view === 'knockout' ? bracket : null), [bracket, view]);
+
+  // Capture the clock after mount (keeps render pure) so we can resolve the
+  // current day. Mirrors the LiveIndicator's deferred-now pattern.
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => {
+    const t = window.setTimeout(() => setNowMs(Date.now()), 0);
+    return () => clearTimeout(t);
+  }, []);
+
+  // The current day's group, used both to highlight the jump rail and to land
+  // there on open.
+  const currentDayIndex = useMemo(
+    () =>
+      nowMs != null && groupedFixtures.length > 0
+        ? findCurrentDayIndex(groupedFixtures, nowMs, timeZone)
+        : -1,
+    [groupedFixtures, timeZone, nowMs]
+  );
+
+  // Jump to that day once per mount: a live poll must not yank the user back, and
+  // a deep link to a specific day still wins.
+  const didAutoJumpRef = useRef(false);
+  useEffect(() => {
+    if (view !== 'schedule' || didAutoJumpRef.current || currentDayIndex <= 0) return;
+    didAutoJumpRef.current = true;
+    if (window.location.hash.startsWith('#fixtures-day-')) return;
+
+    const raf = requestAnimationFrame(() => {
+      const rail = dateRailRef.current;
+      const chip = rail?.querySelector<HTMLElement>(`[data-day-chip="${currentDayIndex}"]`);
+      if (rail && chip) {
+        rail.scrollLeft = chip.offsetLeft - rail.clientWidth / 2 + chip.clientWidth / 2;
+      }
+      scrollToFixtureDay(`fixtures-day-${currentDayIndex + 1}`, {
+        immediate: true,
+        updateHash: false,
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [view, currentDayIndex]);
 
   function handleDateRailPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     const rail = dateRailRef.current;
@@ -312,23 +398,36 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
                       style={{ color: `${theme.accent}45` }}>
                       Jump to
                     </span>
-                    {groupedFixtures.map(({ dateLabel, fixtures }, index) => (
-                      <button
-                        key={`${dateLabel}-${index}`}
-                        type="button"
-                        onClick={(event) => {
-                          if (dragStateRef.current.moved) {
-                            event.preventDefault();
-                            return;
-                          }
-                          scrollToFixtureDay(`fixtures-day-${index + 1}`);
-                        }}
-                        className="font-heading shrink-0 cursor-pointer rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[1.5px] transition-colors duration-200 md:px-2.5 md:text-[11px]"
-                        style={{ color: `${theme.accent}78`, background: 'transparent' }}>
-                        {dateLabel}
-                        <span style={{ color: `${theme.accent}45` }}> · {fixtures.length}</span>
-                      </button>
-                    ))}
+                    {groupedFixtures.map(({ dateLabel, fixtures }, index) => {
+                      const isCurrent = index === currentDayIndex;
+                      return (
+                        <button
+                          key={`${dateLabel}-${index}`}
+                          type="button"
+                          data-day-chip={index}
+                          aria-current={isCurrent ? 'date' : undefined}
+                          onClick={(event) => {
+                            if (dragStateRef.current.moved) {
+                              event.preventDefault();
+                              return;
+                            }
+                            scrollToFixtureDay(`fixtures-day-${index + 1}`);
+                          }}
+                          className="font-heading shrink-0 cursor-pointer rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[1.5px] transition-colors duration-200 md:px-2.5 md:text-[11px]"
+                          style={
+                            isCurrent
+                              ? { color: theme.bg, background: theme.accent }
+                              : { color: `${theme.accent}78`, background: 'transparent' }
+                          }>
+                          {dateLabel}
+                          <span
+                            style={{ color: isCurrent ? `${theme.bg}99` : `${theme.accent}45` }}>
+                            {' '}
+                            · {fixtures.length}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

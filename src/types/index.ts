@@ -15,6 +15,9 @@ export type Participant = {
   teams: string[];
 };
 
+/** Lifecycle of a single match. `live` is what powers the Provisional Hell overlay. */
+export type MatchStatus = 'scheduled' | 'live' | 'finished';
+
 export type Fixture = {
   group: GroupId;
   t1: string;
@@ -25,6 +28,8 @@ export type Fixture = {
   venue: string;
   s1: number | null;
   s2: number | null;
+  /** Absent on static fallback data (treated as not-live). Set from the live API. */
+  status?: MatchStatus;
 };
 
 export type KnockoutRoundKey = 'roundOf32' | 'roundOf16' | 'quarterFinals' | 'semiFinals' | 'final';
@@ -39,7 +44,7 @@ export type LiveKnockoutMatch = {
   s1: number | null;
   s2: number | null;
   winner: 't1' | 't2' | null;
-  status: 'scheduled' | 'live' | 'finished';
+  status: MatchStatus;
 };
 
 export type LeaderboardEntry = {

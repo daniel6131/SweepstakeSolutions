@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { LeaderboardTable } from '@/components/leaderboard/LeaderboardTable';
 import { LedgerOfFate } from '@/components/leaderboard/LedgerOfFate';
@@ -8,6 +8,7 @@ import { Podium } from '@/components/leaderboard/Podium';
 import { ShareImageButton } from '@/components/share/ShareImageButton';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import type { LedgerOfFate as LedgerOfFateData } from '@/lib/ledger-of-fate';
+import type { Provisional, ProvisionalEntry } from '@/lib/provisional';
 import type { LeaderboardEntry, ThemeColors } from '@/types';
 
 type View = 'table' | 'ledger';
@@ -15,6 +16,7 @@ type View = 'table' | 'ledger';
 type Props = {
   entries: LeaderboardEntry[];
   ledger?: LedgerOfFateData;
+  provisional?: Provisional;
   theme: ThemeColors;
 };
 
@@ -23,8 +25,13 @@ const VIEWS: { key: View; label: string }[] = [
   { key: 'ledger', label: 'Ledger of Fate' },
 ];
 
-export function LeaderboardTab({ entries, ledger, theme }: Props) {
+export function LeaderboardTab({ entries, ledger, provisional, theme }: Props) {
   const [view, setView] = useState<View>('table');
+
+  const provisionalByName = useMemo(
+    () => new Map<string, ProvisionalEntry>(provisional?.entries.map((e) => [e.name, e])),
+    [provisional]
+  );
 
   // Keep the last good ledger so a transient empty/missing live poll never
   // collapses the toggle or kicks the user off the Ledger view mid-session.
@@ -86,8 +93,8 @@ export function LeaderboardTab({ entries, ledger, theme }: Props) {
               theme={theme}
             />
           </div>
-          <Podium top3={entries.slice(0, 3)} theme={theme} />
-          <LeaderboardTable entries={entries} theme={theme} />
+          <Podium top3={entries.slice(0, 3)} theme={theme} provisionalByName={provisionalByName} />
+          <LeaderboardTable entries={entries} theme={theme} provisionalByName={provisionalByName} />
         </>
       )}
     </div>

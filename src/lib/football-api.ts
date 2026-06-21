@@ -12,7 +12,7 @@
  */
 
 import type { ScoringMatch } from '@/lib/scoring';
-import type { Fixture, GroupId, KnockoutRoundKey, LiveKnockoutMatch } from '@/types';
+import type { Fixture, GroupId, KnockoutRoundKey, LiveKnockoutMatch, MatchStatus } from '@/types';
 
 const API_BASE = 'https://api.football-data.org/v4';
 const COMPETITION = 'WC'; // FIFA World Cup
@@ -168,7 +168,8 @@ function getKnockoutWinner(
   return null;
 }
 
-function getKnockoutStatus(match: ApiMatch): LiveKnockoutMatch['status'] {
+/** Collapse the API's many status strings into our three-state lifecycle. */
+function getMatchStatus(match: ApiMatch): MatchStatus {
   if (FINISHED_STATUSES.has(match.status)) return 'finished';
   if (LIVE_STATUSES.has(match.status)) return 'live';
   return 'scheduled';
@@ -262,6 +263,7 @@ export function transformCompetitionMatches(data: ApiMatchesResponse): LiveTourn
         time,
         utcDate: match.utcDate,
         venue: match.venue ?? 'TBC',
+        status: getMatchStatus(match),
         ...getFixtureScores(match),
       });
       continue;
@@ -292,7 +294,7 @@ export function transformCompetitionMatches(data: ApiMatchesResponse): LiveTourn
       s1,
       s2,
       winner: getKnockoutWinner(match, s1, s2),
-      status: getKnockoutStatus(match),
+      status: getMatchStatus(match),
     });
   }
 

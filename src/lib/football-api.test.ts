@@ -98,8 +98,24 @@ function buildMatchesPayload(): Parameters<typeof transformCompetitionMatches>[0
         },
         venue: 'Miami Stadium',
       },
+      {
+        id: 6,
+        utcDate: '2026-06-13T15:00:00Z',
+        status: 'IN_PLAY',
+        matchday: 1,
+        stage: 'GROUP_STAGE',
+        group: 'GROUP_B',
+        homeTeam: { name: 'Germany' },
+        awayTeam: { name: 'Scotland' },
+        score: {
+          fullTime: { home: 1, away: 0 },
+          halfTime: { home: 1, away: 0 },
+          winner: null,
+        },
+        venue: 'MetLife Stadium',
+      },
     ],
-    resultSet: { count: 5, played: 3 },
+    resultSet: { count: 6, played: 3 },
   };
 }
 
@@ -108,6 +124,7 @@ describe('transformCompetitionMatches', () => {
     const data = transformCompetitionMatches(buildMatchesPayload());
     const scheduledGroup = formatDateParts('2026-06-11T17:00:00Z');
     const finishedGroup = formatDateParts('2026-06-12T18:00:00Z');
+    const liveGroup = formatDateParts('2026-06-13T15:00:00Z');
     const liveKnockout = formatDateParts('2026-06-29T18:00:00Z');
     const finishedKnockout = formatDateParts('2026-07-04T18:00:00Z');
 
@@ -120,6 +137,7 @@ describe('transformCompetitionMatches', () => {
         time: scheduledGroup.time,
         utcDate: '2026-06-11T17:00:00Z',
         venue: 'Estadio Azteca',
+        status: 'scheduled',
         s1: null,
         s2: null,
       },
@@ -131,10 +149,26 @@ describe('transformCompetitionMatches', () => {
         time: finishedGroup.time,
         utcDate: '2026-06-12T18:00:00Z',
         venue: 'SoFi Stadium',
+        status: 'finished',
         s1: 2,
         s2: 1,
       },
+      {
+        group: 'B',
+        t1: 'Germany',
+        t2: 'Scotland',
+        date: liveGroup.date,
+        time: liveGroup.time,
+        utcDate: '2026-06-13T15:00:00Z',
+        venue: 'MetLife Stadium',
+        status: 'live',
+        s1: 1,
+        s2: 0,
+      },
     ]);
+
+    // The live group match and the live knockout match both count toward the bug.
+    expect(data.liveMatchCount).toBe(2);
 
     expect(data.knockoutMatches).toEqual([
       {

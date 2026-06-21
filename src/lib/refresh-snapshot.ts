@@ -31,6 +31,25 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export async function refreshSnapshot(): Promise<StoredSnapshot> {
   const data = await loadSweepstakeData();
   const updatedAt = Date.now();
+
+  // football-data.org outages (429s, 500s) make `loadSweepstakeData` degrade to
+  // the static fixture table, which has no live scores. Don't let that transient
+  // failure clobber a good live snapshot: keep serving the last known-good live
+  // data until upstream recovers, rather than resetting every score to the
+  // pre-tournament schedule on match day. (No prior live snapshot, e.g. before
+  // kickoff or with no API key, falls through and persists the static data.)
+  if (data.dataSource === 'static') {
+    try {
+      const existing = await readSnapshot();
+      if (existing?.data.dataSource === 'live') {
+        console.warn('[snapshot] upstream degraded to static; keeping last live snapshot');
+        return existing;
+      }
+    } catch {
+      // Couldn't read the existing snapshot; fall through and persist what we have.
+    }
+  }
+
   try {
     return await writeSnapshot(data, updatedAt);
   } catch (err) {
@@ -51,11 +70,12 @@ export type SnapshotRead = {
  */
 export async function getSnapshotForRead(): Promise<SnapshotRead> {
   const current = await readSnapshot();
-  // A snapshot persisted by an older build may predate the `ledger` field. Never
-  // serve it as current: force a recompute so the Ledger view always has data
-  // (otherwise the toggle vanishes and the page falls back to the plain table).
-  const freshness =
-    current && !current.data.ledger ? 'expired' : classifyAge(current?.updatedAt, Date.now());
+  // A snapshot persisted by an older build may predate a newer field (`ledger`,
+  // then `provisional`). Never serve it as current: force a recompute so the
+  // dependent views always have data (otherwise the Ledger toggle vanishes, or
+  // the live "if it ended now" overlay can't render).
+  const predatesField = current && (!current.data.ledger || !current.data.provisional);
+  const freshness = predatesField ? 'expired' : classifyAge(current?.updatedAt, Date.now());
 
   if (current && freshness === 'fresh') {
     return { snapshot: current, background: null };
