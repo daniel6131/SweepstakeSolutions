@@ -11,6 +11,7 @@
  *   GET /v4/competitions/WC/standings → group stage tables
  */
 
+import { isUpstreamCoolingOff, markUpstreamCooloff } from '@/lib/upstream-cooloff';
 import type { ScoringMatch } from '@/lib/scoring';
 import type {
   DetailedMatchStatus,
@@ -97,6 +98,10 @@ function parseGroup(apiGroup: string | null): GroupId {
 
 /* ── API fetch helper ──────────────────────────────────────────*/
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// jittered backoff between retries; no wait under test so the suite stays fast
+const retryDelay = () => (process.env.NODE_ENV === 'test' ? 0 : 150 + Math.random() * 350);
+
 async function apiFetch<T>(endpoint: string): Promise<T> {
   const token = process.env.FOOTBALL_DATA_API_KEY;
   if (!token) {
@@ -105,27 +110,59 @@ async function apiFetch<T>(endpoint: string): Promise<T> {
     );
   }
 
-  const url = `${API_BASE}${endpoint}`;
-  const res = await fetch(url, {
-    headers: { 'X-Auth-Token': token },
-    // No Data Cache: the snapshot refresh is already lock-gated, so each refresh
-    // should pull genuinely live data rather than a revalidation-cached copy.
-    cache: 'no-store',
-  });
+  // if we 429'd recently, don't even ask: serve last-known-good instead of
+  // poking a limiter that already told us to back off.
+  if (await isUpstreamCoolingOff()) {
+    throw new Error('football-data.org cooloff active, skipping upstream call');
+  }
 
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    // pull 429s out as their own log line so I can alert on the rate limit
-    // separately from ordinary 5xx noise. Caller falls back to last-good/static.
-    if (res.status === 429) {
-      console.error(
-        `[football-api] RATE_LIMIT_429 endpoint=${endpoint} retry-after=${res.headers.get('retry-after') ?? 'n/a'} — degrading to last-known-good/static data`
-      );
+  const url = `${API_BASE}${endpoint}`;
+  const maxAttempts = 2;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        headers: { 'X-Auth-Token': token },
+        // No Data Cache: the snapshot refresh is already lock-gated, so each
+        // refresh should pull live data rather than a revalidation-cached copy.
+        cache: 'no-store',
+      });
+    } catch (err) {
+      // transport error (network/DNS): one retry, then give up
+      if (attempt < maxAttempts) {
+        await sleep(retryDelay());
+        continue;
+      }
+      throw err;
     }
+
+    if (res.ok) return res.json() as Promise<T>;
+
+    const body = await res.text().catch(() => '');
+
+    if (res.status === 429) {
+      // open the breaker, then surface it as its own greppable line so I can
+      // alert on the rate limit separately from ordinary 5xx noise.
+      const retryAfter = Number(res.headers.get('retry-after')) || 60;
+      await markUpstreamCooloff(retryAfter);
+      console.error(
+        `[football-api] RATE_LIMIT_429 endpoint=${endpoint} retry-after=${retryAfter}s, backing off and serving last-known-good/static`
+      );
+      throw new Error(`football-data.org 429: ${body.slice(0, 200)}`);
+    }
+
+    // 5xx is usually transient: retry once before degrading
+    if (res.status >= 500 && attempt < maxAttempts) {
+      await sleep(retryDelay());
+      continue;
+    }
+
     throw new Error(`football-data.org ${res.status}: ${body.slice(0, 200)}`);
   }
 
-  return res.json() as Promise<T>;
+  // the loop only exits via return/throw; this satisfies the type checker
+  throw new Error('football-data.org request failed');
 }
 
 function formatDateParts(utcDate: string): { date: string; time: string } {
