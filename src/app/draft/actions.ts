@@ -20,7 +20,9 @@ export async function authenticateDraft(formData: FormData) {
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
-      path: '/draft',
+      // '/' not '/draft', otherwise the cookie never reaches /api/draft where
+      // the real auth check now lives.
+      path: '/',
       maxAge: 60 * 60 * 12, // 12 hours
     });
   }
@@ -30,6 +32,6 @@ export async function authenticateDraft(formData: FormData) {
 
 export async function logoutDraft() {
   const cookieStore = await cookies();
-  cookieStore.delete(DRAFT_COOKIE);
+  cookieStore.delete({ name: DRAFT_COOKIE, path: '/' });
   redirect('/draft/login');
 }
