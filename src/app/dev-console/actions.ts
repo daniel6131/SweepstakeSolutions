@@ -1,8 +1,9 @@
 'use server';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
+import { recordAudit } from '@/lib/audit-log';
 import {
   DEV_CONSOLE_COOKIE,
   getDevConsolePasswordHash,
@@ -16,7 +17,16 @@ export async function authenticateDevConsole(formData: FormData) {
   }
 
   const password = String(formData.get('password') ?? '').trim();
-  if (!isValidDevConsolePassword(password)) {
+  const ok = isValidDevConsolePassword(password);
+
+  const h = await headers();
+  await recordAudit({
+    category: 'auth',
+    action: ok ? 'dev-console-login-success' : 'dev-console-login-fail',
+    actor: h.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown',
+  });
+
+  if (!ok) {
     redirect('/dev-console?error=1');
   }
 

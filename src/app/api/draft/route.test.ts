@@ -26,6 +26,9 @@ vi.mock('@/lib/draft-db', () => ({
   getPlayerConflicts: mocks.getPlayerConflicts,
 }));
 
+// The audit log writes to KV; stub it so the handler stays self-contained.
+vi.mock('@/lib/audit-log', () => ({ recordAudit: vi.fn() }));
+
 // Controllable session cookie.
 vi.mock('next/headers', () => ({
   cookies: async () => ({
@@ -89,5 +92,40 @@ describe('/api/draft authentication', () => {
     const res = await POST(postReq({ action: 'reset' }));
     expect(res.status).toBe(401);
     expect(mocks.resetDraft).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for a non-JSON body', async () => {
+    mocks.cookie = validHash;
+    const req = new Request('http://localhost/api/draft', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': '1.2.3.4' },
+      body: 'definitely not json',
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    expect(mocks.resetDraft).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for a trade missing params', async () => {
+    mocks.cookie = validHash;
+    const res = await POST(postReq({ action: 'trade', player1: 'Adam' }));
+    expect(res.status).toBe(400);
+    expect(mocks.tradePlayers).not.toHaveBeenCalled();
+  });
+
+  it('dispatches a valid trade', async () => {
+    mocks.cookie = validHash;
+    mocks.tradePlayers.mockResolvedValueOnce({ status: 'trading', assignments: [] });
+    const res = await POST(
+      postReq({
+        action: 'trade',
+        player1: 'Adam',
+        team1: 'Brazil',
+        player2: 'Daniel',
+        team2: 'France',
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(mocks.tradePlayers).toHaveBeenCalledWith('Adam', 'Brazil', 'Daniel', 'France');
   });
 });
