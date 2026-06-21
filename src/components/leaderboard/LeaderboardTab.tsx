@@ -9,6 +9,7 @@ import { ShareImageButton } from '@/components/share/ShareImageButton';
 import { SectionHeading } from '@/components/ui/SectionHeading';
 import type { LedgerOfFate as LedgerOfFateData } from '@/lib/ledger-of-fate';
 import type { Provisional, ProvisionalEntry } from '@/lib/provisional';
+import { useLiveClock } from '@/lib/use-live-clock';
 import type { LeaderboardEntry, ThemeColors } from '@/types';
 
 type View = 'table' | 'ledger';
@@ -27,6 +28,8 @@ const VIEWS: { key: View; label: string }[] = [
 
 export function LeaderboardTab({ entries, ledger, provisional, theme }: Props) {
   const [view, setView] = useState<View>('table');
+  // Tick a clock only while a player's team is actually on the pitch.
+  const nowMs = useLiveClock(Boolean(provisional?.active));
 
   const provisionalByName = useMemo(
     () => new Map<string, ProvisionalEntry>(provisional?.entries.map((e) => [e.name, e])),
@@ -94,7 +97,12 @@ export function LeaderboardTab({ entries, ledger, provisional, theme }: Props) {
             />
           </div>
           <Podium top3={entries.slice(0, 3)} theme={theme} provisionalByName={provisionalByName} />
-          <LeaderboardTable entries={entries} theme={theme} provisionalByName={provisionalByName} />
+          <LeaderboardTable
+            entries={entries}
+            theme={theme}
+            provisionalByName={provisionalByName}
+            nowMs={nowMs}
+          />
         </>
       )}
     </div>

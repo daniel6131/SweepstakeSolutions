@@ -12,7 +12,14 @@
  */
 
 import type { ScoringMatch } from '@/lib/scoring';
-import type { Fixture, GroupId, KnockoutRoundKey, LiveKnockoutMatch, MatchStatus } from '@/types';
+import type {
+  DetailedMatchStatus,
+  Fixture,
+  GroupId,
+  KnockoutRoundKey,
+  LiveKnockoutMatch,
+  MatchStatus,
+} from '@/types';
 
 const API_BASE = 'https://api.football-data.org/v4';
 const COMPETITION = 'WC'; // FIFA World Cup
@@ -175,6 +182,11 @@ function getMatchStatus(match: ApiMatch): MatchStatus {
   return 'scheduled';
 }
 
+/** Whether the half-time score is recorded yet — flips the live clock to 2nd-half timing. */
+function isHalfTimeRecorded(match: ApiMatch): boolean {
+  return match.score.halfTime.home != null || match.score.halfTime.away != null;
+}
+
 function normalizeMatchTeams(match: ApiMatch): { t1: string; t2: string } {
   return {
     t1: normalizeTeamName(match.homeTeam.shortName ?? match.homeTeam.name),
@@ -264,6 +276,8 @@ export function transformCompetitionMatches(data: ApiMatchesResponse): LiveTourn
         utcDate: match.utcDate,
         venue: match.venue ?? 'TBC',
         status: getMatchStatus(match),
+        detailedStatus: match.status as DetailedMatchStatus,
+        halfTimeRecorded: isHalfTimeRecorded(match),
         ...getFixtureScores(match),
       });
       continue;

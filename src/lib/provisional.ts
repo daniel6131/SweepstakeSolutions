@@ -20,7 +20,14 @@
  * goal.
  */
 
-import type { Fixture, GroupId, LeaderboardEntry, MatchStatus, Participant } from '@/types';
+import type {
+  DetailedMatchStatus,
+  Fixture,
+  GroupId,
+  LeaderboardEntry,
+  MatchStatus,
+  Participant,
+} from '@/types';
 
 /** One of a player's teams that is on the pitch right now, from its own POV. */
 export type LiveTeamSwing = {
@@ -32,6 +39,11 @@ export type LiveTeamSwing = {
   ga: number;
   /** This team's live result, deciding its provisional points contribution. */
   state: 'winning' | 'drawing' | 'losing';
+  /** Kickoff + phase signals so the client can show an approximate live minute.
+   *  Absent on static data; the clock then falls back to a bare "LIVE". */
+  kickoffUtc?: string;
+  detailedStatus?: DetailedMatchStatus;
+  halfTimeRecorded?: boolean;
 };
 
 /** A live match surfaced for the banner ticker (owners attached for the story). */
@@ -144,6 +156,9 @@ export function computeProvisional(
         gf,
         ga,
         state: swingState(gf, ga),
+        kickoffUtc: fixture.utcDate,
+        detailedStatus: fixture.detailedStatus,
+        halfTimeRecorded: fixture.halfTimeRecorded,
       };
       const list = liveTeamsByOwner.get(owner);
       if (list) list.push(swing);

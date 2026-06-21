@@ -1,5 +1,5 @@
 import { Flag } from '@/components/ui/Flag';
-import { getFixtureDisplayParts } from '@/lib/match-time';
+import { getFixtureDisplayParts, getLivePhase } from '@/lib/match-time';
 import type { Fixture, ThemeColors } from '@/types';
 import { MapPin } from 'lucide-react';
 
@@ -8,11 +8,16 @@ type Props = {
   ownerByTeam: Map<string, string>;
   theme: ThemeColors;
   timeZone: string | null;
+  /** Ticking clock (epoch ms) for the live phase label; null before client mount. */
+  nowMs: number | null;
 };
 
-export function FixtureCard({ fixture: f, ownerByTeam, theme, timeZone }: Props) {
+export function FixtureCard({ fixture: f, ownerByTeam, theme, timeZone, nowMs }: Props) {
   const hasScore = f.s1 !== null;
+  const isLive = f.status === 'live';
+  const isFinished = f.status === 'finished' || (hasScore && !isLive);
   const display = getFixtureDisplayParts(f, timeZone);
+  const phase = getLivePhase(f, nowMs ?? Number.NaN);
   const owner = (team: string) => ownerByTeam.get(team) ?? '—';
 
   return (
@@ -20,12 +25,14 @@ export function FixtureCard({ fixture: f, ownerByTeam, theme, timeZone }: Props)
       className="surface-card card-lift overflow-hidden rounded-xl md:rounded-2xl"
       style={{
         fontVariantNumeric: 'tabular-nums',
-        ...(hasScore
+        ...(isLive
           ? {
-              border: `2px solid ${theme.accent}55`,
+              border: `2px solid ${theme.accent}`,
               boxShadow: 'var(--card-highlight), var(--shadow-card), var(--shadow-accent)',
             }
-          : {}),
+          : isFinished
+            ? { border: `1px solid ${theme.accent}22` }
+            : {}),
       }}
       data-reveal>
       {/* Top bar */}
@@ -37,11 +44,52 @@ export function FixtureCard({ fixture: f, ownerByTeam, theme, timeZone }: Props)
           style={{ color: theme.bg, background: theme.accent }}>
           GRP {f.group}
         </span>
-        <span
-          className="font-heading text-[10px] font-semibold md:text-[11px]"
-          style={{ color: `${theme.accent}55` }}>
-          {display.dateLabel} · {display.timeWithZoneLabel}
-        </span>
+
+        {isLive ? (
+          <span className="flex items-center gap-2">
+            {/* Pulsing live dot (echoes the global LiveIndicator) */}
+            <span className="relative flex h-1.5 w-1.5 items-center justify-center">
+              <span
+                className="absolute inline-flex h-1.5 w-1.5 rounded-full"
+                style={{
+                  background: theme.accent,
+                  animation: 'live-ping 1.8s var(--ease-standard) infinite',
+                }}
+              />
+              <span
+                className="relative inline-flex h-1.5 w-1.5 rounded-full"
+                style={{
+                  background: theme.accent,
+                  animation: 'live-dot 1.8s ease-in-out infinite',
+                }}
+              />
+            </span>
+            <span
+              className="font-heading text-[10px] font-bold uppercase tracking-[2px] md:text-[11px]"
+              style={{ color: theme.accent }}>
+              Live
+            </span>
+            {phase.label && (
+              <span
+                className="font-heading text-[10px] font-semibold tabular-nums md:text-[11px]"
+                style={{ color: `${theme.accent}99` }}>
+                {phase.label}
+              </span>
+            )}
+          </span>
+        ) : isFinished ? (
+          <span
+            className="font-heading text-[10px] font-bold uppercase tracking-[2px] md:text-[11px]"
+            style={{ color: `${theme.accent}55` }}>
+            Full time
+          </span>
+        ) : (
+          <span
+            className="font-heading text-[10px] font-semibold md:text-[11px]"
+            style={{ color: `${theme.accent}55` }}>
+            {display.dateLabel} · {display.timeWithZoneLabel}
+          </span>
+        )}
       </div>
 
       {/* Teams + score */}
@@ -61,9 +109,21 @@ export function FixtureCard({ fixture: f, ownerByTeam, theme, timeZone }: Props)
             <div
               className="font-display flex items-center gap-2 md:gap-3"
               style={{ fontSize: 'clamp(28px, 6vw, 40px)' }}>
-              <span style={{ color: theme.accent }}>{f.s1}</span>
+              <span
+                style={{
+                  color: isLive ? theme.accent : `${theme.accent}d9`,
+                  textShadow: isLive ? `0 0 18px ${theme.accent}88` : undefined,
+                }}>
+                {f.s1}
+              </span>
               <span style={{ color: 'rgba(255,255,255,0.12)', fontSize: '0.5em' }}>—</span>
-              <span style={{ color: theme.accent }}>{f.s2}</span>
+              <span
+                style={{
+                  color: isLive ? theme.accent : `${theme.accent}d9`,
+                  textShadow: isLive ? `0 0 18px ${theme.accent}88` : undefined,
+                }}>
+                {f.s2}
+              </span>
             </div>
           ) : (
             <div
