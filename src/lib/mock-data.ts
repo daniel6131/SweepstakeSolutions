@@ -66,9 +66,15 @@ export function mockSweepstakeData(data: SweepstakeData): SweepstakeData {
     liveIndices.add(index);
     const fixture = fixtures[index];
     const ownsHome = teams.includes(fixture.t1);
+    // Pin kickoff to ~37 min ago so the demo shows a realistic first-half clock
+    // (~37') on the live cards + leaderboard chips instead of a bare "LIVE".
+    const kickoffMs = Date.now() - 37 * 60_000;
     fixtures[index] = {
       ...fixture,
       status: 'live',
+      detailedStatus: 'IN_PLAY',
+      halfTimeRecorded: false,
+      utcDate: new Date(kickoffMs).toISOString(),
       s1: ownsHome ? 2 : 0,
       s2: ownsHome ? 0 : 2,
     };

@@ -18,6 +18,22 @@ export type Participant = {
 /** Lifecycle of a single match. `live` is what powers the Provisional Hell overlay. */
 export type MatchStatus = 'scheduled' | 'live' | 'finished';
 
+/**
+ * Raw football-data.org status granularity, kept ONLY for live-phase display
+ * (the approximate match clock). `status` above is still the canonical
+ * three-state lifecycle everything else reads. `PAUSED` is half-time.
+ */
+export type DetailedMatchStatus =
+  | 'SCHEDULED'
+  | 'TIMED'
+  | 'IN_PLAY'
+  | 'PAUSED'
+  | 'SUSPENDED'
+  | 'EXTRA_TIME'
+  | 'PENALTY_SHOOTOUT'
+  | 'FINISHED'
+  | 'AWARDED';
+
 export type Fixture = {
   group: GroupId;
   t1: string;
@@ -30,6 +46,11 @@ export type Fixture = {
   s2: number | null;
   /** Absent on static fallback data (treated as not-live). Set from the live API. */
   status?: MatchStatus;
+  /** Raw API status, for live-phase display only. Absent on static data. */
+  detailedStatus?: DetailedMatchStatus;
+  /** True once the half-time score is recorded, so the live clock can switch to
+   *  second-half timing. Absent on static data. */
+  halfTimeRecorded?: boolean;
 };
 
 export type KnockoutRoundKey = 'roundOf32' | 'roundOf16' | 'quarterFinals' | 'semiFinals' | 'final';

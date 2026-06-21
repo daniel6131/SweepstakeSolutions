@@ -22,6 +22,14 @@ function scrollPageToTop() {
   const lenis = getLenis();
   if (lenis) lenis.scrollTo(0, { immediate: true });
   else window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  // Lenis's `immediate` jump suppresses the native 'scroll' event (and is a no-op
+  // when already at the top), so scroll-driven listeners (the hero opacity in
+  // Header, the nav's scrolled state) never hear about the reset and keep their
+  // pre-navigation values until the user scrolls. Dispatch one synthetic 'scroll'
+  // on the next frame so they recompute against the new top position. Idempotent.
+  requestAnimationFrame(() => {
+    window.dispatchEvent(new Event('scroll'));
+  });
 }
 
 // Non-initial tabs dynamic-imported — keeps bundle lean for Leaderboard-only sessions.

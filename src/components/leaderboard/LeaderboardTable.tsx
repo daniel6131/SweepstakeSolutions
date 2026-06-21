@@ -10,6 +10,8 @@ type Props = {
   theme: ThemeColors;
   /** Per-player live "if it ended now" deltas, keyed by name. Absent when nothing is live. */
   provisionalByName?: Map<string, ProvisionalEntry>;
+  /** Ticking clock (epoch ms) for the live minute on a player's in-play team; null when idle. */
+  nowMs?: number | null;
 };
 
 function formatGD(gd: number): string {
@@ -46,7 +48,7 @@ function FormBar({ w, d, l }: { w: number; d: number; l: number }) {
   );
 }
 
-export function LeaderboardTable({ entries, theme, provisionalByName }: Props) {
+export function LeaderboardTable({ entries, theme, provisionalByName, nowMs = null }: Props) {
   const maxPts = entries.reduce((m, e) => Math.max(m, e.pts), 0);
   const preTournament = maxPts === 0;
 
@@ -116,7 +118,7 @@ export function LeaderboardTable({ entries, theme, provisionalByName }: Props) {
                     <Flag key={t} team={t} size={16} />
                   ))}
                   {liveTeams.map((swing) => (
-                    <LiveTeamChip key={swing.team} swing={swing} />
+                    <LiveTeamChip key={swing.team} swing={swing} nowMs={nowMs} />
                   ))}
                 </div>
               </div>

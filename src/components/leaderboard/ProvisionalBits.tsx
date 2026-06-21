@@ -1,4 +1,5 @@
 import { Flag } from '@/components/ui/Flag';
+import { getLivePhase } from '@/lib/match-time';
 import type { LiveTeamSwing } from '@/lib/provisional';
 
 // Saturated tokens drive the chip border + tint (recognizable hue). The TEXT,
@@ -45,9 +46,19 @@ export function MovementChip({ delta, size = 'sm' }: { delta: number; size?: 'sm
 }
 
 /** One owned team currently on the pitch, scoreline coloured by its live result. */
-export function LiveTeamChip({ swing }: { swing: LiveTeamSwing }) {
+export function LiveTeamChip({ swing, nowMs }: { swing: LiveTeamSwing; nowMs: number | null }) {
   const tint = STATE_TINT[swing.state];
   const text = STATE_TEXT[swing.state];
+  // Approximate live minute (or HT/ET/PENS) for this team's match, ticked client-side.
+  const phase = getLivePhase(
+    {
+      status: 'live',
+      utcDate: swing.kickoffUtc,
+      detailedStatus: swing.detailedStatus,
+      halfTimeRecorded: swing.halfTimeRecorded,
+    },
+    nowMs ?? Number.NaN
+  );
 
   return (
     <span
@@ -57,12 +68,19 @@ export function LiveTeamChip({ swing }: { swing: LiveTeamSwing }) {
         background: `color-mix(in srgb, ${tint} 12%, transparent)`,
         color: 'var(--color-fg)',
       }}
-      title={`${swing.team} ${swing.state} ${swing.gf}–${swing.ga} live against ${swing.opponent}`}>
+      title={`${swing.team} ${swing.state} ${swing.gf}–${swing.ga} live against ${swing.opponent}${
+        phase.label ? ` (${phase.label})` : ''
+      }`}>
       <span className="provisional-live-dot" style={{ background: tint }} aria-hidden />
       <Flag team={swing.team} size={13} />
       <span style={{ color: text }}>
         {swing.gf}–{swing.ga}
       </span>
+      {phase.label && (
+        <span style={{ color: 'var(--color-fg-subtle)' }} aria-hidden>
+          {phase.label}
+        </span>
+      )}
     </span>
   );
 }
