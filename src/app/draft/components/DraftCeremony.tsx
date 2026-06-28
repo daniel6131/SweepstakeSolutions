@@ -121,7 +121,14 @@ export function DraftCeremony({
     teaseTeamsRef.current = newTeaseList;
     setTease(0);
 
-    if (currentPotTeams.length === 1) {
+    // The reel spin is a JS-timer animation, so the global CSS reduced-motion
+    // rules don't catch it. Honour the preference by skipping straight to the
+    // reveal (same path the single-team case already uses).
+    const reducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (currentPotTeams.length === 1 || reducedMotion) {
       const drawn = await onDraw();
       if (!drawn) return;
 
