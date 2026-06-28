@@ -10,12 +10,11 @@
  * local JSON file + in-process lock for development — mirrors `draft-db.ts`.
  */
 
+import { getReadKv, isKVEnabled } from '@/lib/kv';
 import type { SweepstakeData } from '@/lib/load-data';
 
 const SNAPSHOT_KEY = 'sweepstake:snapshot';
 const LOCK_KEY = 'sweepstake:refresh-lock';
-
-const isKVEnabled = (): boolean => Boolean(process.env.KV_REST_API_URL);
 
 export type StoredSnapshot = {
   data: SweepstakeData;
@@ -27,7 +26,7 @@ export type StoredSnapshot = {
 
 export async function readSnapshot(): Promise<StoredSnapshot | null> {
   if (isKVEnabled()) {
-    const { kv } = await import('@vercel/kv');
+    const kv = await getReadKv();
     return kv.get<StoredSnapshot>(SNAPSHOT_KEY);
   }
   const { existsSync, readFileSync } = await import('fs');

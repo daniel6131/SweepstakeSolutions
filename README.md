@@ -29,7 +29,7 @@ A sleek, dark-themed web app for tracking your World Cup 2026 sweepstake between
 - **React 19**
 - **TypeScript**
 - **Tailwind CSS 4**
-- **football-data.org** API (free tier, 10 req/min)
+- **football-data.org** API (paid tier, 20 req/min)
 - Deployed on **Vercel**
 
 ## Getting Started

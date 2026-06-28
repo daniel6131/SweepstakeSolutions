@@ -47,4 +47,18 @@ describe('football-api degrade-to-null contract', () => {
     );
     await expect(fetchLiveFixtures()).resolves.toBeNull();
   });
+
+  it('retries once on a transient 5xx before degrading', async () => {
+    const fetchMock = vi.fn(async () => new Response('server error', { status: 500 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(fetchLiveTournamentData()).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retry a 429 (respects the rate limit)', async () => {
+    const fetchMock = vi.fn(async () => new Response('rate limited', { status: 429 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(fetchLiveTournamentData()).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

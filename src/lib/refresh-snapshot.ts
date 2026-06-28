@@ -12,13 +12,16 @@ import { loadSweepstakeData } from '@/lib/load-data';
 import {
   acquireRefreshLock,
   readSnapshot,
+  releaseRefreshLock,
   writeSnapshot,
   type StoredSnapshot,
 } from '@/lib/snapshot-db';
 import { classifyAge } from '@/lib/snapshot-freshness';
 
-/** Lock lifetime — a little above the worst-case refresh duration, so a crashed
- *  refresh can't wedge the lock for long. Auto-expires regardless. */
+/** Lock lifetime — a ceiling for a crashed refresh, since we now release it in a
+ *  finally as soon as the refresh finishes. Kept above worst-case refresh
+ *  latency so a slow-but-alive refresh can't drop the lock early and let a
+ *  second upstream call through. Auto-expires regardless. */
 const LOCK_TTL_SECONDS = 15;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -96,11 +99,13 @@ async function resolveSnapshotForRead(): Promise<SnapshotRead> {
   }
 
   if (current && freshness === 'stale') {
-    // Serve immediately; refresh in the background only if we win the lock.
+    // Serve immediately; refresh in the background only if we win the lock, and
+    // drop the lock as soon as that refresh settles so the next window isn't
+    // blocked for the full TTL.
     if (await acquireRefreshLock(LOCK_TTL_SECONDS)) {
-      const background = refreshSnapshot().catch((err) =>
-        console.error('[snapshot] background refresh failed:', err)
-      );
+      const background = refreshSnapshot()
+        .catch((err) => console.error('[snapshot] background refresh failed:', err))
+        .finally(() => releaseRefreshLock());
       return { snapshot: current, background };
     }
     return { snapshot: current, background: null };
@@ -108,7 +113,11 @@ async function resolveSnapshotForRead(): Promise<SnapshotRead> {
 
   // 'missing' or 'expired' — we want fresh data in this response.
   if (await acquireRefreshLock(LOCK_TTL_SECONDS)) {
-    return { snapshot: await refreshSnapshot(), background: null };
+    try {
+      return { snapshot: await refreshSnapshot(), background: null };
+    } finally {
+      await releaseRefreshLock();
+    }
   }
 
   // Another worker holds the lock. If we have a (stale) snapshot, serve it.
