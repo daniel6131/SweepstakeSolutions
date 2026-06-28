@@ -12,8 +12,7 @@ import { buildGroupsFromFixtures } from '@/data/groups';
 import { PARTICIPANTS } from '@/data/participants';
 import { getLockedAssignments } from '@/lib/draft-db';
 import {
-  buildKnockoutResultsFromLiveMatches,
-  buildProjectedKnockoutBracket,
+  buildKnockoutBracketFromLive,
   getCompletedKnockoutScoringMatches,
   type ProjectedKnockoutBracket,
 } from '@/lib/knockout';
@@ -64,8 +63,9 @@ export async function loadSweepstakeData(): Promise<SweepstakeData> {
   }
 
   const standings = computeGroupStandings(fixtures, groups);
-  const knockoutResults = buildKnockoutResultsFromLiveMatches(standings, knockoutMatches);
-  const bracket = buildProjectedKnockoutBracket(standings, knockoutResults);
+  // Once the knockouts exist in the feed, build the bracket from the real
+  // fixtures (teams, dates, times, scores); otherwise project from standings.
+  const bracket = buildKnockoutBracketFromLive(standings, knockoutMatches);
   const scoringMatches = [
     ...fixtures,
     ...getCompletedKnockoutScoringMatches(bracket),

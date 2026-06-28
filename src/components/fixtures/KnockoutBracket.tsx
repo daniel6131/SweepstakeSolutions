@@ -10,16 +10,43 @@ import type {
   KnockoutSlot,
   ProjectedKnockoutBracket,
 } from '@/lib/knockout';
+import { getFixtureDisplayParts } from '@/lib/match-time';
 import type { ThemeColors } from '@/types';
 import { ChevronLeft, ChevronRight, Trophy } from 'lucide-react';
-import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 gsap.registerPlugin(Flip);
+
+/** The viewer's timezone, shared with the match cards so knockout kickoffs render
+ *  in the same zone as the group fixtures (the bracket has many render layers, so
+ *  a context is cleaner than threading a prop through all of them). */
+const TimeZoneContext = createContext<string | null>(null);
+
+/** Date + time for a knockout match, formatted in the viewer's timezone from the
+ *  live `utcDate`. Falls back to the stored strings (pre-tournament projection). */
+function useMatchTiming(match: KnockoutMatch): { dateLabel: string; timeLabel: string } {
+  const timeZone = useContext(TimeZoneContext);
+  const parts = getFixtureDisplayParts(
+    { utcDate: match.utcDate, date: match.date, time: match.time },
+    timeZone
+  );
+  return { dateLabel: parts.dateLabel, timeLabel: match.utcDate ? parts.timeWithZoneLabel : '' };
+}
 
 type Props = {
   bracket: ProjectedKnockoutBracket;
   ownerByTeam: Map<string, string>;
   theme: ThemeColors;
+  timeZone: string | null;
 };
 
 type PositionedMatch = {
@@ -211,6 +238,7 @@ function MatchCard({
   width?: number;
 }) {
   const projected = match.home.status === 'projected' || match.away.status === 'projected';
+  const { dateLabel, timeLabel } = useMatchTiming(match);
 
   return (
     <article
@@ -241,7 +269,7 @@ function MatchCard({
           <span
             className="font-heading text-[8px] font-bold tracking-[2px] uppercase"
             style={{ color: `${theme.accent}5a` }}>
-            {match.isPlayed ? 'Full time' : projected ? 'Projected' : match.date}
+            {match.isPlayed ? 'Full time' : projected ? 'Projected' : dateLabel}
           </span>
         </div>
       </div>
@@ -254,8 +282,8 @@ function MatchCard({
       <div
         className="font-heading mt-2 flex items-center justify-between gap-2 text-[8px] font-bold tracking-[1.5px] uppercase"
         style={{ color: `${theme.accent}40` }}>
-        <span className="truncate">{match.venue}</span>
-        <span className="shrink-0">{match.date}</span>
+        <span className="truncate">{match.venue && match.venue !== 'TBC' ? match.venue : ''}</span>
+        <span className="shrink-0">{timeLabel ? `${dateLabel} · ${timeLabel}` : dateLabel}</span>
       </div>
     </article>
   );
@@ -373,6 +401,7 @@ function MobileTreeCard({
   theme: ThemeColors;
 }) {
   const projected = match.home.status === 'projected' || match.away.status === 'projected';
+  const { dateLabel } = useMatchTiming(match);
 
   return (
     <article
@@ -395,7 +424,7 @@ function MobileTreeCard({
         <span
           className="font-heading text-[7px] font-bold tracking-[1.5px] uppercase"
           style={{ color: `${theme.accent}5a` }}>
-          {match.isPlayed ? 'Full time' : projected ? 'Projected' : match.date}
+          {match.isPlayed ? 'Full time' : projected ? 'Projected' : dateLabel}
         </span>
       </div>
       <div className="flex flex-1 flex-col justify-center gap-1">
@@ -990,7 +1019,15 @@ function RailColumn({
   );
 }
 
-export function KnockoutBracket({ bracket, ownerByTeam, theme }: Props) {
+export function KnockoutBracket(props: Props) {
+  return (
+    <TimeZoneContext.Provider value={props.timeZone}>
+      <KnockoutBracketInner {...props} />
+    </TimeZoneContext.Provider>
+  );
+}
+
+function KnockoutBracketInner({ bracket, ownerByTeam, theme }: Props) {
   const flowId = useId();
   const rounds = bracket.rounds;
   const lastIndex = rounds.length - 1;

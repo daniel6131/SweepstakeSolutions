@@ -31,6 +31,10 @@ export type KnockoutMatch = {
   match: number;
   roundKey: KnockoutRoundKey;
   date: string;
+  time: string;
+  /** ISO kickoff from the live feed, so the UI can render it in the viewer's
+   *  timezone (empty for the pre-tournament projection, which has no fixtures). */
+  utcDate: string;
   venue: string;
   home: KnockoutSlot;
   away: KnockoutSlot;
@@ -564,6 +568,8 @@ export function buildProjectedKnockoutBracket(
         match: match.match,
         roundKey,
         date: match.date,
+        time: '',
+        utcDate: '',
         venue: match.venue,
         home: {
           ...home,
@@ -593,6 +599,122 @@ export function buildProjectedKnockoutBracket(
       matches,
     };
   });
+
+  return {
+    rounds,
+    thirdPlaceStandings,
+    completedGroups,
+    totalGroups: 12,
+  };
+}
+
+const ROUND_BASE: Record<KnockoutRoundKey, number> = {
+  roundOf32: 73,
+  roundOf16: 89,
+  quarterFinals: 97,
+  semiFinals: 101,
+  final: 104,
+};
+
+/** Where a team finished its group, for the seed badge (e.g. "A1", "B2", "3C"). */
+function seedForTeam(
+  team: string,
+  standings: Record<GroupId, GroupStanding[]>
+): { seedLabel: string; source: KnockoutSlot['source']; group: GroupId | null } {
+  for (const [group, rows] of Object.entries(standings) as [GroupId, GroupStanding[]][]) {
+    const index = rows.findIndex((row) => row.team === team);
+    if (index === 0) return { seedLabel: `${group}1`, source: 'winner', group };
+    if (index === 1) return { seedLabel: `${group}2`, source: 'runnerUp', group };
+    if (index === 2) return { seedLabel: `3${group}`, source: 'thirdPlace', group };
+  }
+  return { seedLabel: '', source: 'winnerMatch', group: null };
+}
+
+function liveKnockoutSlot(
+  team: string | null,
+  score: number | null,
+  isWinner: boolean,
+  standings: Record<GroupId, GroupStanding[]>
+): KnockoutSlot {
+  if (!team) {
+    return {
+      label: 'TBD',
+      team: null,
+      seedLabel: 'TBD',
+      source: 'winnerMatch',
+      group: null,
+      status: 'placeholder',
+      score: null,
+      isWinner: false,
+    };
+  }
+  const seed = seedForTeam(team, standings);
+  return {
+    label: team,
+    team,
+    seedLabel: seed.seedLabel,
+    source: seed.source,
+    group: seed.group,
+    status: 'confirmed',
+    score,
+    isWinner,
+  };
+}
+
+/**
+ * Build the bracket from the live feed. Once the group stage is over the feed
+ * carries the real knockout fixtures (actual teams, dates, times, scores), so we
+ * use those directly rather than the projection's hardcoded slot mapping. Falls
+ * back to the projection only before any knockout fixtures exist (pre-tournament
+ * or static mode).
+ */
+export function buildKnockoutBracketFromLive(
+  standings: Record<GroupId, GroupStanding[]>,
+  liveMatches: LiveKnockoutMatch[]
+): ProjectedKnockoutBracket {
+  if (liveMatches.length === 0) {
+    return buildProjectedKnockoutBracket(standings);
+  }
+
+  const thirdPlaceStandings = rankThirdPlacedTeams(standings);
+  const completedGroups = (Object.values(standings) as GroupStanding[][]).filter((rows) =>
+    isGroupComplete(rows)
+  ).length;
+
+  const rounds = ROUND_ORDER.map((roundKey) => {
+    const roundMatches = liveMatches
+      .filter((match) => match.roundKey === roundKey)
+      .sort((a, b) => a.utcDate.localeCompare(b.utcDate))
+      .map((live, index): KnockoutMatch => {
+        const homeTeam = live.t1 || null;
+        const awayTeam = live.t2 || null;
+        const winner: 'home' | 'away' | null =
+          live.winner === 't1' ? 'home' : live.winner === 't2' ? 'away' : null;
+
+        return {
+          match: ROUND_BASE[roundKey] + index,
+          roundKey,
+          date: live.date,
+          time: live.time,
+          utcDate: live.utcDate,
+          venue: live.venue,
+          home: liveKnockoutSlot(homeTeam, live.s1, winner === 'home', standings),
+          away: liveKnockoutSlot(awayTeam, live.s2, winner === 'away', standings),
+          homeScore: live.s1,
+          awayScore: live.s2,
+          winner,
+          isPlayed: winner !== null,
+          isReady: Boolean(homeTeam && awayTeam),
+        };
+      });
+
+    return {
+      key: roundKey,
+      title: ROUND_TITLES[roundKey].title,
+      shortTitle: ROUND_TITLES[roundKey].shortTitle,
+      matches: roundMatches,
+    };
+  }).filter((round) => round.matches.length > 0);
 
   return {
     rounds,

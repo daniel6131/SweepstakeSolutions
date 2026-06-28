@@ -348,6 +348,7 @@ export function transformCompetitionMatches(data: ApiMatchesResponse): LiveTourn
       t2,
       date,
       time,
+      utcDate: match.utcDate,
       venue: match.venue ?? 'TBC',
       s1,
       s2,
