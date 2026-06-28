@@ -69,7 +69,7 @@ type FixtureDisplayParts = {
   timeZoneLabel: string | null;
 };
 
-function getFixtureDate(fixture: Fixture): Date | null {
+function getFixtureDate(fixture: Pick<Fixture, 'utcDate'>): Date | null {
   if (!fixture.utcDate) return null;
 
   const timestamp = Date.parse(fixture.utcDate);
@@ -111,7 +111,7 @@ export function getFixtureSortTimestamp(fixture: Fixture): number {
 }
 
 export function getFixtureDisplayParts(
-  fixture: Fixture,
+  fixture: Pick<Fixture, 'utcDate' | 'date' | 'time'>,
   timeZone: string | null
 ): FixtureDisplayParts {
   const utcDate = getFixtureDate(fixture);
