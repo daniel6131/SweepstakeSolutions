@@ -1,14 +1,27 @@
 'use server';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
+import { recordAudit } from '@/lib/audit-log';
 import { DRAFT_COOKIE, getDraftSecretHash, isValidDraftPassword } from '@/lib/draft-auth';
+
+async function actorIp(): Promise<string> {
+  const h = await headers();
+  return h.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+}
 
 export async function authenticateDraft(formData: FormData) {
   const password = String(formData.get('password') ?? '').trim();
+  const ok = isValidDraftPassword(password);
 
-  if (!isValidDraftPassword(password)) {
+  await recordAudit({
+    category: 'auth',
+    action: ok ? 'draft-login-success' : 'draft-login-fail',
+    actor: await actorIp(),
+  });
+
+  if (!ok) {
     redirect('/draft/login?error=1');
   }
 

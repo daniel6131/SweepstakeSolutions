@@ -2,7 +2,7 @@
 
 ## Production contract
 
-- Plan: football-data.org free tier
+- Plan: football-data.org paid tier (20 requests/minute; live scores, fixtures, schedules, league tables)
 - Competition: `WC`
 - Season: `2026`
 - Primary endpoint: `GET /v4/competitions/WC/matches?season=2026`
@@ -31,7 +31,7 @@
 - Non-match periods: prefer `300s` or slower if you change cadence later
 - Do not add client-side polling on top of ISR for the public app
 
-At `60s`, the app uses roughly one authenticated request per minute for the main feed, which stays comfortably below the free-tier limit of ten requests per minute. Concurrent readers are coalesced by the KV refresh lock in `refresh-snapshot.ts`, so a crowd on match day still produces about one upstream fetch per refresh window rather than one per visitor.
+At `60s`, the app uses roughly one authenticated request per minute for the main feed, which stays comfortably below the paid-tier limit of twenty requests per minute. Concurrent readers are coalesced by the KV refresh lock in `refresh-snapshot.ts`, so a crowd on match day still produces about one upstream fetch per refresh window rather than one per visitor.
 
 ## Local and staging checks
 

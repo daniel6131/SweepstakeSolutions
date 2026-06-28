@@ -9,10 +9,13 @@
 
 export const dynamic = 'force-dynamic';
 
+import { createHash } from 'node:crypto';
+
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 import { GROUPS } from '@/data/groups';
+import { recordAudit } from '@/lib/audit-log';
 import { DRAFT_COOKIE, isValidDraftCookie } from '@/lib/draft-auth';
 import {
   drawNext,
@@ -22,7 +25,9 @@ import {
   resetDraft,
   startDraft,
   tradePlayers,
+  type DraftState,
 } from '@/lib/draft-db';
+import { validateDraftCommand } from '@/lib/draft-validation';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 
 async function isAuthorized(): Promise<boolean> {
@@ -32,6 +37,14 @@ async function isAuthorized(): Promise<boolean> {
 
 function unauthorized(): NextResponse {
   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+}
+
+// short fingerprint of the assignments, so the audit trail shows what changed
+function hashAssignments(state: DraftState): string {
+  return createHash('sha256')
+    .update(JSON.stringify(state.assignments ?? []))
+    .digest('hex')
+    .slice(0, 12);
 }
 
 export async function GET() {
@@ -56,47 +69,74 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
+  let body: unknown;
   try {
-    const body = await request.json();
-    const { action } = body;
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
 
-    switch (action) {
+  const parsed = validateDraftCommand(body);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
+  const command = parsed.command;
+  const actor = clientIp(request);
+
+  try {
+    // snapshot the prior assignments so the audit entry shows the before/after
+    const before = await getDraftState(GROUPS);
+    const beforeHash = hashAssignments(before);
+
+    let payload: unknown;
+    let after: DraftState;
+    switch (command.action) {
       case 'start': {
-        const state = await startDraft(GROUPS);
-        return NextResponse.json(state);
+        after = await startDraft(GROUPS);
+        payload = after;
+        break;
       }
-
       case 'draw': {
         const { state, drawn } = await drawNext(GROUPS);
-        const conflicts = getPlayerConflicts(state.assignments);
-        return NextResponse.json({ ...state, conflicts, lastDrawn: drawn });
+        after = state;
+        payload = { ...state, conflicts: getPlayerConflicts(state.assignments), lastDrawn: drawn };
+        break;
       }
-
       case 'trade': {
-        const { player1, team1, player2, team2 } = body;
-        if (!player1 || !team1 || !player2 || !team2) {
-          return NextResponse.json({ error: 'Missing trade params' }, { status: 400 });
-        }
-        const state = await tradePlayers(player1, team1, player2, team2);
-        const conflicts = getPlayerConflicts(state.assignments);
-        return NextResponse.json({ ...state, conflicts });
+        after = await tradePlayers(command.player1, command.team1, command.player2, command.team2);
+        payload = { ...after, conflicts: getPlayerConflicts(after.assignments) };
+        break;
       }
-
       case 'lock': {
-        const state = await lockDraft();
-        return NextResponse.json(state);
+        after = await lockDraft();
+        payload = after;
+        break;
       }
-
       case 'reset': {
-        const state = await resetDraft(GROUPS);
-        return NextResponse.json(state);
+        after = await resetDraft(GROUPS);
+        payload = after;
+        break;
       }
-
-      default:
-        return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
+      default: {
+        const exhaustive: never = command;
+        throw new Error(`unreachable: ${JSON.stringify(exhaustive)}`);
+      }
     }
+
+    await recordAudit({
+      category: 'draft',
+      action: command.action,
+      actor,
+      detail: `before=${beforeHash} after=${hashAssignments(after)} status=${after.status}`,
+    });
+
+    return NextResponse.json(payload);
   } catch (error) {
     console.error('[api/draft] POST failed:', error);
-    return NextResponse.json({ error: 'Draft action failed' }, { status: 500 });
+    const busy = error instanceof Error && error.message.startsWith('busy:');
+    return NextResponse.json(
+      { error: busy ? 'Draft is busy, try again' : 'Draft action failed' },
+      { status: busy ? 409 : 500 }
+    );
   }
 }

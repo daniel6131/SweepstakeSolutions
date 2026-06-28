@@ -9,12 +9,16 @@
 
 import { getPotForRound, getPotForTeam } from '@/data/draftPots';
 import { GROUPS, getAllTeams } from '@/data/groups';
+import { getKv, getReadKv, isKVEnabled } from '@/lib/kv';
+import { withLock } from '@/lib/kv-lock';
 import type { TournamentGroups } from '@/types';
 import type { DraftPot } from '@/data/draftPots';
 
 const KV_KEY = 'draft:state';
 const LOCK_BACKUP_PREFIX = 'draft:locked:';
-const isKVEnabled = (): boolean => Boolean(process.env.KV_REST_API_URL);
+/** Serialises the read-modify-write draft mutations so two concurrent POSTs
+ *  can't interleave into a corrupt state. */
+const DRAFT_WRITE_LOCK = 'draft:write';
 
 export type Assignment = {
   player: string;
@@ -88,7 +92,7 @@ function shuffle<T>(arr: T[]): T[] {
 
 async function readState(): Promise<DraftState | null> {
   if (isKVEnabled()) {
-    const { kv } = await import('@vercel/kv');
+    const kv = await getReadKv();
     return kv.get<DraftState>(KV_KEY);
   }
   // prod has no business reading the local file (it's gitignored and the
@@ -111,7 +115,7 @@ async function readState(): Promise<DraftState | null> {
 
 async function writeState(state: DraftState): Promise<void> {
   if (isKVEnabled()) {
-    const { kv } = await import('@vercel/kv');
+    const kv = await getKv();
     await kv.set(KV_KEY, state);
     return;
   }
@@ -152,7 +156,7 @@ async function backupLockedState(state: DraftState): Promise<void> {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   try {
     if (isKVEnabled()) {
-      const { kv } = await import('@vercel/kv');
+      const kv = await getKv();
       await kv.set(`${LOCK_BACKUP_PREFIX}${stamp}`, state);
       await kv.set(`${LOCK_BACKUP_PREFIX}latest`, state);
       return;
@@ -207,13 +211,15 @@ const PLAYER_NAMES = [
 
 /** Start the draft — move from pending → drafting, shuffle first round order */
 export async function startDraft(groups: TournamentGroups = GROUPS): Promise<DraftState> {
-  const state = getDefaultState(groups);
-  state.status = 'drafting';
-  state.currentRound = 0;
-  state.currentPick = 0;
-  state.playerOrder = shuffle(PLAYER_NAMES);
-  await saveDraftState(state);
-  return state;
+  return withLock(DRAFT_WRITE_LOCK, 10, async () => {
+    const state = getDefaultState(groups);
+    state.status = 'drafting';
+    state.currentRound = 0;
+    state.currentPick = 0;
+    state.playerOrder = shuffle(PLAYER_NAMES);
+    await saveDraftState(state);
+    return state;
+  });
 }
 
 /** Draw the next team — assigns a random available team to the current player */
@@ -221,50 +227,54 @@ export async function drawNext(groups: TournamentGroups = GROUPS): Promise<{
   state: DraftState;
   drawn: Assignment;
 }> {
-  const state = await getDraftState(groups);
-  if (state.status !== 'drafting') throw new Error('Not in drafting phase');
-  if (state.availableTeams.length === 0) throw new Error('No teams left');
+  return withLock(DRAFT_WRITE_LOCK, 10, async () => {
+    const state = await getDraftState(groups);
+    if (state.status !== 'drafting') throw new Error('Not in drafting phase');
+    if (state.availableTeams.length === 0) throw new Error('No teams left');
 
-  const player = state.playerOrder[state.currentPick];
-  const allWithGroups = getAllTeamsWithGroups(groups);
-  const currentPot = getPotForRound(state.currentRound);
+    const player = state.playerOrder[state.currentPick];
+    const allWithGroups = getAllTeamsWithGroups(groups);
+    const currentPot = getPotForRound(state.currentRound);
 
-  if (!currentPot) throw new Error(`No pot configured for round ${state.currentRound + 1}`);
+    if (!currentPot) throw new Error(`No pot configured for round ${state.currentRound + 1}`);
 
-  const currentPotTeams = state.availableTeams.filter((team) => getPotForTeam(team) === currentPot);
-  if (currentPotTeams.length === 0) {
-    throw new Error(`No teams left in pot ${currentPot}`);
-  }
-
-  const shuffled = shuffle(currentPotTeams);
-  const teamName = shuffled[0];
-  if (!teamName) throw new Error('Failed to draw a team');
-  const teamInfo = allWithGroups.find((t) => t.team === teamName);
-  if (!teamInfo) throw new Error(`Team not found: ${teamName}`);
-
-  const assignment: Assignment = {
-    player: player ?? '',
-    team: teamInfo.team,
-    group: teamInfo.group,
-    round: state.currentRound,
-    pot: currentPot,
-  };
-
-  state.assignments.push(assignment);
-  state.availableTeams = state.availableTeams.filter((t) => t !== teamName);
-  state.currentPick++;
-
-  if (state.currentPick >= PLAYER_NAMES.length) {
-    state.currentRound++;
-    state.currentPick = 0;
-    state.playerOrder = shuffle(PLAYER_NAMES);
-    if (state.currentRound >= 4) {
-      state.status = 'trading';
+    const currentPotTeams = state.availableTeams.filter(
+      (team) => getPotForTeam(team) === currentPot
+    );
+    if (currentPotTeams.length === 0) {
+      throw new Error(`No teams left in pot ${currentPot}`);
     }
-  }
 
-  await saveDraftState(state);
-  return { state, drawn: assignment };
+    const shuffled = shuffle(currentPotTeams);
+    const teamName = shuffled[0];
+    if (!teamName) throw new Error('Failed to draw a team');
+    const teamInfo = allWithGroups.find((t) => t.team === teamName);
+    if (!teamInfo) throw new Error(`Team not found: ${teamName}`);
+
+    const assignment: Assignment = {
+      player: player ?? '',
+      team: teamInfo.team,
+      group: teamInfo.group,
+      round: state.currentRound,
+      pot: currentPot,
+    };
+
+    state.assignments.push(assignment);
+    state.availableTeams = state.availableTeams.filter((t) => t !== teamName);
+    state.currentPick++;
+
+    if (state.currentPick >= PLAYER_NAMES.length) {
+      state.currentRound++;
+      state.currentPick = 0;
+      state.playerOrder = shuffle(PLAYER_NAMES);
+      if (state.currentRound >= 4) {
+        state.status = 'trading';
+      }
+    }
+
+    await saveDraftState(state);
+    return { state, drawn: assignment };
+  });
 }
 
 /** Trade two teams between two players */
@@ -274,36 +284,42 @@ export async function tradePlayers(
   player2: string,
   team2: string
 ): Promise<DraftState> {
-  const state = await getDraftState();
-  if (state.status !== 'trading') throw new Error('Not in trading phase');
+  return withLock(DRAFT_WRITE_LOCK, 10, async () => {
+    const state = await getDraftState();
+    if (state.status !== 'trading') throw new Error('Not in trading phase');
 
-  const a1 = state.assignments.find((a) => a.player === player1 && a.team === team1);
-  const a2 = state.assignments.find((a) => a.player === player2 && a.team === team2);
+    const a1 = state.assignments.find((a) => a.player === player1 && a.team === team1);
+    const a2 = state.assignments.find((a) => a.player === player2 && a.team === team2);
 
-  if (!a1 || !a2) throw new Error('Assignment not found');
+    if (!a1 || !a2) throw new Error('Assignment not found');
 
-  a1.player = player2;
-  a2.player = player1;
+    a1.player = player2;
+    a2.player = player1;
 
-  await saveDraftState(state);
-  return state;
+    await saveDraftState(state);
+    return state;
+  });
 }
 
 /** Lock the draft — finalize assignments */
 export async function lockDraft(): Promise<DraftState> {
-  const state = await getDraftState();
-  if (state.status !== 'trading') throw new Error('Not in trading phase');
-  state.status = 'locked';
-  await saveDraftState(state);
-  await backupLockedState(state);
-  return state;
+  return withLock(DRAFT_WRITE_LOCK, 10, async () => {
+    const state = await getDraftState();
+    if (state.status !== 'trading') throw new Error('Not in trading phase');
+    state.status = 'locked';
+    await saveDraftState(state);
+    await backupLockedState(state);
+    return state;
+  });
 }
 
 /** Reset draft completely */
 export async function resetDraft(groups: TournamentGroups = GROUPS): Promise<DraftState> {
-  const state = getDefaultState(groups);
-  await saveDraftState(state);
-  return state;
+  return withLock(DRAFT_WRITE_LOCK, 10, async () => {
+    const state = getDefaultState(groups);
+    await saveDraftState(state);
+    return state;
+  });
 }
 
 /** Get group conflicts for a player's assignments */
