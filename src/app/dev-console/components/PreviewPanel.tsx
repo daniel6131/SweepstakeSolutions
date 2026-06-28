@@ -61,7 +61,12 @@ export function PreviewPanel({ leaderboard, standings, groups, bracket, ownerByT
         ))}
       </div>
 
-      <KnockoutBracket bracket={bracket} ownerByTeam={ownerByTeam} theme={DEV_THEME} />
+      <KnockoutBracket
+        bracket={bracket}
+        ownerByTeam={ownerByTeam}
+        theme={DEV_THEME}
+        timeZone={null}
+      />
     </section>
   );
 }

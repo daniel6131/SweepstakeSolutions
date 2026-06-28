@@ -418,7 +418,12 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
 
       {view === 'knockout' ? (
         knockoutBracket ? (
-          <KnockoutBracket bracket={knockoutBracket} ownerByTeam={ownerByTeam} theme={theme} />
+          <KnockoutBracket
+            bracket={knockoutBracket}
+            ownerByTeam={ownerByTeam}
+            theme={theme}
+            timeZone={timeZone}
+          />
         ) : null
       ) : (
         <>
