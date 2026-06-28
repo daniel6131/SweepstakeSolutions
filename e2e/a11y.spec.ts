@@ -10,11 +10,6 @@ async function seriousViolations(page: Page) {
     // Intentional, non-informational broadcast ambiance (WCAG 1.4.3 decoration
     // exception); also aria-hidden, so it reaches no one as content.
     .exclude('[data-decorative]')
-    // color-contrast is tracked separately: the editorial design uses the theme
-    // accent at low opacity for secondary labels, which needs a coherent
-    // cross-theme design pass (see docs/PRODUCTION_READINESS_AUDIT.md). This gate
-    // enforces structure/semantics now and is the place to re-enable it after.
-    .disableRules(['color-contrast'])
     .analyze();
   return results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
 }

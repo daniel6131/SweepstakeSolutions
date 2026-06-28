@@ -71,7 +71,7 @@ export function FixtureFilterBar({
 
         <span
           className="font-heading text-[11px] font-bold uppercase tracking-[2px] tabular-nums md:text-xs"
-          style={{ color: `${theme.accent}66` }}>
+          style={{ color: `${theme.accent}c2` }}>
           {activeCount > 0 ? (
             <>
               <span style={{ color: theme.accent }}>{resultCount}</span> / {totalCount} matches
@@ -114,7 +114,7 @@ export function FixtureFilterBar({
             type="button"
             onClick={onClear}
             className="font-heading cursor-pointer px-2 text-[10px] font-bold uppercase tracking-[1.5px] underline underline-offset-4 transition-opacity hover:opacity-70"
-            style={{ color: `${theme.accent}80` }}>
+            style={{ color: `${theme.accent}c2` }}>
             Clear
           </button>
         </div>
