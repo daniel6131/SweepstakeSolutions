@@ -225,6 +225,14 @@ Ordered by blast radius (widest first).
 
 ### Phase 3 — Operational maturity
 
+> **Status:** mostly delivered. Done: env vars documented (`.env.local.example` + README table), ADRs (`docs/adr/`), a Mermaid architecture diagram (README), the API surface + contracts (`docs/api.md`), the a11y polish (Phase 2), and a PR template. The `draft:status` script now authenticates against the cookie-guarded `GET /api/draft`.
+>
+> **Deliberately deferred:**
+>
+> - **Structured `/api/*` access log:** Vercel already logs every function invocation with method, path, status, and duration, and we emit targeted lines for the security/reliability-relevant events (audit log, `RATE_LIMIT_429`, error boundaries). A blanket wrapper would mostly duplicate the platform and add match-day noise on the high-frequency `/api/live` poll. Revisit only if we leave Vercel.
+> - **Branch protection on main:** a GitHub repo setting, not a code change. Enable "require status checks + 1 review (CODEOWNERS)" in repo settings.
+> - **Vercel Pro 60s cron:** an infra/billing decision. On Hobby the cron is daily; on Pro set it to `* * * * *` for a 60s heartbeat (the budget still sums under 20/min).
+
 | Task                                                                                                                                                                                                                     | Closes                                               | Effort | Acceptance                                                                                                                                                                |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Add `CRON_SECRET` (and `KV_*`, `DRAFT_SECRET`) to `.env.local.example` and align the README table                                                                                                                        | cron-secret-undocumented, docs-strong-readme-runbook | S      | An operator following the README sets every required env var.                                                                                                             |

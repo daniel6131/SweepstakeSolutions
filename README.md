@@ -1,10 +1,12 @@
 # World Cup Sweepstake 2026 ⚽
 
-A sleek, dark-themed web app for tracking your World Cup 2026 sweepstake between 12 friends.
+A live tracker for a 2026 World Cup sweepstake between 12 friends. Editorial
+broadcast styling, live scores, an animated draft ceremony, and a leaderboard
+that updates as matches play out.
 
 ## How the Sweepstake Works
 
-- **12 participants**, each assigned **4 national teams**
+- **12 participants**, each assigned **4 national teams** (via the draft ceremony)
 - Points accumulate from every game your teams play:
   - **Win** = 3 points
   - **Draw** = 1 point
@@ -13,22 +15,22 @@ A sleek, dark-themed web app for tracking your World Cup 2026 sweepstake between
 
 ## Features
 
-- **Leaderboard** — Live standings with podium display and full table
-- **Fixtures** — All group stage matches with scores, venues, and team owners
-- **Groups** — Complete group stage tables (A–L) with filtering
-- **Teams** — Each participant's 4 teams with individual breakdowns
-- **Protected dev console** — Edit fixture scores, simulate tournament outcomes, and preview recalculated standings locally or behind an env-gated route
-- Per-tab colour themes with smooth transitions
-- Floating background blobs and staggered entry animations
-- Fully responsive (mobile-first)
-- **Live scores** via football-data.org with ISR (auto-refreshes every 60s)
+- **Leaderboard**: live standings with a podium and full table, plus a "Ledger
+  of Fate" view and live overtake highlighting
+- **Fixtures**: group-stage schedule and a projected knockout bracket with
+  scores, venues, and team owners
+- **Groups**: group tables (A to L) with filtering
+- **Teams**: each participant's 4 teams with individual breakdowns
+- **Draft ceremony**: an animated reel-spin draft at `/draft`
+- **Dev console**: env-gated tooling to override scores and simulate outcomes
+- Per-tab colour worlds, shareable broadcast cards, fully responsive
+- **Live scores** from football-data.org, served through one canonical snapshot
 
 ## Tech Stack
 
-- **Next.js 15** (App Router, ISR)
-- **React 19**
-- **TypeScript**
-- **Tailwind CSS 4**
+- **Next.js 16** (App Router, RSC) + **React 19** + **TypeScript** (strict)
+- **Tailwind CSS 4**, GSAP + Lenis
+- **Vercel KV** (Upstash) for draft + snapshot state
 - **football-data.org** API (paid tier, 20 req/min)
 - Deployed on **Vercel**
 
@@ -38,11 +40,11 @@ A sleek, dark-themed web app for tracking your World Cup 2026 sweepstake between
 # 1. Install dependencies
 npm install
 
-# 2. Set up your API key (optional — app works without it)
+# 2. Configure env (the app runs with none of it, on static data)
 cp .env.local.example .env.local
-# Edit .env.local and add your football-data.org API key
+# Add a football-data.org key, KV credentials, and secrets as needed
 
-# 3. Run dev server
+# 3. Run the dev server
 npm run dev
 ```
 
@@ -50,163 +52,106 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Architecture
 
-```
-Browser request
-      │
-      ▼
-┌──────────────────────────────────────────┐
-│  Next.js Server (Vercel Edge)            │
-│                                          │
-│  page.tsx (Server Component)             │
-│    │                                     │
-│    ├─ loadSweepstakeData()               │
-│    │    │                                │
-│    │    ├─ football-data.org API ← live  │
-│    │    │   (if FOOTBALL_DATA_API_KEY)    │
-│    │    │                                │
-│    │    └─ src/data/fixtures.ts ← static │
-│    │        (fallback)                   │
-│    │                                     │
-│    ├─ computeLeaderboard(fixtures)       │
-│    ├─ computeGroupStandings(fixtures)    │
-│    │                                     │
-│    └─ Passes all computed data to ───────┤
-│                                          │
-│  HomeClient.tsx (Client Component)       │
-│    └─ Interactive tabs, animations, etc  │
-│                                          │
-│  revalidate: 60 (ISR)                   │
-│    → Page rebuilds every 60s with fresh  │
-│      scores from the API                 │
-└──────────────────────────────────────────┘
-```
+Reads never touch the upstream API directly. One canonical snapshot in KV is the
+single source of truth; a lock-guarded refresh is the only thing that calls
+football-data.org, which keeps every viewer on identical data and the request
+count far under the 20 req/min budget.
 
-### Data Flow
+```mermaid
+flowchart TD
+  subgraph Client
+    Page["Home page (RSC)"] -->|poll| Live["GET /api/live"]
+  end
 
-1. **Server component** (`page.tsx`) runs on every request (cached for 60s via ISR)
-2. It calls `loadSweepstakeData()` which tries the football-data.org API first
-3. If the API key isn't set or the request fails, it falls back to static `fixtures.ts`
-4. The scoring engine computes leaderboard + group standings from whichever fixtures are available
-5. All computed data is passed as props to the client component
-6. The client component renders the interactive tabbed UI
+  Live -->|read| Snap[("KV snapshot")]
+  Page -->|read| Snap
 
-### API Routes (for debugging)
+  subgraph Refresh ["refresh-snapshot.ts (single writer)"]
+    Lock{"Win SET NX EX lock?"}
+    Lock -->|yes| Fetch["football-data.org"]
+    Lock -->|no| ServeStale["serve current snapshot"]
+    Fetch -->|ok| Write["compute + write snapshot"]
+    Fetch -->|"429 / 5xx / down"| Degrade["last-known-good, then static fixtures"]
+  end
 
-- `GET /api/matches` — Returns current fixtures (live or static)
-- `GET /api/matches?source=live` — Force live API (errors if not configured)
-- `GET /api/matches?source=static` — Force static data
-- `GET /api/standings` — Group standings from football-data.org
+  Live -.stale.-> Lock
+  Cron["Vercel cron"] --> Lock
+  Write --> Snap
 
-## Dev Console
-
-Use `/dev-console` to override fixture scores, simulate outcomes, and validate the leaderboard, group tables, and projected knockout bracket against the same scoring engine as the main app.
-
-- In local development, the route is enabled automatically.
-- In production or preview deployments, set `ENABLE_DEV_CONSOLE=true` to expose it.
-- Set `DEV_CONSOLE_PASSWORD` to require a password before the route opens.
-
-The console stores score overrides in browser local storage so you can close and reopen it without losing your test state.
-
-## Draft Persistence Checks
-
-If you just want to verify what the deployed app has persisted for the draft, use the draft smoke script against the production URL instead of stepping through the whole UI:
-
-```bash
-DRAFT_API_BASE_URL=https://your-site.vercel.app npm run draft:status
+  Draft["/draft ceremony"] -->|cookie auth| DraftAPI["POST /api/draft"]
+  DraftAPI -->|"write lock + audit"| DraftKV[("KV draft state")]
+  DraftKV --> Page
 ```
 
-That command calls `GET /api/draft` on the target deployment and prints a compact summary of the persisted state, including:
+Details and the reasoning behind each piece:
 
-- current draft `status`
-- total `assignments`
-- remaining `availableTeams`
-- whether the draft is fully locked with all 48 teams persisted
-
-If you need a true end-to-end remote write test, the same script can run the full `reset -> start -> 48 draws -> lock` flow:
-
-```bash
-node scripts/draft-smoke.mjs complete --write --base-url=https://your-site.vercel.app
-```
-
-That write mode intentionally requires `--write` because it mutates the persisted draft state.
-
-## Updating Scores Manually
-
-If you prefer not to use the API, edit `src/data/fixtures.ts`:
-
-```ts
-// Before (upcoming match)
-{ group: 'A', t1: 'Mexico', t2: 'South Africa', ..., s1: null, s2: null },
-
-// After (Mexico wins 2-1)
-{ group: 'A', t1: 'Mexico', t2: 'South Africa', ..., s1: 2, s2: 1 },
-```
-
-Commit and push — Vercel redeploys automatically. Everything recalculates.
-
-## Updating Participants
-
-Edit `src/data/participants.ts` with your actual names and team assignments.
+- [docs/adr/](docs/adr/): architecture decision records
+- [docs/CACHING.md](docs/CACHING.md): the request budget and invalidation plan
+- [docs/api.md](docs/api.md): the API surface and contracts
+- [docs/football-data-runbook.md](docs/football-data-runbook.md): match-day runbook + DR
+- [docs/PRODUCTION_READINESS_AUDIT.md](docs/PRODUCTION_READINESS_AUDIT.md): the security/reliability audit and roadmap
 
 ## Environment Variables
 
-| Variable                | Required | Description                                                                                                                 |
-| ----------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `FOOTBALL_DATA_API_KEY` | No       | Free API key from [football-data.org](https://www.football-data.org/client/register). Without it, the app uses static data. |
-| `ENABLE_DEV_CONSOLE`    | No       | Set to `true` to expose `/dev-console` outside local development.                                                           |
-| `DEV_CONSOLE_PASSWORD`  | No       | Optional password required to unlock `/dev-console`.                                                                        |
+| Variable                      | Required               | Description                                                                  |
+| ----------------------------- | ---------------------- | ---------------------------------------------------------------------------- |
+| `FOOTBALL_DATA_API_KEY`       | No                     | football-data.org key. Without it, the app uses static fixtures.             |
+| `KV_REST_API_URL`             | Prod (writes)          | Vercel KV REST URL. Provisioned when you attach a KV store. Optional in dev. |
+| `KV_REST_API_TOKEN`           | Prod (writes)          | KV read/write token.                                                         |
+| `KV_REST_API_READ_ONLY_TOKEN` | No                     | Read-only KV token used for hot read paths (least privilege).                |
+| `DRAFT_SECRET`                | Prod (to use `/draft`) | Password for the draft. Unset in production = draft locked (fails closed).   |
+| `CRON_SECRET`                 | Prod                   | Bearer secret the Vercel cron sends to `/api/cron/refresh`.                  |
+| `ENABLE_DEV_CONSOLE`          | No                     | `true` to expose `/dev-console` outside local dev.                           |
+| `DEV_CONSOLE_PASSWORD`        | No                     | Password for `/dev-console` (required if enabled in production).             |
 
-On Vercel: Settings → Environment Variables → add `FOOTBALL_DATA_API_KEY`.
+On Vercel: Settings → Environment Variables.
 
-## Project Structure
+## Dev Console
 
-```
-src/
-├── app/
-│   ├── globals.css          # Tailwind + animations + theme vars
-│   ├── layout.tsx           # Root layout, fonts, metadata
-│   ├── page.tsx             # Server component (ISR, data loading)
-│   ├── HomeClient.tsx       # Client component (interactive UI)
-│   └── api/
-│       ├── matches/route.ts # Debug endpoint for fixture data
-│       └── standings/route.ts
-├── components/
-│   ├── layout/              # Header, Nav, BackgroundBlobs
-│   ├── ui/                  # Flag, SectionHeading, Chip
-│   ├── leaderboard/         # Podium, LeaderboardTable, LeaderboardTab
-│   ├── fixtures/            # FixtureCard, NationMarquee, FixturesTab
-│   ├── groups/              # GroupTable, GroupsTab
-│   └── teams/               # ParticipantCard, TeamsTab
-├── data/                    # Static data (groups, participants, fixtures, themes)
-├── lib/
-│   ├── football-api.ts      # football-data.org API client + caching
-│   ├── load-data.ts         # Server-side data orchestration
-│   ├── scoring.ts           # Points calculation engine
-│   └── utils.ts             # Helpers
-└── types/
-    └── index.ts             # Shared TypeScript types
+`/dev-console` overrides fixture scores and simulates outcomes against the same
+scoring engine as the main app. Overrides are local-only (browser localStorage)
+by design and never touch the canonical snapshot.
+
+- Enabled automatically in local development.
+- In production/preview, set `ENABLE_DEV_CONSOLE=true` (and `DEV_CONSOLE_PASSWORD`
+  to lock it).
+
+## Operational scripts
+
+```bash
+npm run draft:status     # summarise the persisted draft on a deployment
+                         #   set DRAFT_API_BASE_URL and DRAFT_SECRET for a remote check
+npm run draft:backup     # list / save / restore the locked-draft backup
+npm run snapshot:bust    # delete the snapshot so the next read recomputes
+npm run load-test        # hammer /api/live and watch the upstream stay coalesced
 ```
 
-## ISR Tuning
+`draft:status` calls the (now cookie-authed) `GET /api/draft`; set `DRAFT_SECRET`
+to the deployment's secret so the script can authenticate.
 
-In `src/app/page.tsx`, adjust the `revalidate` value:
+## Updating Participants and Scores
 
-```ts
-// During live matches — update every 30 seconds
-export const revalidate = 30;
+- Participants: edit `src/data/participants.ts`.
+- Static fallback scores (when not using the API): edit `src/data/fixtures.ts`,
+  commit, and push; Vercel redeploys and everything recalculates.
 
-// Between match days — update every 5 minutes
-export const revalidate = 300;
+## Quality gates
 
-// Pre-tournament — update once per hour
-export const revalidate = 3600;
+```bash
+npm run validate         # type-check + lint + format:check
+npm run test             # unit tests (vitest)
+npm run test:coverage    # unit tests with the coverage gate
+npm run test:e2e         # Playwright smoke + axe accessibility
+npm run build            # production build
 ```
+
+CI runs all of the above plus a dependency audit and a bundle-size gate.
 
 ## Deployment
+
+Connect the GitHub repo to Vercel for automatic deployments on push, or:
 
 ```bash
 npm run build
 npx vercel
 ```
-
-Or connect your GitHub repo to Vercel for automatic deployments on push.
