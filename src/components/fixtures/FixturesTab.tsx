@@ -407,7 +407,7 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
               aria-selected={view === key}
               className="font-heading cursor-pointer rounded-full px-3 py-2 text-[10px] font-bold uppercase tracking-[2px] transition-colors duration-300 md:px-4 md:text-[11px]"
               style={{
-                color: view === key ? theme.bg : `${theme.accent}75`,
+                color: view === key ? theme.bg : `${theme.accent}c2`,
                 background: view === key ? theme.accent : 'transparent',
               }}>
               {label}
@@ -535,9 +535,9 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
                             isActive
                               ? { color: theme.bg, background: theme.accent }
                               : isVisible
-                                ? { color: `${theme.accent}9e`, background: 'transparent' }
+                                ? { color: `${theme.accent}c2`, background: 'transparent' }
                                 : {
-                                    color: `${theme.accent}33`,
+                                    color: `${theme.accent}5c`,
                                     background: 'transparent',
                                     cursor: 'default',
                                     pointerEvents: 'none',
@@ -555,7 +555,7 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
                           <span>{dateLabel}</span>
                           {isVisible && count != null && (
                             <span
-                              style={{ color: isActive ? `${theme.bg}99` : `${theme.accent}45` }}>
+                              style={{ color: isActive ? `${theme.bg}cc` : `${theme.accent}b3` }}>
                               · {count}
                             </span>
                           )}

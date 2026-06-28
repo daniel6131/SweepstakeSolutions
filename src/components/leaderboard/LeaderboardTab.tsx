@@ -47,8 +47,26 @@ export function LeaderboardTab({ entries, ledger, provisional, theme }: Props) {
   const hasLedger = Boolean(effectiveLedger && effectiveLedger.entries.length > 0);
   const showLedger = hasLedger && view === 'ledger';
 
+  // Announce live standings changes to screen readers. Keyed on the order of
+  // names, so it only speaks on an actual overtake (not every score tick), and
+  // never on first render. Derived during render (same supported pattern as the
+  // lastGoodLedger above) to avoid a setState-in-effect.
+  const orderSignature = entries.map((e) => e.name).join('>');
+  const [prevOrder, setPrevOrder] = useState<string | null>(null);
+  const [liveAnnouncement, setLiveAnnouncement] = useState('');
+  if (prevOrder !== orderSignature) {
+    setPrevOrder(orderSignature);
+    const leader = entries[0];
+    if (prevOrder !== null && leader) {
+      setLiveAnnouncement(`Standings updated. ${leader.name} now leads with ${leader.pts} points.`);
+    }
+  }
+
   return (
     <div>
+      <div role="status" aria-live="polite" className="sr-only">
+        {liveAnnouncement}
+      </div>
       <SectionHeading overline="STANDINGS" line1="LEADERBOARD" accent={theme.accent} />
 
       {hasLedger && (
