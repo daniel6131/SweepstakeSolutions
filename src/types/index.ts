@@ -61,6 +61,7 @@ export type LiveKnockoutMatch = {
   t2: string;
   date: string;
   time: string;
+  utcDate: string;
   venue: string;
   s1: number | null;
   s2: number | null;
