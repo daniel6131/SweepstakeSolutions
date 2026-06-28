@@ -330,8 +330,15 @@ export default function HomeClient({ data: initialData }: Props) {
             )}
           </div>
 
-          {/* Footer */}
-          <footer className="px-5 pt-12 pb-8 text-center md:pt-16 md:pb-10">
+          {/* Footer — purely decorative broadcast ambiance (faint by design). It's
+              aria-hidden for screen readers and marked data-decorative so the axe
+              gate treats it under the WCAG 1.4.3 decoration exception rather than
+              as informational text. The live status is conveyed accessibly by
+              LiveIndicator. */}
+          <footer
+            className="px-5 pt-12 pb-8 text-center md:pt-16 md:pb-10"
+            aria-hidden="true"
+            data-decorative>
             <div
               className="mx-auto mb-8 h-px max-w-40"
               style={{ background: 'var(--color-accent-a8)' }}

@@ -41,8 +41,11 @@
     --color-accent: #94ffe4;
     --color-accent2: #06d6a0;
     --color-fg: #fbfbfb;
-    --color-fg-muted: rgba(251, 251, 251, 0.5);
-    --color-fg-subtle: rgba(251, 251, 251, 0.25);
+    /* Bumped for WCAG AA: muted carries interactive/secondary text (needs ~4.5:1),
+       subtle is for low-emphasis labels. Decorative-only faint text uses an
+       explicit aria-hidden element instead of leaning on these. */
+    --color-fg-muted: rgba(251, 251, 251, 0.66);
+    --color-fg-subtle: rgba(251, 251, 251, 0.46);
 
     /* Status colors — perceptually balanced across dark themes */
     --color-success: #4ade80;

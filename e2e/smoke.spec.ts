@@ -24,16 +24,18 @@ test.describe('Home page smoke', () => {
   });
 
   test('tab navigation switches content', async ({ page }) => {
+    // Reduced motion skips the GSAP reveal so the tab is immediately clickable
+    // rather than covered by an in-flight animation.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load');
 
-    // Click the Fixtures tab (button with role=tab or the nav button)
+    // The view switcher uses role="tab" (not plain buttons).
     await page
-      .getByRole('button', { name: /fixtures/i })
+      .getByRole('tab', { name: /fixtures/i })
       .first()
       .click();
-    // After tab switch, content area should update — check for fixtures-related content
-    await expect(page.locator('[id="main-content"]')).toBeVisible();
+    await expect(page.locator('#main-content')).toBeVisible();
   });
 
   test('has no missing page title', async ({ page }) => {
