@@ -33,7 +33,12 @@ export function NationMarquee({ groups, theme }: { groups: TournamentGroups; the
         borderTop: `1px solid ${theme.accent}10`,
         borderBottom: `1px solid ${theme.accent}10`,
       }}
-      data-reveal>
+      data-reveal
+      // Faint, looping decorative ticker; the nations it lists are available
+      // accessibly in the Teams tab and the fixtures. Hidden from AT and exempt
+      // from the contrast gate (WCAG 1.4.3 decoration) rather than made loud.
+      aria-hidden="true"
+      data-decorative>
       <div
         ref={trackRef}
         className="animate-marquee flex w-fit gap-6 whitespace-nowrap md:gap-10"
