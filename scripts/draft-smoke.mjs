@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -86,9 +87,18 @@ function printSummary(summary) {
 }
 
 async function requestJson(baseUrl, method, body) {
+  // /api/draft requires the draft session cookie when DRAFT_SECRET is set on the
+  // target deployment. The cookie value is the SHA-256 of the secret.
+  const headers = {};
+  if (body) headers['content-type'] = 'application/json';
+  const secret = process.env.DRAFT_SECRET?.trim();
+  if (secret) {
+    headers.cookie = `sweepstake-draft=${createHash('sha256').update(secret).digest('hex')}`;
+  }
+
   const response = await fetch(`${baseUrl}/api/draft`, {
     method,
-    headers: body ? { 'content-type': 'application/json' } : undefined,
+    headers: Object.keys(headers).length > 0 ? headers : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
 
