@@ -98,7 +98,7 @@ Deliberately marked NOT-APPLICABLE:
 
 - **No integration tests around KV persistence and the local fallback** · refs integration · no `vi.mock('@vercel/kv')` anywhere. The `draft.json` safety net is never tested. Fix: Vitest suites mocking KV to assert round-trips and the fallback-to-file path.
 
-- **Draft ceremony reel-spin ignores `prefers-reduced-motion`** · a11y · `src/app/draft/components/DraftCeremony.tsx:150,221`. The 55ms-interval spin is JS-timer-driven, so the global CSS reduced-motion block does not catch it, violating the CLAUDE.md mandate. Organiser-only, run-once, hence medium. Fix: read `matchMedia` once and jump to the reveal phase when reduced.
+- **Draft ceremony reel-spin ignores `prefers-reduced-motion`** · a11y · `src/app/draft/components/DraftCeremony.tsx:150,221`. The 55ms-interval spin is JS-timer-driven, so the global CSS reduced-motion block does not catch it, violating the project's reduced-motion mandate. Organiser-only, run-once, hence medium. Fix: read `matchMedia` once and jump to the reveal phase when reduced.
 
 - **Live leaderboard changes are not announced to screen readers** · a11y · `src/components/leaderboard/LeaderboardTable.tsx:56`. The standings `<ol>` has no `aria-live`; the marquee live feature is silent for AT users (WCAG 4.1.3). Fix: a visually-hidden `aria-live="polite"` region emitting a debounced diff.
 
@@ -165,7 +165,7 @@ Deliberately marked NOT-APPLICABLE:
 - **Strong unit coverage of core domain logic** · 8 lib suites + UI primitives (scoring, knockout, provisional, ledger, fixture-filters, match-time, snapshot-freshness, football-api transform).
 - **CODEOWNERS + husky pre-commit/pre-push hooks + PR-title semantic gate.**
 - **Skip link, native `<dialog>` focus trap, mobile-menu focus trap with restoration, `:focus-visible` rings, alt text on all images, core motion gated on `prefers-reduced-motion`.**
-- **Strong documentation: README, dedicated football-data match-day runbook, exhaustive CLAUDE.md.**
+- **Strong documentation: README, dedicated football-data match-day runbook, exhaustive contributor guidelines.**
 - **Snapshot schema-version guard forces a recompute when a stored snapshot predates a new field** · `refresh-snapshot.ts:74-78`.
 
 ## Phased roadmap
