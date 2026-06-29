@@ -76,6 +76,20 @@ export type KnockoutResult = {
   winner: 'home' | 'away' | null;
 };
 
+/** Real values pulled from the live feed for one bracket position, keyed by the
+ *  config match number. Lets the live builder overlay the actual teams (fixing a
+ *  projected third-place guess), kickoff, and venue onto the canonical bracket
+ *  structure without disturbing its ordering. Teams are oriented so `homeTeam`
+ *  aligns with the config's home slot. */
+export type KnockoutOverride = {
+  homeTeam?: string;
+  awayTeam?: string;
+  date?: string;
+  time?: string;
+  utcDate?: string;
+  venue?: string;
+};
+
 const ROUND_TITLES: Record<KnockoutRoundKey, { title: string; shortTitle: string }> = {
   roundOf32: { title: 'Round of 32', shortTitle: 'R32' },
   roundOf16: { title: 'Round of 16', shortTitle: 'R16' },
@@ -343,6 +357,44 @@ const MATCHES: MatchConfig[] = [
   },
 ];
 
+const MATCH_BY_NUMBER = new Map<number, MatchConfig>(MATCHES.map((match) => [match.match, match]));
+
+/**
+ * Top-to-bottom bracket order, keyed by match number.
+ *
+ * The renderer (and `buildLayout`) draw the tree by pairing each round's
+ * adjacent matches, `matches[2i]` and `matches[2i+1]`, into the next round's
+ * `matches[i]`. So every round's array MUST be in bracket-tree order, not match
+ * number order and not kickoff order, or the connectors, halves and seeding all
+ * come out wrong (the bug where two teams from opposite halves appeared to meet
+ * early). We derive that order once from the config's winner-feeds links via an
+ * in-order walk of the tree rooted at the final: visit a match's home-feeder
+ * subtree, then the match, then its away-feeder subtree. Sorting each round by
+ * the resulting rank interleaves the matches exactly as the bracket nests them.
+ */
+const BRACKET_ORDER: Map<number, number> = (() => {
+  const rank = new Map<number, number>();
+  let counter = 0;
+
+  const visit = (matchNumber: number): void => {
+    const config = MATCH_BY_NUMBER.get(matchNumber);
+    if (!config) return;
+    const homeFeeder = config.home.kind === 'winnerMatch' ? config.home.match : null;
+    const awayFeeder = config.away.kind === 'winnerMatch' ? config.away.match : null;
+    if (homeFeeder !== null) visit(homeFeeder);
+    rank.set(matchNumber, counter++);
+    if (awayFeeder !== null) visit(awayFeeder);
+  };
+
+  const finalMatch = MATCHES.find((match) => match.roundKey === 'final');
+  if (finalMatch) visit(finalMatch.match);
+  return rank;
+})();
+
+function bracketRank(matchNumber: number): number {
+  return BRACKET_ORDER.get(matchNumber) ?? matchNumber;
+}
+
 function getGroupPlacement(
   standings: Record<GroupId, GroupStanding[]>,
   group: GroupId,
@@ -519,9 +571,30 @@ function resolveSlot(
   };
 }
 
+/** Rebuild a slot around a known real team (from the live feed), tagged with the
+ *  group-stage seed it qualified through. Used to overlay the actual knockout
+ *  participants onto the projected bracket structure. */
+function applyTeamOverride(
+  base: KnockoutSlot,
+  team: string,
+  standings: Record<GroupId, GroupStanding[]>
+): KnockoutSlot {
+  const seed = seedForTeam(team, standings);
+  return {
+    ...base,
+    label: team,
+    team,
+    seedLabel: seed.group ? seed.seedLabel : base.seedLabel,
+    source: seed.group ? seed.source : base.source,
+    group: seed.group ?? base.group,
+    status: 'confirmed',
+  };
+}
+
 export function buildProjectedKnockoutBracket(
   standings: Record<GroupId, GroupStanding[]>,
-  results: Partial<Record<number, KnockoutResult>> = {}
+  results: Partial<Record<number, KnockoutResult>> = {},
+  overrides: Map<number, KnockoutOverride> = new Map()
 ): ProjectedKnockoutBracket {
   const thirdPlaceStandings = rankThirdPlacedTeams(standings);
   const qualifiedThirdGroups = thirdPlaceStandings
@@ -534,63 +607,76 @@ export function buildProjectedKnockoutBracket(
 
   const resolvedMatches = new Map<number, KnockoutMatch>();
   const rounds = ROUND_ORDER.map((roundKey) => {
-    const matches = MATCHES.filter((match) => match.roundKey === roundKey).map((match) => {
-      const home = resolveSlot(
-        match.home,
-        standings,
-        thirdPlaceStandings,
-        thirdPlaceAssignments,
-        match.match,
-        resolvedMatches
-      );
-      const away = resolveSlot(
-        match.away,
-        standings,
-        thirdPlaceStandings,
-        thirdPlaceAssignments,
-        match.match,
-        resolvedMatches
-      );
-      const result = results[match.match];
-      const homeScore = result?.homeScore ?? null;
-      const awayScore = result?.awayScore ?? null;
-      const isReady = Boolean(home.team && away.team);
-      const winner =
-        isReady && homeScore !== null && awayScore !== null
-          ? homeScore > awayScore
-            ? 'home'
-            : awayScore > homeScore
-              ? 'away'
-              : (result?.winner ?? null)
-          : null;
+    // Bracket-tree order (not match number order) so adjacent matches pair into
+    // the next round correctly — see BRACKET_ORDER. Resolution itself is order
+    // independent (a match only feeds off earlier, already-resolved rounds).
+    const matches = MATCHES.filter((match) => match.roundKey === roundKey)
+      .sort((a, b) => bracketRank(a.match) - bracketRank(b.match))
+      .map((match) => {
+        const override = overrides.get(match.match);
+        let home = resolveSlot(
+          match.home,
+          standings,
+          thirdPlaceStandings,
+          thirdPlaceAssignments,
+          match.match,
+          resolvedMatches
+        );
+        let away = resolveSlot(
+          match.away,
+          standings,
+          thirdPlaceStandings,
+          thirdPlaceAssignments,
+          match.match,
+          resolvedMatches
+        );
 
-      const builtMatch: KnockoutMatch = {
-        match: match.match,
-        roundKey,
-        date: match.date,
-        time: '',
-        utcDate: '',
-        venue: match.venue,
-        home: {
-          ...home,
-          score: homeScore,
-          isWinner: winner === 'home',
-        },
-        away: {
-          ...away,
-          score: awayScore,
-          isWinner: winner === 'away',
-        },
-        homeScore,
-        awayScore,
-        winner,
-        isPlayed: winner !== null,
-        isReady,
-      };
+        // Overlay the real team from the live feed. This replaces a projected
+        // third-place guess (and any placeholder) with the team that actually
+        // took the slot, so labels and the team that advances are both correct.
+        if (override?.homeTeam) home = applyTeamOverride(home, override.homeTeam, standings);
+        if (override?.awayTeam) away = applyTeamOverride(away, override.awayTeam, standings);
 
-      resolvedMatches.set(match.match, builtMatch);
-      return builtMatch;
-    });
+        const result = results[match.match];
+        const homeScore = result?.homeScore ?? null;
+        const awayScore = result?.awayScore ?? null;
+        const isReady = Boolean(home.team && away.team);
+        const winner =
+          isReady && homeScore !== null && awayScore !== null
+            ? homeScore > awayScore
+              ? 'home'
+              : awayScore > homeScore
+                ? 'away'
+                : (result?.winner ?? null)
+            : null;
+
+        const builtMatch: KnockoutMatch = {
+          match: match.match,
+          roundKey,
+          date: override?.date ?? match.date,
+          time: override?.time ?? '',
+          utcDate: override?.utcDate ?? '',
+          venue: override?.venue ?? match.venue,
+          home: {
+            ...home,
+            score: homeScore,
+            isWinner: winner === 'home',
+          },
+          away: {
+            ...away,
+            score: awayScore,
+            isWinner: winner === 'away',
+          },
+          homeScore,
+          awayScore,
+          winner,
+          isPlayed: winner !== null,
+          isReady,
+        };
+
+        resolvedMatches.set(match.match, builtMatch);
+        return builtMatch;
+      });
 
     return {
       key: roundKey,
@@ -608,14 +694,6 @@ export function buildProjectedKnockoutBracket(
   };
 }
 
-const ROUND_BASE: Record<KnockoutRoundKey, number> = {
-  roundOf32: 73,
-  roundOf16: 89,
-  quarterFinals: 97,
-  semiFinals: 101,
-  final: 104,
-};
-
 /** Where a team finished its group, for the seed badge (e.g. "A1", "B2", "3C"). */
 function seedForTeam(
   team: string,
@@ -630,43 +708,135 @@ function seedForTeam(
   return { seedLabel: '', source: 'winnerMatch', group: null };
 }
 
-function liveKnockoutSlot(
-  team: string | null,
-  score: number | null,
-  isWinner: boolean,
-  standings: Record<GroupId, GroupStanding[]>
-): KnockoutSlot {
-  if (!team) {
-    return {
-      label: 'TBD',
-      team: null,
-      seedLabel: 'TBD',
-      source: 'winnerMatch',
-      group: null,
-      status: 'placeholder',
-      score: null,
-      isWinner: false,
-    };
+/** A group winner or runner-up — a deterministic Round-of-32 slot (its team is
+ *  fixed by the group table). Only the third-place slots are a projection guess,
+ *  so a deterministic team is a reliable anchor for placing a live R32 match. */
+function isDeterministicTeam(team: string, standings: Record<GroupId, GroupStanding[]>): boolean {
+  for (const rows of Object.values(standings) as GroupStanding[][]) {
+    const index = rows.findIndex((row) => row.team === team);
+    if (index === 0 || index === 1) return true;
   }
-  const seed = seedForTeam(team, standings);
-  return {
-    label: team,
-    team,
-    seedLabel: seed.seedLabel,
-    source: seed.source,
-    group: seed.group,
-    status: 'confirmed',
-    score,
-    isWinner,
-  };
+  return false;
 }
 
 /**
- * Build the bracket from the live feed. Once the group stage is over the feed
- * carries the real knockout fixtures (actual teams, dates, times, scores), so we
- * use those directly rather than the projection's hardcoded slot mapping. Falls
- * back to the projection only before any knockout fixtures exist (pre-tournament
- * or static mode).
+ * Find the config match a live fixture belongs to, within an already-resolved
+ * round.
+ *
+ * R32: anchor on the deterministic team (a group winner/runner-up). Every R32
+ * match has at least one, and each appears in exactly one match, so it pins the
+ * slot without trusting the projected third-place guess (which the live feed is
+ * here to correct). R16+: the upstream winners are already real (overrides have
+ * propagated them), so we match on team identity in either orientation.
+ */
+function findTargetMatch(
+  matches: KnockoutMatch[],
+  t1: string,
+  t2: string,
+  roundKey: KnockoutRoundKey,
+  standings: Record<GroupId, GroupStanding[]>
+): KnockoutMatch | null {
+  if (roundKey === 'roundOf32') {
+    const anchor = isDeterministicTeam(t1, standings)
+      ? t1
+      : isDeterministicTeam(t2, standings)
+        ? t2
+        : null;
+    if (!anchor) return null;
+    return matches.find((m) => m.home.team === anchor || m.away.team === anchor) ?? null;
+  }
+
+  return (
+    matches.find(
+      (m) =>
+        (m.home.team === t1 && m.away.team === t2) || (m.home.team === t2 && m.away.team === t1)
+    ) ??
+    matches.find(
+      (m) => m.home.team === t1 || m.away.team === t1 || m.home.team === t2 || m.away.team === t2
+    ) ??
+    null
+  );
+}
+
+/**
+ * Map every live knockout fixture onto its canonical bracket position, producing
+ * the per-match results (scores/winner) and overrides (real teams + kickoff) to
+ * feed `buildProjectedKnockoutBracket`. Rounds are processed in order so each
+ * round resolves against the real upstream winners carried by earlier overrides.
+ */
+function mapLiveMatchesToConfig(
+  standings: Record<GroupId, GroupStanding[]>,
+  liveMatches: LiveKnockoutMatch[]
+): { results: Partial<Record<number, KnockoutResult>>; overrides: Map<number, KnockoutOverride> } {
+  const results: Partial<Record<number, KnockoutResult>> = {};
+  const overrides = new Map<number, KnockoutOverride>();
+
+  const byRound = new Map<KnockoutRoundKey, LiveKnockoutMatch[]>();
+  for (const live of liveMatches) {
+    const existing = byRound.get(live.roundKey);
+    if (existing) existing.push(live);
+    else byRound.set(live.roundKey, [live]);
+  }
+
+  for (const roundKey of ROUND_ORDER) {
+    const roundLive = byRound.get(roundKey);
+    if (!roundLive || roundLive.length === 0) continue;
+
+    // Resolve the bracket so far with the overrides accumulated from earlier
+    // rounds, so this round's slots carry the actual winners (not guesses).
+    const bracket = buildProjectedKnockoutBracket(standings, results, overrides);
+    const round = bracket.rounds.find((candidate) => candidate.key === roundKey);
+    if (!round) continue;
+
+    for (const live of roundLive) {
+      const t1 = live.t1 || null;
+      const t2 = live.t2 || null;
+      if (!t1 || !t2) continue; // not yet drawn — leave the projected placeholder
+
+      const target = findTargetMatch(round.matches, t1, t2, roundKey, standings);
+      if (!target) continue;
+
+      // Orient to the config's home slot so scores and the displayed teams line
+      // up with the bracket structure; the away team override still carries the
+      // real opponent (correcting a projected third-place team).
+      const homeIsT1 = target.home.team === t2 ? false : true;
+      const homeTeam = homeIsT1 ? t1 : t2;
+      const awayTeam = homeIsT1 ? t2 : t1;
+      const homeScore = homeIsT1 ? live.s1 : live.s2;
+      const awayScore = homeIsT1 ? live.s2 : live.s1;
+      const winner: 'home' | 'away' | null =
+        live.winner === null
+          ? null
+          : live.winner === 't1'
+            ? homeIsT1
+              ? 'home'
+              : 'away'
+            : homeIsT1
+              ? 'away'
+              : 'home';
+
+      results[target.match] = { homeScore, awayScore, winner };
+      overrides.set(target.match, {
+        homeTeam,
+        awayTeam,
+        date: live.date,
+        time: live.time,
+        utcDate: live.utcDate,
+        venue: live.venue,
+      });
+    }
+  }
+
+  return { results, overrides };
+}
+
+/**
+ * Build the bracket from the live feed. The feed carries the real knockout
+ * fixtures (actual teams, dates, times, scores), so we overlay them onto the
+ * canonical config bracket: correct tree ordering and the full road to the final
+ * (every round, with projected/TBD slots ahead of the live games) while the real
+ * teams, kickoffs and scores come from the feed. Falls back to the pure
+ * projection before any knockout fixtures exist (pre-tournament or static mode).
  */
 export function buildKnockoutBracketFromLive(
   standings: Record<GroupId, GroupStanding[]>,
@@ -676,116 +846,15 @@ export function buildKnockoutBracketFromLive(
     return buildProjectedKnockoutBracket(standings);
   }
 
-  const thirdPlaceStandings = rankThirdPlacedTeams(standings);
-  const completedGroups = (Object.values(standings) as GroupStanding[][]).filter((rows) =>
-    isGroupComplete(rows)
-  ).length;
-
-  const rounds = ROUND_ORDER.map((roundKey) => {
-    const roundMatches = liveMatches
-      .filter((match) => match.roundKey === roundKey)
-      .sort((a, b) => a.utcDate.localeCompare(b.utcDate))
-      .map((live, index): KnockoutMatch => {
-        const homeTeam = live.t1 || null;
-        const awayTeam = live.t2 || null;
-        const winner: 'home' | 'away' | null =
-          live.winner === 't1' ? 'home' : live.winner === 't2' ? 'away' : null;
-
-        return {
-          match: ROUND_BASE[roundKey] + index,
-          roundKey,
-          date: live.date,
-          time: live.time,
-          utcDate: live.utcDate,
-          venue: live.venue,
-          home: liveKnockoutSlot(homeTeam, live.s1, winner === 'home', standings),
-          away: liveKnockoutSlot(awayTeam, live.s2, winner === 'away', standings),
-          homeScore: live.s1,
-          awayScore: live.s2,
-          winner,
-          isPlayed: winner !== null,
-          isReady: Boolean(homeTeam && awayTeam),
-        };
-      });
-
-    return {
-      key: roundKey,
-      title: ROUND_TITLES[roundKey].title,
-      shortTitle: ROUND_TITLES[roundKey].shortTitle,
-      matches: roundMatches,
-    };
-  }).filter((round) => round.matches.length > 0);
-
-  return {
-    rounds,
-    thirdPlaceStandings,
-    completedGroups,
-    totalGroups: 12,
-  };
+  const { results, overrides } = mapLiveMatchesToConfig(standings, liveMatches);
+  return buildProjectedKnockoutBracket(standings, results, overrides);
 }
 
 export function buildKnockoutResultsFromLiveMatches(
   standings: Record<GroupId, GroupStanding[]>,
   liveMatches: LiveKnockoutMatch[]
 ): Partial<Record<number, KnockoutResult>> {
-  const results: Partial<Record<number, KnockoutResult>> = {};
-  const matchesByRound = new Map<KnockoutRoundKey, LiveKnockoutMatch[]>();
-
-  for (const liveMatch of liveMatches) {
-    const roundMatches = matchesByRound.get(liveMatch.roundKey);
-    if (roundMatches) {
-      roundMatches.push(liveMatch);
-      continue;
-    }
-
-    matchesByRound.set(liveMatch.roundKey, [liveMatch]);
-  }
-
-  for (const roundKey of ROUND_ORDER) {
-    const roundMatches = matchesByRound.get(roundKey);
-    if (!roundMatches || roundMatches.length === 0) continue;
-
-    const bracket = buildProjectedKnockoutBracket(standings, results);
-    const round = bracket.rounds.find((candidate) => candidate.key === roundKey);
-    if (!round) continue;
-
-    for (const liveMatch of roundMatches) {
-      let targetMatch = round.matches.find(
-        (match) => match.home.team === liveMatch.t1 && match.away.team === liveMatch.t2
-      );
-      let reversed = false;
-
-      if (!targetMatch) {
-        targetMatch = round.matches.find(
-          (match) => match.home.team === liveMatch.t2 && match.away.team === liveMatch.t1
-        );
-        reversed = Boolean(targetMatch);
-      }
-
-      if (!targetMatch) continue;
-
-      const homeScore = reversed ? liveMatch.s2 : liveMatch.s1;
-      const awayScore = reversed ? liveMatch.s1 : liveMatch.s2;
-      const winner =
-        liveMatch.winner === null
-          ? null
-          : reversed
-            ? liveMatch.winner === 't1'
-              ? 'away'
-              : 'home'
-            : liveMatch.winner === 't1'
-              ? 'home'
-              : 'away';
-
-      results[targetMatch.match] = {
-        homeScore,
-        awayScore,
-        winner,
-      };
-    }
-  }
-
-  return results;
+  return mapLiveMatchesToConfig(standings, liveMatches).results;
 }
 
 export function getCompletedKnockoutScoringMatches(

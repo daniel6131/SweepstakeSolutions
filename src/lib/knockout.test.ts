@@ -79,6 +79,59 @@ const LIVE_SAMPLE: LiveKnockoutMatch[] = [
   }),
 ];
 
+describe('knockout bracket ordering', () => {
+  // The renderer draws the tree by pairing each round's adjacent matches
+  // (matches[2i], matches[2i+1]) into the next round's matches[i], so the
+  // arrays MUST be in bracket-tree order. These expected orders are the official
+  // 2026 layout (in-order walk of the winner-feeds tree from the final).
+  it('orders each round top-to-bottom by bracket position, not match number', () => {
+    const bracket = buildProjectedKnockoutBracket(createCompleteStandings());
+    const order = (key: string) =>
+      bracket.rounds.find((round) => round.key === key)!.matches.map((m) => m.match);
+
+    // prettier-ignore
+    expect(order('roundOf32')).toEqual([
+      74, 77, 73, 75, 83, 84, 81, 82, 76, 78, 79, 80, 86, 88, 85, 87,
+    ]);
+    expect(order('roundOf16')).toEqual([89, 90, 93, 94, 91, 92, 95, 96]);
+    expect(order('quarterFinals')).toEqual([97, 98, 99, 100]);
+    expect(order('semiFinals')).toEqual([101, 102]);
+    expect(order('final')).toEqual([104]);
+  });
+
+  it('keeps each adjacent R32 pair feeding the same R16 match', () => {
+    const bracket = buildProjectedKnockoutBracket(createCompleteStandings());
+    const r32 = bracket.rounds.find((round) => round.key === 'roundOf32')!.matches;
+    // Official R16 feeds, in bracket order: 89←74,77 · 90←73,75 · 93←83,84 …
+    // prettier-ignore
+    const expectedPairs = [
+      [74, 77], [73, 75], [83, 84], [81, 82], [76, 78], [79, 80], [86, 88], [85, 87],
+    ];
+    for (let i = 0; i < expectedPairs.length; i++) {
+      expect([r32[i * 2].match, r32[i * 2 + 1].match]).toEqual(expectedPairs[i]);
+    }
+  });
+
+  it('draws opposite-half teams (England and France) apart until the final', () => {
+    const bracket = buildProjectedKnockoutBracket(createCompleteStandings());
+    const r32 = bracket.rounds.find((round) => round.key === 'roundOf32')!.matches;
+    const indexOfTeam = (team: string) =>
+      r32.findIndex((m) => m.home.team === team || m.away.team === team);
+
+    const france = indexOfTeam('France');
+    const england = indexOfTeam('England');
+    expect(france).toBeGreaterThanOrEqual(0);
+    expect(england).toBeGreaterThanOrEqual(0);
+
+    // 16 R32 matches: indices 0–7 are the top half (road to semi-final 1),
+    // 8–15 the bottom half (semi-final 2). England and France are drawn into
+    // opposite halves, so the bracket must seat them on different sides — they
+    // can only meet in the final.
+    const inTopHalf = (index: number) => index < 8;
+    expect(inTopHalf(france)).not.toBe(inTopHalf(england));
+  });
+});
+
 describe('buildKnockoutResultsFromLiveMatches', () => {
   it('maps live knockout matches onto the internal bracket round by round', () => {
     const standings = createCompleteStandings();
@@ -126,29 +179,44 @@ describe('buildKnockoutBracketFromLive', () => {
     expect(fromLive.rounds.map((r) => r.key)).toEqual(projected.rounds.map((r) => r.key));
   });
 
-  it('builds the bracket from the real fixtures (teams, dates, times, scores)', () => {
+  it('overlays the real fixtures onto the full bracket at the right positions', () => {
     const standings = createCompleteStandings();
     const bracket = buildKnockoutBracketFromLive(standings, LIVE_SAMPLE);
 
-    const r32 = bracket.rounds.find((round) => round.key === 'roundOf32');
-    expect(r32?.matches).toHaveLength(2);
+    // The whole bracket is shown (the road to the final), not just the games
+    // that have been drawn — undrawn slots stay as projected placeholders.
+    const r32 = bracket.rounds.find((round) => round.key === 'roundOf32')!;
+    expect(r32.matches).toHaveLength(16);
 
-    // ordered by kickoff, real teams/dates/times carried through from the feed
-    const [first, second] = r32!.matches;
-    expect(first.home.team).toBe('South Korea');
-    expect(first.away.team).toBe('Switzerland');
-    expect(first.date).toBe('Jun 28');
-    expect(first.time).toBe('18:00');
-    expect(first.homeScore).toBe(1);
-    expect(first.awayScore).toBe(2);
-    expect(first.winner).toBe('away');
-    expect(first.isPlayed).toBe(true);
+    // South Korea vs Switzerland is the real A2 v B2 game → bracket match 73,
+    // carrying its real teams, kickoff and score from the feed.
+    const m73 = r32.matches.find((m) => m.match === 73)!;
+    expect(m73.home.team).toBe('South Korea');
+    expect(m73.away.team).toBe('Switzerland');
+    expect(m73.date).toBe('Jun 28');
+    expect(m73.time).toBe('18:00');
+    expect(m73.homeScore).toBe(1);
+    expect(m73.awayScore).toBe(2);
+    expect(m73.winner).toBe('away');
+    expect(m73.isPlayed).toBe(true);
 
-    expect(second.home.team).toBe('Netherlands');
-    expect(second.winner).toBe('home');
+    // Netherlands vs Morocco is F1 v C2 → bracket match 75.
+    const m75 = r32.matches.find((m) => m.match === 75)!;
+    expect(m75.home.team).toBe('Netherlands');
+    expect(m75.winner).toBe('home');
+
+    // The R16 game feeds off the right R32 winners: match 90 = W73 (Switzerland)
+    // v W75 (Netherlands), with Netherlands winning per the live feed.
+    const m90 = bracket.rounds
+      .find((round) => round.key === 'roundOf16')!
+      .matches.find((m) => m.match === 90)!;
+    expect(m90.home.team).toBe('Switzerland');
+    expect(m90.away.team).toBe('Netherlands');
+    expect(m90.winner).toBe('away');
+    expect(m90.utcDate).toBe('2026-07-04T18:00:00Z');
   });
 
-  it('renders a not-yet-determined match as TBD without a score', () => {
+  it('leaves a not-yet-drawn round as projected placeholders without scores', () => {
     const standings = createCompleteStandings();
     const bracket = buildKnockoutBracketFromLive(standings, [
       liveMatch({
@@ -164,13 +232,15 @@ describe('buildKnockoutBracketFromLive', () => {
       }),
     ]);
 
-    const r16 = bracket.rounds.find((round) => round.key === 'roundOf16');
-    const match = r16!.matches[0];
+    // A live game with no teams yet can't be placed, so the full R16 still
+    // renders as projected placeholders rather than collapsing to one card.
+    const r16 = bracket.rounds.find((round) => round.key === 'roundOf16')!;
+    expect(r16.matches).toHaveLength(8);
+    expect(r16.matches.every((m) => !m.isPlayed)).toBe(true);
+    const match = r16.matches[0];
     expect(match.home.team).toBeNull();
     expect(match.home.status).toBe('placeholder');
     expect(match.isReady).toBe(false);
-    expect(match.isPlayed).toBe(false);
-    expect(match.date).toBe('Jul 4');
   });
 
   it('completed live knockout matches still feed leaderboard scoring', () => {
