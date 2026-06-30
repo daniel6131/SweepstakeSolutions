@@ -114,8 +114,31 @@ function buildMatchesPayload(): Parameters<typeof transformCompetitionMatches>[0
         },
         venue: 'MetLife Stadium',
       },
+      {
+        // Real shape from the live API: a shootout folds the kicks INTO fullTime
+        // (5-6 = regular 1-1 + extra 0-0 + pens 4-5). The on-pitch result is 1-1,
+        // Paraguay advance 5-4 on penalties.
+        id: 7,
+        utcDate: '2026-06-29T20:30:00Z',
+        status: 'FINISHED',
+        matchday: 4,
+        stage: 'LAST_32',
+        group: null,
+        homeTeam: { name: 'Germany' },
+        awayTeam: { name: 'Paraguay' },
+        score: {
+          winner: 'AWAY_TEAM',
+          duration: 'PENALTY_SHOOTOUT',
+          fullTime: { home: 5, away: 6 },
+          halfTime: { home: 0, away: 1 },
+          regularTime: { home: 1, away: 1 },
+          extraTime: { home: 0, away: 0 },
+          penalties: { home: 4, away: 5 },
+        },
+        venue: 'Lincoln Financial Field',
+      },
     ],
-    resultSet: { count: 6, played: 3 },
+    resultSet: { count: 7, played: 4 },
   };
 }
 
@@ -127,6 +150,7 @@ describe('transformCompetitionMatches', () => {
     const liveGroup = formatDateParts('2026-06-13T15:00:00Z');
     const liveKnockout = formatDateParts('2026-06-29T18:00:00Z');
     const finishedKnockout = formatDateParts('2026-07-04T18:00:00Z');
+    const shootoutKnockout = formatDateParts('2026-06-29T20:30:00Z');
 
     expect(data.fixtures).toEqual([
       {
@@ -187,8 +211,12 @@ describe('transformCompetitionMatches', () => {
         venue: 'Houston Stadium',
         s1: 1,
         s2: 1,
+        p1: null,
+        p2: null,
+        // Level and still in play: nobody is through yet (the extra-time bug).
         winner: null,
         status: 'live',
+        detailedStatus: 'IN_PLAY',
       },
       {
         roundKey: 'quarterFinals',
@@ -200,8 +228,28 @@ describe('transformCompetitionMatches', () => {
         venue: 'Boston Stadium',
         s1: 5,
         s2: 4,
+        p1: null,
+        p2: null,
         winner: 't1',
         status: 'finished',
+        detailedStatus: 'FINISHED',
+      },
+      {
+        roundKey: 'roundOf32',
+        t1: 'Germany',
+        t2: 'Paraguay',
+        date: shootoutKnockout.date,
+        time: shootoutKnockout.time,
+        utcDate: '2026-06-29T20:30:00Z',
+        venue: 'Lincoln Financial Field',
+        // On-pitch 1-1 (kicks stripped from fullTime), pens 4-5, Paraguay through.
+        s1: 1,
+        s2: 1,
+        p1: 4,
+        p2: 5,
+        winner: 't2',
+        status: 'finished',
+        detailedStatus: 'FINISHED',
       },
     ]);
 

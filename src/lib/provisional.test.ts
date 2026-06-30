@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { computeProvisional, isLiveFixture } from '@/lib/provisional';
 import { computeLeaderboard } from '@/lib/scoring';
-import type { Fixture, Participant } from '@/types';
+import type { Fixture, LiveKnockoutMatch, Participant } from '@/types';
 
 const ROSTER: Participant[] = [
   { name: 'Ann', teams: ['Ann1'] },
@@ -18,6 +18,25 @@ function fixture(partial: Partial<Fixture> & Pick<Fixture, 't1' | 't2'>): Fixtur
     venue: 'Stadium',
     s1: null,
     s2: null,
+    ...partial,
+  };
+}
+
+function knockout(
+  partial: Partial<LiveKnockoutMatch> & Pick<LiveKnockoutMatch, 't1' | 't2'>
+): LiveKnockoutMatch {
+  return {
+    roundKey: 'roundOf32',
+    date: 'Jun 30',
+    time: '20:00',
+    utcDate: '2026-06-30T20:00:00Z',
+    venue: 'Stadium',
+    s1: null,
+    s2: null,
+    p1: null,
+    p2: null,
+    winner: null,
+    status: 'scheduled',
     ...partial,
   };
 }
@@ -85,6 +104,51 @@ describe('computeProvisional', () => {
 
     expect(cat.ptsDelta).toBe(1);
     expect(cat.liveTeams[0].state).toBe('drawing');
+  });
+
+  it('surfaces a live knockout shootout on the board without flagging a winner', () => {
+    const settledBoard = computeLeaderboard(SETTLED, ROSTER);
+    // Ann's team is in a live R32 shootout: level 1-1 on the pitch, 3-2 on pens.
+    const ko = knockout({
+      t1: 'Ann1',
+      t2: 'OppK',
+      s1: 1,
+      s2: 1,
+      p1: 3,
+      p2: 2,
+      status: 'live',
+      detailedStatus: 'PENALTY_SHOOTOUT',
+    });
+
+    const prov = computeProvisional(settledBoard, settledBoard, [], ROSTER, [ko]);
+
+    expect(prov.active).toBe(true);
+    expect(prov.liveOwnedMatchCount).toBe(1);
+
+    const ann = prov.entries.find((e) => e.name === 'Ann')!;
+    expect(ann.liveTeams).toHaveLength(1);
+    const swing = ann.liveTeams[0];
+    expect(swing.gf).toBe(1);
+    expect(swing.ga).toBe(1);
+    expect(swing.state).toBe('drawing'); // neutral, penalties never read as win/lose
+    expect(swing.isShootout).toBe(true);
+    expect(swing.roundLabel).toBe('R32');
+    expect(swing.pens).toBe(3);
+    expect(swing.oppPens).toBe(2);
+
+    // Display-only: a live knockout does not bank points or move ranks here.
+    expect(ann.ptsDelta).toBe(0);
+    expect(ann.rankDelta).toBe(0);
+  });
+
+  it('keeps a scheduled (not-yet-live) knockout match inert', () => {
+    const settledBoard = computeLeaderboard(SETTLED, ROSTER);
+    const ko = knockout({ t1: 'Ann1', t2: 'OppK', status: 'scheduled' });
+    const prov = computeProvisional(settledBoard, settledBoard, [], ROSTER, [ko]);
+
+    expect(prov.active).toBe(false);
+    expect(prov.liveOwnedMatchCount).toBe(0);
+    expect(prov.entries.every((e) => e.liveTeams.length === 0)).toBe(true);
   });
 });
 

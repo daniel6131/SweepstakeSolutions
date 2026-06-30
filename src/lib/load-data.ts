@@ -81,6 +81,7 @@ export async function loadSweepstakeData(): Promise<SweepstakeData> {
   // only by live GROUP fixtures (live knockout/third-place matches aren't scored
   // until they finish), which is exactly the group-stage window this targets.
   const liveFixtures = fixtures.filter(isLiveFixture);
+  const liveKnockoutMatches = knockoutMatches.filter((match) => match.status === 'live');
   const settledScoringMatches = [
     ...fixtures.filter((f) => f.status !== 'live'),
     ...getCompletedKnockoutScoringMatches(bracket),
@@ -91,7 +92,8 @@ export async function loadSweepstakeData(): Promise<SweepstakeData> {
     leaderboard,
     settledLeaderboard,
     liveFixtures,
-    participants
+    participants,
+    liveKnockoutMatches
   );
 
   return {

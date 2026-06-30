@@ -1,5 +1,12 @@
 import type { ScoringMatch } from '@/lib/scoring';
-import type { GroupId, GroupStanding, KnockoutRoundKey, LiveKnockoutMatch } from '@/types';
+import type {
+  DetailedMatchStatus,
+  GroupId,
+  GroupStanding,
+  KnockoutRoundKey,
+  LiveKnockoutMatch,
+  MatchStatus,
+} from '@/types';
 
 type SeedSlot =
   | { kind: 'winner'; group: GroupId }
@@ -23,7 +30,10 @@ export type KnockoutSlot = {
   source: 'winner' | 'runnerUp' | 'thirdPlace' | 'winnerMatch';
   group: GroupId | null;
   status: 'confirmed' | 'projected' | 'placeholder';
+  /** On-pitch score (regulation + extra time), never the shootout tally. */
   score: number | null;
+  /** Penalty-shootout kicks for this side, when the match went to penalties. */
+  pens: number | null;
   isWinner: boolean;
 };
 
@@ -38,11 +48,21 @@ export type KnockoutMatch = {
   venue: string;
   home: KnockoutSlot;
   away: KnockoutSlot;
+  /** On-pitch scores (regulation + extra time), shootout kicks excluded. */
   homeScore: number | null;
   awayScore: number | null;
+  /** Penalty-shootout tally, present only when the match went to penalties. */
+  homePens: number | null;
+  awayPens: number | null;
   winner: 'home' | 'away' | null;
+  /** True only once the match is decided (full time / after pens). A match still
+   *  in play, extra time or a shootout is NOT played, so nobody advances yet. */
   isPlayed: boolean;
   isReady: boolean;
+  /** Live lifecycle from the feed: scheduled / live / finished. */
+  status: MatchStatus;
+  /** Raw API status (ET / PENS) for the live-phase label. */
+  detailedStatus?: DetailedMatchStatus;
 };
 
 export type KnockoutRound = {
@@ -74,6 +94,16 @@ export type KnockoutResult = {
   homeScore: number | null;
   awayScore: number | null;
   winner: 'home' | 'away' | null;
+  /** Penalty-shootout tally, when the match went to penalties. */
+  homePens?: number | null;
+  awayPens?: number | null;
+  /** Whether the match is decided (finished). Defaults to "both scores present"
+   *  for manually entered results; the live builder sets it false while a match
+   *  is still in play, extra time or a shootout, so nobody advances mid-match. */
+  decided?: boolean;
+  /** Live lifecycle, when this result comes from the live feed. */
+  status?: MatchStatus;
+  detailedStatus?: DetailedMatchStatus;
 };
 
 /** Real values pulled from the live feed for one bracket position, keyed by the
@@ -508,6 +538,7 @@ function resolveSlot(
       group: slot.group,
       status: isGroupComplete(standings[slot.group]) ? 'confirmed' : 'projected',
       score: null,
+      pens: null,
       isWinner: false,
     };
   }
@@ -523,6 +554,7 @@ function resolveSlot(
       group: slot.group,
       status: isGroupComplete(standings[slot.group]) ? 'confirmed' : 'projected',
       score: null,
+      pens: null,
       isWinner: false,
     };
   }
@@ -539,6 +571,7 @@ function resolveSlot(
       group: assignedGroup ?? null,
       status: 'projected',
       score: null,
+      pens: null,
       isWinner: false,
     };
   }
@@ -555,6 +588,7 @@ function resolveSlot(
       group: winnerSlot.group,
       status: 'confirmed',
       score: null,
+      pens: null,
       isWinner: false,
     };
   }
@@ -567,6 +601,7 @@ function resolveSlot(
     group: null,
     status: 'placeholder',
     score: null,
+    pens: null,
     isWinner: false,
   };
 }
@@ -640,15 +675,30 @@ export function buildProjectedKnockoutBracket(
         const result = results[match.match];
         const homeScore = result?.homeScore ?? null;
         const awayScore = result?.awayScore ?? null;
+        const homePens = result?.homePens ?? null;
+        const awayPens = result?.awayPens ?? null;
         const isReady = Boolean(home.team && away.team);
-        const winner =
-          isReady && homeScore !== null && awayScore !== null
-            ? homeScore > awayScore
-              ? 'home'
-              : awayScore > homeScore
-                ? 'away'
-                : (result?.winner ?? null)
+        const hasBothScores = homeScore !== null && awayScore !== null;
+        // A result counts as decided only when finished. Manually entered results
+        // (no explicit flag) decide as soon as both scores are present, preserving
+        // the old behaviour; the live builder passes decided=false while a match
+        // is in play, extra time or a shootout so it never advances mid-match.
+        const decided = result?.decided ?? hasBothScores;
+        // Trust an explicit winner (a shootout is level on the pitch, so the score
+        // can't decide it); otherwise fall back to the on-pitch comparison.
+        const winner: 'home' | 'away' | null =
+          isReady && decided
+            ? (result?.winner ??
+              (hasBothScores
+                ? homeScore > awayScore
+                  ? 'home'
+                  : awayScore > homeScore
+                    ? 'away'
+                    : null
+                : null))
             : null;
+        const status: MatchStatus =
+          result?.status ?? (decided && isReady ? 'finished' : 'scheduled');
 
         const builtMatch: KnockoutMatch = {
           match: match.match,
@@ -660,18 +710,24 @@ export function buildProjectedKnockoutBracket(
           home: {
             ...home,
             score: homeScore,
+            pens: homePens,
             isWinner: winner === 'home',
           },
           away: {
             ...away,
             score: awayScore,
+            pens: awayPens,
             isWinner: winner === 'away',
           },
           homeScore,
           awayScore,
+          homePens,
+          awayPens,
           winner,
           isPlayed: winner !== null,
           isReady,
+          status,
+          detailedStatus: result?.detailedStatus,
         };
 
         resolvedMatches.set(match.match, builtMatch);
@@ -804,6 +860,8 @@ function mapLiveMatchesToConfig(
       const awayTeam = homeIsT1 ? t2 : t1;
       const homeScore = homeIsT1 ? live.s1 : live.s2;
       const awayScore = homeIsT1 ? live.s2 : live.s1;
+      const homePens = homeIsT1 ? live.p1 : live.p2;
+      const awayPens = homeIsT1 ? live.p2 : live.p1;
       const winner: 'home' | 'away' | null =
         live.winner === null
           ? null
@@ -815,7 +873,18 @@ function mapLiveMatchesToConfig(
               ? 'away'
               : 'home';
 
-      results[target.match] = { homeScore, awayScore, winner };
+      results[target.match] = {
+        homeScore,
+        awayScore,
+        homePens,
+        awayPens,
+        winner,
+        // Only a finished match is decided. A live one (including extra time and
+        // shootouts) keeps its running score on the card but advances no one.
+        decided: live.status === 'finished',
+        status: live.status,
+        detailedStatus: live.detailedStatus,
+      };
       overrides.set(target.match, {
         homeTeam,
         awayTeam,

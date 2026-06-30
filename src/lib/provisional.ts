@@ -25,6 +25,7 @@ import type {
   Fixture,
   GroupId,
   LeaderboardEntry,
+  LiveKnockoutMatch,
   MatchStatus,
   Participant,
 } from '@/types';
@@ -33,17 +34,34 @@ import type {
 export type LiveTeamSwing = {
   team: string;
   opponent: string;
-  group: GroupId;
-  /** Current goals for / against this owned team. */
+  /** Group letter for a group-stage match; absent for a knockout fixture. */
+  group?: GroupId;
+  /** On-pitch goals for / against this owned team (shootout kicks excluded). */
   gf: number;
   ga: number;
-  /** This team's live result, deciding its provisional points contribution. */
+  /** This team's live result. Forced to a neutral 'drawing' during a shootout:
+   *  the match is level on the pitch, so no team is winning or losing. */
   state: 'winning' | 'drawing' | 'losing';
   /** Kickoff + phase signals so the client can show an approximate live minute.
    *  Absent on static data; the clock then falls back to a bare "LIVE". */
   kickoffUtc?: string;
   detailedStatus?: DetailedMatchStatus;
   halfTimeRecorded?: boolean;
+  /** Knockout extras: the round label, and the penalty-shootout tally (this team
+   *  vs opponent) shown as an indicator without ever moving the scoreline. */
+  roundLabel?: string;
+  isKnockout?: boolean;
+  isShootout?: boolean;
+  pens?: number | null;
+  oppPens?: number | null;
+};
+
+const KNOCKOUT_ROUND_LABEL: Record<LiveKnockoutMatch['roundKey'], string> = {
+  roundOf32: 'R32',
+  roundOf16: 'R16',
+  quarterFinals: 'QF',
+  semiFinals: 'SF',
+  final: 'Final',
 };
 
 /** A live match surfaced for the banner ticker (owners attached for the story). */
@@ -76,7 +94,7 @@ export type ProvisionalEntry = {
 export type Provisional = {
   /** True when at least one owned team is on the pitch (the whole overlay gates on this). */
   active: boolean;
-  /** Live group matches involving an owned team. */
+  /** Live matches (group or knockout) involving an owned team. */
   liveOwnedMatchCount: number;
   /** True when the provisional order genuinely differs from the settled order. */
   reordered: boolean;
@@ -111,7 +129,8 @@ export function computeProvisional(
   liveLeaderboard: LeaderboardEntry[],
   settledLeaderboard: LeaderboardEntry[],
   liveFixtures: Fixture[],
-  participants: Participant[]
+  participants: Participant[],
+  liveKnockoutMatches: LiveKnockoutMatch[] = []
 ): Provisional {
   const ownerByTeam = new Map<string, string>();
   for (const participant of participants) {
@@ -167,6 +186,53 @@ export function computeProvisional(
 
     push(owner1, fixture.t1, fixture.t2, fixture.s1, fixture.s2);
     push(owner2, fixture.t2, fixture.t1, fixture.s2, fixture.s1);
+  }
+
+  // Live knockout matches surface on the leaderboard too, but only as live-score
+  // indicators: their points are banked at full time (via the bracket scoring),
+  // not provisionally. A shootout shows the on-pitch score (level) plus the kicks
+  // and is forced neutral, so the board never flags a "winner" on penalties.
+  for (const km of liveKnockoutMatches) {
+    if (km.status !== 'live' || km.s1 === null || km.s2 === null) continue;
+
+    const owner1 = ownerByTeam.get(km.t1) ?? null;
+    const owner2 = ownerByTeam.get(km.t2) ?? null;
+    if (owner1 || owner2) liveOwnedMatchCount += 1;
+
+    const isShootout = km.detailedStatus === 'PENALTY_SHOOTOUT';
+    const roundLabel = KNOCKOUT_ROUND_LABEL[km.roundKey];
+
+    const pushKnockout = (
+      owner: string | null,
+      team: string,
+      opponent: string,
+      gf: number,
+      ga: number,
+      pens: number | null,
+      oppPens: number | null
+    ) => {
+      if (!owner) return;
+      const swing: LiveTeamSwing = {
+        team,
+        opponent,
+        gf,
+        ga,
+        state: isShootout ? 'drawing' : swingState(gf, ga),
+        kickoffUtc: km.utcDate,
+        detailedStatus: km.detailedStatus,
+        roundLabel,
+        isKnockout: true,
+        isShootout,
+        pens,
+        oppPens,
+      };
+      const list = liveTeamsByOwner.get(owner);
+      if (list) list.push(swing);
+      else liveTeamsByOwner.set(owner, [swing]);
+    };
+
+    pushKnockout(owner1, km.t1, km.t2, km.s1, km.s2, km.p1, km.p2);
+    pushKnockout(owner2, km.t2, km.t1, km.s2, km.s1, km.p2, km.p1);
   }
 
   // Walk the live leaderboard so liveRank == the order actually rendered.

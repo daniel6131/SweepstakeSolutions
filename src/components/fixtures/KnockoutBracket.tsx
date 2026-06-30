@@ -91,6 +91,33 @@ function shortTeamName(team: string): string {
     .replace('Bosnia-Herzegovina', 'Bosnia & Herz.');
 }
 
+/** Short live-phase label for a knockout card (no client clock here, so it reads
+ *  straight off the raw API status: shootout / extra time / half-time / live). */
+function liveKnockoutLabel(match: KnockoutMatch): string {
+  switch (match.detailedStatus) {
+    case 'PENALTY_SHOOTOUT':
+      return 'PENS';
+    case 'EXTRA_TIME':
+      return 'ET';
+    case 'PAUSED':
+      return 'HT';
+    default:
+      return 'LIVE';
+  }
+}
+
+/** Status text shown in a knockout card header. */
+function knockoutStatusLabel(match: KnockoutMatch, projected: boolean, dateLabel: string): string {
+  if (match.status === 'live') return liveKnockoutLabel(match);
+  if (match.isPlayed) return 'Full time';
+  return projected ? 'Projected' : dateLabel;
+}
+
+/** Whether a match carries a penalty-shootout result to show as an indicator. */
+function hasPensResult(match: KnockoutMatch): boolean {
+  return match.homePens != null && match.awayPens != null;
+}
+
 /** Position a set of rounds as a tree: the leftmost (index 0) round is evenly
  *  spaced, every later round is centred between the pair of children feeding it.
  *  Height is driven solely by the leftmost round's match count, so advancing the
@@ -239,6 +266,9 @@ function MatchCard({
 }) {
   const projected = match.home.status === 'projected' || match.away.status === 'projected';
   const { dateLabel, timeLabel } = useMatchTiming(match);
+  const isLive = match.status === 'live';
+  const statusLabel = knockoutStatusLabel(match, projected, dateLabel);
+  const showPens = hasPensResult(match);
 
   return (
     <article
@@ -247,10 +277,12 @@ function MatchCard({
         width: width ?? CARD_WIDTH,
         height: CARD_HEIGHT,
         background: 'var(--card-surface)',
-        border: match.isPlayed ? `1px solid ${theme.accent}3a` : '1px solid var(--card-border)',
-        boxShadow: match.isPlayed
-          ? `var(--card-highlight), var(--shadow-card), 0 0 30px -12px ${theme.accent}55`
-          : 'var(--card-highlight), var(--shadow-card)',
+        border:
+          match.isPlayed || isLive ? `1px solid ${theme.accent}3a` : '1px solid var(--card-border)',
+        boxShadow:
+          match.isPlayed || isLive
+            ? `var(--card-highlight), var(--shadow-card), 0 0 30px -12px ${theme.accent}55`
+            : 'var(--card-highlight), var(--shadow-card)',
       }}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <span
@@ -262,14 +294,15 @@ function MatchCard({
           <span
             className="inline-block h-1.5 w-1.5 rounded-full"
             style={{
-              background: match.isPlayed ? theme.accent : `${theme.accent}40`,
-              boxShadow: match.isPlayed ? `0 0 8px ${theme.accent}` : undefined,
+              background: match.isPlayed || isLive ? theme.accent : `${theme.accent}40`,
+              boxShadow: match.isPlayed || isLive ? `0 0 8px ${theme.accent}` : undefined,
+              animation: isLive ? 'live-dot 1.6s ease-in-out infinite' : undefined,
             }}
           />
           <span
             className="font-heading text-[8px] font-bold tracking-[2px] uppercase"
-            style={{ color: `${theme.accent}5a` }}>
-            {match.isPlayed ? 'Full time' : projected ? 'Projected' : dateLabel}
+            style={{ color: isLive ? theme.accent : `${theme.accent}5a` }}>
+            {statusLabel}
           </span>
         </div>
       </div>
@@ -277,6 +310,14 @@ function MatchCard({
       <div className="flex flex-1 flex-col justify-center gap-1.5">
         <Slot slot={match.home} ownerByTeam={ownerByTeam} theme={theme} align="left" />
         <Slot slot={match.away} ownerByTeam={ownerByTeam} theme={theme} align="right" />
+        {showPens && (
+          <div
+            className="font-heading text-center text-[8px] font-bold tracking-[1.5px] uppercase"
+            style={{ color: `${theme.accent}9c` }}>
+            {match.home.isWinner || match.away.isWinner ? 'Won on penalties' : 'Penalties'} ·{' '}
+            {match.homePens}–{match.awayPens}
+          </div>
+        )}
       </div>
 
       <div
@@ -402,6 +443,9 @@ function MobileTreeCard({
 }) {
   const projected = match.home.status === 'projected' || match.away.status === 'projected';
   const { dateLabel } = useMatchTiming(match);
+  const isLive = match.status === 'live';
+  const statusLabel = knockoutStatusLabel(match, projected, dateLabel);
+  const showPens = hasPensResult(match);
 
   return (
     <article
@@ -410,10 +454,12 @@ function MobileTreeCard({
         width: M_CARD_W,
         height: M_CARD_H,
         background: 'var(--card-surface)',
-        border: match.isPlayed ? `1px solid ${theme.accent}3a` : '1px solid var(--card-border)',
-        boxShadow: match.isPlayed
-          ? `var(--card-highlight), var(--shadow-card), 0 0 22px -14px ${theme.accent}55`
-          : 'var(--card-highlight), var(--shadow-card)',
+        border:
+          match.isPlayed || isLive ? `1px solid ${theme.accent}3a` : '1px solid var(--card-border)',
+        boxShadow:
+          match.isPlayed || isLive
+            ? `var(--card-highlight), var(--shadow-card), 0 0 22px -14px ${theme.accent}55`
+            : 'var(--card-highlight), var(--shadow-card)',
       }}>
       <div className="flex items-center justify-between gap-2">
         <span
@@ -422,9 +468,15 @@ function MobileTreeCard({
           M{match.match}
         </span>
         <span
-          className="font-heading text-[7px] font-bold tracking-[1.5px] uppercase"
-          style={{ color: `${theme.accent}5a` }}>
-          {match.isPlayed ? 'Full time' : projected ? 'Projected' : dateLabel}
+          className="font-heading flex items-center gap-1 text-[7px] font-bold tracking-[1.5px] uppercase"
+          style={{ color: isLive ? theme.accent : `${theme.accent}5a` }}>
+          {isLive && (
+            <span
+              className="inline-block h-1 w-1 rounded-full"
+              style={{ background: theme.accent, animation: 'live-dot 1.6s ease-in-out infinite' }}
+            />
+          )}
+          {showPens ? `Pens ${match.homePens}–${match.awayPens}` : statusLabel}
         </span>
       </div>
       <div className="flex flex-1 flex-col justify-center gap-1">
