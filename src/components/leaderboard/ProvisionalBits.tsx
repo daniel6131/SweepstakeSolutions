@@ -60,12 +60,14 @@ export function LiveTeamChip({ swing, nowMs }: { swing: LiveTeamSwing; nowMs: nu
     nowMs ?? Number.NaN
   );
 
-  const hasPens = swing.pens != null && swing.oppPens != null;
-  const penLabel = hasPens ? `${swing.pens}–${swing.oppPens} pens` : '';
+  // A live shootout is level on the pitch and its kick tally from the feed is
+  // unreliable, so the chip never shows numbers; the "PENS" phase label carries
+  // the shootout state. The real result lands on the bracket at full time.
+  const inShootout = swing.isShootout || (swing.pens != null && swing.oppPens != null);
   const title = [
-    `${swing.team} ${swing.isShootout ? 'level' : swing.state} ${swing.gf}–${swing.ga} live against ${swing.opponent}`,
+    `${swing.team} ${inShootout ? 'level' : swing.state} ${swing.gf}–${swing.ga} live against ${swing.opponent}`,
     swing.roundLabel ? `· ${swing.roundLabel}` : '',
-    hasPens ? `· ${penLabel}` : '',
+    inShootout ? '· penalties underway' : '',
     phase.label ? `(${phase.label})` : '',
   ]
     .filter(Boolean)
@@ -90,11 +92,6 @@ export function LiveTeamChip({ swing, nowMs }: { swing: LiveTeamSwing; nowMs: nu
       <span style={{ color: text }}>
         {swing.gf}–{swing.ga}
       </span>
-      {hasPens && (
-        <span style={{ color: 'var(--color-fg-muted)' }} aria-hidden>
-          ({swing.pens}–{swing.oppPens} pens)
-        </span>
-      )}
       {phase.label && (
         <span style={{ color: 'var(--color-fg-subtle)' }} aria-hidden>
           {phase.label}

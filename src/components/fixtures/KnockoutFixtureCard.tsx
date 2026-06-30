@@ -43,6 +43,12 @@ export function KnockoutFixtureCard({ match: m, ownerByTeam, theme, timeZone, no
     nowMs ?? Number.NaN
   );
   const hasPens = m.homePens != null && m.awayPens != null;
+  // The live shootout feed is unreliable (it can briefly report the wrong leader
+  // or even a premature winner), so we never show a tally until full time. While
+  // live we show a neutral "Penalties underway"; the real kicks reveal once the
+  // match is finished, matching the bracket's "only advance when finished" rule.
+  const pensUnderway = isLive && (m.detailedStatus === 'PENALTY_SHOOTOUT' || hasPens);
+  const pensResult = !isLive && hasPens;
   const owner = (team: string | null) => (team ? (ownerByTeam.get(team) ?? '—') : '—');
 
   return (
@@ -150,11 +156,11 @@ export function KnockoutFixtureCard({ match: m, ownerByTeam, theme, timeZone, no
                   {m.awayScore}
                 </span>
               </div>
-              {hasPens && (
+              {(pensResult || pensUnderway) && (
                 <div
                   className="font-heading mt-1 text-[9px] font-bold uppercase tracking-[1.5px] md:text-[10px]"
                   style={{ color: `${theme.accent}9c` }}>
-                  {m.homePens}–{m.awayPens} pens
+                  {pensResult ? `${m.homePens}–${m.awayPens} pens` : 'Penalties underway'}
                 </div>
               )}
             </>

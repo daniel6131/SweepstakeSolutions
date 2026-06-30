@@ -256,6 +256,22 @@ function getMatchStatus(match: ApiMatch): MatchStatus {
   return 'scheduled';
 }
 
+/**
+ * The live-phase status used only for labels (ET / PENS). football-data keeps
+ * `status` at IN_PLAY/PAUSED right through extra time and the shootout, and
+ * carries the actual phase in `score.duration` instead, so a live match that
+ * has gone to penalties arrives as status IN_PLAY + duration PENALTY_SHOOTOUT.
+ * For a live match we surface that duration; otherwise the coarse status is the
+ * detail (SCHEDULED / PAUSED / FINISHED ...).
+ */
+function getDetailedStatus(match: ApiMatch): DetailedMatchStatus {
+  if (LIVE_STATUSES.has(match.status)) {
+    if (match.score.duration === 'PENALTY_SHOOTOUT') return 'PENALTY_SHOOTOUT';
+    if (match.score.duration === 'EXTRA_TIME') return 'EXTRA_TIME';
+  }
+  return match.status as DetailedMatchStatus;
+}
+
 /** Whether the half-time score is recorded yet — flips the live clock to 2nd-half timing. */
 function isHalfTimeRecorded(match: ApiMatch): boolean {
   return match.score.halfTime.home != null || match.score.halfTime.away != null;
@@ -358,7 +374,7 @@ export function transformCompetitionMatches(data: ApiMatchesResponse): LiveTourn
         utcDate: match.utcDate,
         venue: match.venue ?? 'TBC',
         status: getMatchStatus(match),
-        detailedStatus: match.status as DetailedMatchStatus,
+        detailedStatus: getDetailedStatus(match),
         halfTimeRecorded: isHalfTimeRecorded(match),
         ...getFixtureScores(match),
       });
@@ -401,7 +417,7 @@ export function transformCompetitionMatches(data: ApiMatchesResponse): LiveTourn
       p2,
       winner: getKnockoutWinner(match, s1, s2),
       status: getMatchStatus(match),
-      detailedStatus: match.status as DetailedMatchStatus,
+      detailedStatus: getDetailedStatus(match),
     });
   }
 

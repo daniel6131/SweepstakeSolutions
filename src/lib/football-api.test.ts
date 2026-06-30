@@ -263,4 +263,51 @@ describe('transformCompetitionMatches', () => {
       },
     ]);
   });
+
+  it('keeps a live shootout neutral: kicks present, on-pitch level, nobody through', () => {
+    // The real Netherlands v Morocco incident: mid-shootout the feed reported
+    // status IN_PLAY + duration PENALTY_SHOOTOUT and prematurely named HOME_TEAM
+    // the winner with the wrong tally. We must strip the kicks from the on-pitch
+    // score, expose the phase as PENALTY_SHOOTOUT (status stays IN_PLAY), and
+    // refuse to mark anyone through until the match is FINISHED.
+    const data = transformCompetitionMatches({
+      matches: [
+        {
+          id: 99,
+          utcDate: '2026-06-30T18:00:00Z',
+          status: 'IN_PLAY',
+          matchday: 4,
+          stage: 'LAST_32',
+          group: null,
+          homeTeam: { name: 'Netherlands' },
+          awayTeam: { name: 'Morocco' },
+          score: {
+            winner: 'HOME_TEAM',
+            duration: 'PENALTY_SHOOTOUT',
+            fullTime: { home: 4, away: 3 },
+            halfTime: { home: 0, away: 0 },
+            regularTime: { home: 1, away: 1 },
+            extraTime: { home: 0, away: 0 },
+            penalties: { home: 3, away: 2 },
+          },
+          venue: 'Houston Stadium',
+        },
+      ],
+      resultSet: { count: 1, played: 0 },
+    });
+
+    expect(data.knockoutMatches).toHaveLength(1);
+    expect(data.knockoutMatches[0]).toMatchObject({
+      t1: 'Netherlands',
+      t2: 'Morocco',
+      s1: 1,
+      s2: 1,
+      p1: 3,
+      p2: 2,
+      status: 'live',
+      detailedStatus: 'PENALTY_SHOOTOUT',
+      // Premature feed winner is ignored while the match is still in play.
+      winner: null,
+    });
+  });
 });
