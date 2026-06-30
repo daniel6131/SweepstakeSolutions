@@ -113,9 +113,23 @@ function knockoutStatusLabel(match: KnockoutMatch, projected: boolean, dateLabel
   return projected ? 'Projected' : dateLabel;
 }
 
-/** Whether a match carries a penalty-shootout result to show as an indicator. */
+/** Whether a match carries a penalty-shootout tally (live or final). */
 function hasPensResult(match: KnockoutMatch): boolean {
   return match.homePens != null && match.awayPens != null;
+}
+
+/** A decided shootout — safe to reveal the kicks and the winner. */
+function hasDecidedPens(match: KnockoutMatch): boolean {
+  return match.status !== 'live' && hasPensResult(match);
+}
+
+/** A live shootout in progress. The live feed's tally is unreliable (it can show
+ *  the wrong leader, even a premature winner), so we surface only a neutral
+ *  "underway" state and reveal the real kicks at full time. */
+function isShootoutLive(match: KnockoutMatch): boolean {
+  return (
+    match.status === 'live' && (match.detailedStatus === 'PENALTY_SHOOTOUT' || hasPensResult(match))
+  );
 }
 
 /** Position a set of rounds as a tree: the leftmost (index 0) round is evenly
@@ -268,7 +282,8 @@ function MatchCard({
   const { dateLabel, timeLabel } = useMatchTiming(match);
   const isLive = match.status === 'live';
   const statusLabel = knockoutStatusLabel(match, projected, dateLabel);
-  const showPens = hasPensResult(match);
+  const pensResult = hasDecidedPens(match);
+  const pensUnderway = isShootoutLive(match);
 
   return (
     <article
@@ -310,12 +325,13 @@ function MatchCard({
       <div className="flex flex-1 flex-col justify-center gap-1.5">
         <Slot slot={match.home} ownerByTeam={ownerByTeam} theme={theme} align="left" />
         <Slot slot={match.away} ownerByTeam={ownerByTeam} theme={theme} align="right" />
-        {showPens && (
+        {(pensResult || pensUnderway) && (
           <div
             className="font-heading text-center text-[8px] font-bold tracking-[1.5px] uppercase"
             style={{ color: `${theme.accent}9c` }}>
-            {match.home.isWinner || match.away.isWinner ? 'Won on penalties' : 'Penalties'} ·{' '}
-            {match.homePens}–{match.awayPens}
+            {pensResult
+              ? `${match.home.isWinner || match.away.isWinner ? 'Won on penalties' : 'Penalties'} · ${match.homePens}–${match.awayPens}`
+              : 'Penalties underway'}
           </div>
         )}
       </div>
@@ -445,7 +461,9 @@ function MobileTreeCard({
   const { dateLabel } = useMatchTiming(match);
   const isLive = match.status === 'live';
   const statusLabel = knockoutStatusLabel(match, projected, dateLabel);
-  const showPens = hasPensResult(match);
+  // Only a decided shootout shows the kicks; a live one falls back to the neutral
+  // status label ("PENS"), never the unreliable in-progress tally.
+  const pensResult = hasDecidedPens(match);
 
   return (
     <article
@@ -476,7 +494,7 @@ function MobileTreeCard({
               style={{ background: theme.accent, animation: 'live-dot 1.6s ease-in-out infinite' }}
             />
           )}
-          {showPens ? `Pens ${match.homePens}–${match.awayPens}` : statusLabel}
+          {pensResult ? `Pens ${match.homePens}–${match.awayPens}` : statusLabel}
         </span>
       </div>
       <div className="flex flex-1 flex-col justify-center gap-1">
