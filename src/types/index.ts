@@ -63,10 +63,20 @@ export type LiveKnockoutMatch = {
   time: string;
   utcDate: string;
   venue: string;
+  /** On-pitch score (regulation + extra time), with any penalty-shootout kicks
+   *  stripped out, so a shootout never inflates the scoreline or goal totals. */
   s1: number | null;
   s2: number | null;
+  /** Penalty-shootout tally, present only when the match went (or is going) to
+   *  penalties. Used purely as an indicator, never as the match scoreline. */
+  p1: number | null;
+  p2: number | null;
+  /** Only set once the match is FINISHED. A team in extra time or a shootout is
+   *  still playing, so this stays null and nobody advances mid-match. */
   winner: 't1' | 't2' | null;
   status: MatchStatus;
+  /** Raw API status, for the live-phase label (ET / PENS) on knockout cards. */
+  detailedStatus?: DetailedMatchStatus;
 };
 
 export type LeaderboardEntry = {

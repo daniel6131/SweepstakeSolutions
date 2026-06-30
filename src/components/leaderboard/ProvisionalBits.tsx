@@ -60,6 +60,17 @@ export function LiveTeamChip({ swing, nowMs }: { swing: LiveTeamSwing; nowMs: nu
     nowMs ?? Number.NaN
   );
 
+  const hasPens = swing.pens != null && swing.oppPens != null;
+  const penLabel = hasPens ? `${swing.pens}–${swing.oppPens} pens` : '';
+  const title = [
+    `${swing.team} ${swing.isShootout ? 'level' : swing.state} ${swing.gf}–${swing.ga} live against ${swing.opponent}`,
+    swing.roundLabel ? `· ${swing.roundLabel}` : '',
+    hasPens ? `· ${penLabel}` : '',
+    phase.label ? `(${phase.label})` : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <span
       className="font-heading inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums"
@@ -68,14 +79,22 @@ export function LiveTeamChip({ swing, nowMs }: { swing: LiveTeamSwing; nowMs: nu
         background: `color-mix(in srgb, ${tint} 12%, transparent)`,
         color: 'var(--color-fg)',
       }}
-      title={`${swing.team} ${swing.state} ${swing.gf}–${swing.ga} live against ${swing.opponent}${
-        phase.label ? ` (${phase.label})` : ''
-      }`}>
+      title={title}>
       <span className="provisional-live-dot" style={{ background: tint }} aria-hidden />
       <Flag team={swing.team} size={13} />
+      {swing.roundLabel && (
+        <span style={{ color: 'var(--color-fg-subtle)' }} aria-hidden>
+          {swing.roundLabel}
+        </span>
+      )}
       <span style={{ color: text }}>
         {swing.gf}–{swing.ga}
       </span>
+      {hasPens && (
+        <span style={{ color: 'var(--color-fg-muted)' }} aria-hidden>
+          ({swing.pens}–{swing.oppPens} pens)
+        </span>
+      )}
       {phase.label && (
         <span style={{ color: 'var(--color-fg-subtle)' }} aria-hidden>
           {phase.label}

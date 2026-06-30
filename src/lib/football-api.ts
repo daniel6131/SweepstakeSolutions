@@ -192,30 +192,60 @@ function getApiScoreValue(score: ApiScore | undefined, side: 'home' | 'away'): n
   return score.away ?? null;
 }
 
+/**
+ * The on-pitch score for one side: goals scored in regulation + extra time, with
+ * any penalty-shootout kicks removed. football-data.org folds the shootout into
+ * `fullTime` (fullTime = regularTime + extraTime + penalties), so for a match
+ * that went to penalties we subtract the kicks back out. A 1-1 draw won 5-4 on
+ * pens arrives as fullTime 6-5; this returns the real 1-1, never the shootout.
+ */
+function getOnPitchScoreValue(score: ApiMatch['score'], side: 'home' | 'away'): number | null {
+  const full = getApiScoreValue(score.fullTime, side);
+  if (full === null) return null;
+
+  const pens = getApiScoreValue(score.penalties, side);
+  return pens === null ? full : full - pens;
+}
+
 function getFixtureScores(match: ApiMatch): Pick<Fixture, 's1' | 's2'> {
   if (!isMatchStarted(match.status)) {
     return { s1: null, s2: null };
   }
 
   return {
-    s1: getApiScoreValue(match.score.fullTime, 'home'),
-    s2: getApiScoreValue(match.score.fullTime, 'away'),
+    s1: getOnPitchScoreValue(match.score, 'home'),
+    s2: getOnPitchScoreValue(match.score, 'away'),
   };
 }
 
+/** Penalty-shootout tally, present only once a knockout match reaches penalties. */
+function getPenaltyScores(match: ApiMatch): { p1: number | null; p2: number | null } {
+  return {
+    p1: getApiScoreValue(match.score.penalties, 'home'),
+    p2: getApiScoreValue(match.score.penalties, 'away'),
+  };
+}
+
+/**
+ * Who advances. Resolved ONLY when the match is FINISHED. A match in extra time
+ * or a penalty shootout is still being played, so it returns null and nobody is
+ * marked through until the final whistle. We trust the API's `winner` field
+ * (which already accounts for the shootout) and fall back to the on-pitch score
+ * only if it is somehow missing (knockouts cannot end level).
+ */
 function getKnockoutWinner(
   match: ApiMatch,
   s1: number | null,
   s2: number | null
 ): 't1' | 't2' | null {
-  if (!isMatchStarted(match.status)) return null;
+  if (!FINISHED_STATUSES.has(match.status)) return null;
+
+  if (match.score.winner === 'HOME_TEAM') return 't1';
+  if (match.score.winner === 'AWAY_TEAM') return 't2';
 
   if (s1 !== null && s2 !== null && s1 !== s2) {
     return s1 > s2 ? 't1' : 't2';
   }
-
-  if (match.score.winner === 'HOME_TEAM') return 't1';
-  if (match.score.winner === 'AWAY_TEAM') return 't2';
   return null;
 }
 
@@ -255,9 +285,17 @@ type ApiMatch = {
   homeTeam: { name: string; shortName?: string; tla?: string };
   awayTeam: { name: string; shortName?: string; tla?: string };
   score: {
+    winner?: 'HOME_TEAM' | 'AWAY_TEAM' | 'DRAW' | null;
+    duration?: 'REGULAR' | 'EXTRA_TIME' | 'PENALTY_SHOOTOUT';
+    /** For a shootout, the API folds the kicks INTO fullTime:
+     *  fullTime = regularTime + extraTime + penalties. So fullTime alone is NOT
+     *  the on-pitch scoreline once a match goes to penalties. */
     fullTime: ApiScore;
     halfTime: ApiScore;
-    winner?: 'HOME_TEAM' | 'AWAY_TEAM' | 'DRAW' | null;
+    /** Present only for EXTRA_TIME / PENALTY_SHOOTOUT matches. */
+    regularTime?: ApiScore;
+    extraTime?: ApiScore;
+    penalties?: ApiScore;
   };
   venue?: string;
 };
@@ -329,19 +367,26 @@ export function transformCompetitionMatches(data: ApiMatchesResponse): LiveTourn
 
     const { s1, s2 } = getFixtureScores(match);
     if (match.stage === 'THIRD_PLACE') {
-      extraScoringMatches.push({
-        t1,
-        t2,
-        s1,
-        s2,
-        winner: getKnockoutWinner(match, s1, s2),
-      });
+      // Only score the third-place play-off once it has actually finished. A
+      // live one is still being decided (and a level shootout would otherwise be
+      // miscounted as a draw). Matches the "knockouts only score when finished"
+      // rule used for the bracket.
+      if (FINISHED_STATUSES.has(match.status)) {
+        extraScoringMatches.push({
+          t1,
+          t2,
+          s1,
+          s2,
+          winner: getKnockoutWinner(match, s1, s2),
+        });
+      }
       continue;
     }
 
     const roundKey = KNOCKOUT_STAGE_MAP[match.stage];
     if (!roundKey) continue;
 
+    const { p1, p2 } = getPenaltyScores(match);
     knockoutMatches.push({
       roundKey,
       t1,
@@ -352,8 +397,11 @@ export function transformCompetitionMatches(data: ApiMatchesResponse): LiveTourn
       venue: match.venue ?? 'TBC',
       s1,
       s2,
+      p1,
+      p2,
       winner: getKnockoutWinner(match, s1, s2),
       status: getMatchStatus(match),
+      detailedStatus: match.status as DetailedMatchStatus,
     });
   }
 

@@ -1,8 +1,13 @@
 import { FixtureCard } from '@/components/fixtures/FixtureCard';
+import { KnockoutFixtureCard } from '@/components/fixtures/KnockoutFixtureCard';
+import type { KnockoutMatch } from '@/lib/knockout';
 import type { Fixture, ThemeColors } from '@/types';
 
 type Props = {
-  fixtures: Fixture[];
+  /** Group-stage matches for this lead. Ignored when `knockoutMatches` is set. */
+  fixtures?: Fixture[];
+  /** Knockout matches for this lead (used once the group stage is done). */
+  knockoutMatches?: KnockoutMatch[];
   dateLabel: string;
   /** 'Live now' | 'Today' | 'Up next' */
   overline: string;
@@ -15,13 +20,14 @@ type Props = {
 };
 
 /**
- * The lead block at the top of the Fixtures feed: surfaces the current day's
- * matches on arrival so you see them WITHOUT navigating, while the full
- * chronological schedule stays below for browsing. Only rendered when that day
- * isn't already the first in the list (no point duplicating the very top).
+ * The lead block at the top of the Fixtures feed: surfaces the next matches on
+ * arrival so you see them WITHOUT navigating, while the full chronological
+ * schedule stays below for browsing. Shows group fixtures during the group stage
+ * and the next knockout fixtures once the groups are done.
  */
 export function FixturesTodayLead({
-  fixtures,
+  fixtures = [],
+  knockoutMatches = [],
   dateLabel,
   overline,
   live,
@@ -30,7 +36,9 @@ export function FixturesTodayLead({
   timeZone,
   nowMs,
 }: Props) {
-  if (fixtures.length === 0) return null;
+  const isKnockout = knockoutMatches.length > 0;
+  const count = isKnockout ? knockoutMatches.length : fixtures.length;
+  if (count === 0) return null;
 
   return (
     <section className="mb-8 md:mb-10" aria-label={`${overline}, ${dateLabel}`} data-reveal>
@@ -70,21 +78,32 @@ export function FixturesTodayLead({
         <div
           className="font-heading rounded-full px-3 py-1.5 text-[10px] font-bold tracking-[2px] uppercase"
           style={{ color: theme.bg, background: theme.accent }}>
-          {fixtures.length} {fixtures.length === 1 ? 'match' : 'matches'}
+          {count} {count === 1 ? 'match' : 'matches'}
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(320px,1fr))] md:gap-4">
-        {fixtures.map((fixture) => (
-          <FixtureCard
-            key={`${fixture.utcDate ?? fixture.date}-${fixture.t1}-${fixture.t2}`}
-            fixture={fixture}
-            ownerByTeam={ownerByTeam}
-            theme={theme}
-            timeZone={timeZone}
-            nowMs={nowMs}
-          />
-        ))}
+        {isKnockout
+          ? knockoutMatches.map((match) => (
+              <KnockoutFixtureCard
+                key={`ko-${match.match}`}
+                match={match}
+                ownerByTeam={ownerByTeam}
+                theme={theme}
+                timeZone={timeZone}
+                nowMs={nowMs}
+              />
+            ))
+          : fixtures.map((fixture) => (
+              <FixtureCard
+                key={`${fixture.utcDate ?? fixture.date}-${fixture.t1}-${fixture.t2}`}
+                fixture={fixture}
+                ownerByTeam={ownerByTeam}
+                theme={theme}
+                timeZone={timeZone}
+                nowMs={nowMs}
+              />
+            ))}
       </div>
     </section>
   );

@@ -37,6 +37,8 @@ function liveMatch(
     venue: 'TBC',
     s1: null,
     s2: null,
+    p1: null,
+    p2: null,
     winner: null,
     status: 'scheduled',
     ...over,
@@ -138,9 +140,36 @@ describe('buildKnockoutResultsFromLiveMatches', () => {
     const results = buildKnockoutResultsFromLiveMatches(standings, LIVE_SAMPLE);
 
     expect(results).toEqual({
-      73: { homeScore: 1, awayScore: 2, winner: 'away' },
-      75: { homeScore: 3, awayScore: 0, winner: 'home' },
-      90: { homeScore: 0, awayScore: 1, winner: 'away' },
+      73: {
+        homeScore: 1,
+        awayScore: 2,
+        homePens: null,
+        awayPens: null,
+        winner: 'away',
+        decided: true,
+        status: 'finished',
+        detailedStatus: undefined,
+      },
+      75: {
+        homeScore: 3,
+        awayScore: 0,
+        homePens: null,
+        awayPens: null,
+        winner: 'home',
+        decided: true,
+        status: 'finished',
+        detailedStatus: undefined,
+      },
+      90: {
+        homeScore: 0,
+        awayScore: 1,
+        homePens: null,
+        awayPens: null,
+        winner: 'away',
+        decided: true,
+        status: 'finished',
+        detailedStatus: undefined,
+      },
     });
   });
 
@@ -256,5 +285,101 @@ describe('buildKnockoutBracketFromLive', () => {
       s2: 2,
       winner: 't2',
     });
+  });
+});
+
+describe('live, extra-time and penalty knockout matches', () => {
+  function r32(over: Partial<LiveKnockoutMatch>): LiveKnockoutMatch {
+    return liveMatch({
+      roundKey: 'roundOf32',
+      t1: 'South Korea',
+      t2: 'Switzerland',
+      ...over,
+    });
+  }
+  const findM73 = (bracket: ReturnType<typeof buildKnockoutBracketFromLive>) =>
+    bracket.rounds.find((round) => round.key === 'roundOf32')!.matches.find((m) => m.match === 73)!;
+
+  it('does NOT advance a match that is still in extra time, even with a lead', () => {
+    const standings = createCompleteStandings();
+    const bracket = buildKnockoutBracketFromLive(standings, [
+      r32({ s1: 1, s2: 0, winner: null, status: 'live', detailedStatus: 'EXTRA_TIME' }),
+    ]);
+
+    const m73 = findM73(bracket);
+    // The running score still shows on the card…
+    expect(m73.homeScore).toBe(1);
+    expect(m73.awayScore).toBe(0);
+    expect(m73.status).toBe('live');
+    // …but nobody is through and it is not played yet.
+    expect(m73.winner).toBeNull();
+    expect(m73.isPlayed).toBe(false);
+    // A live match must never feed leaderboard scoring.
+    expect(getCompletedKnockoutScoringMatches(bracket)).toHaveLength(0);
+  });
+
+  it('does NOT advance on the running penalty-shootout tally while it is live', () => {
+    const standings = createCompleteStandings();
+    // Paraguay-style: level 1-1 on the pitch, shootout running 1-0, still playing.
+    const bracket = buildKnockoutBracketFromLive(standings, [
+      r32({
+        s1: 1,
+        s2: 1,
+        p1: 1,
+        p2: 0,
+        winner: null,
+        status: 'live',
+        detailedStatus: 'PENALTY_SHOOTOUT',
+      }),
+    ]);
+
+    const m73 = findM73(bracket);
+    expect(m73.homeScore).toBe(1);
+    expect(m73.awayScore).toBe(1);
+    expect(m73.homePens).toBe(1);
+    expect(m73.awayPens).toBe(0);
+    expect(m73.winner).toBeNull();
+    expect(m73.isPlayed).toBe(false);
+    expect(getCompletedKnockoutScoringMatches(bracket)).toHaveLength(0);
+  });
+
+  it('advances the shootout winner on the on-pitch score, never the kicks', () => {
+    const standings = createCompleteStandings();
+    // 1-1 after extra time, Switzerland win 5-4 on penalties.
+    const bracket = buildKnockoutBracketFromLive(standings, [
+      r32({
+        s1: 1,
+        s2: 1,
+        p1: 4,
+        p2: 5,
+        winner: 't2',
+        status: 'finished',
+        detailedStatus: 'PENALTY_SHOOTOUT',
+      }),
+    ]);
+
+    const m73 = findM73(bracket);
+    expect(m73.homeScore).toBe(1);
+    expect(m73.awayScore).toBe(1);
+    expect(m73.homePens).toBe(4);
+    expect(m73.awayPens).toBe(5);
+    expect(m73.winner).toBe('away');
+    expect(m73.isPlayed).toBe(true);
+
+    // Scoring counts the 1-1 on-pitch result with Switzerland as the winner,
+    // never 4-5 or 5-6, which would balloon goal totals.
+    expect(getCompletedKnockoutScoringMatches(bracket)).toContainEqual({
+      t1: 'South Korea',
+      t2: 'Switzerland',
+      s1: 1,
+      s2: 1,
+      winner: 't2',
+    });
+
+    // The pens winner carries into the next round.
+    const m90 = bracket.rounds
+      .find((round) => round.key === 'roundOf16')!
+      .matches.find((m) => m.match === 90)!;
+    expect([m90.home.team, m90.away.team]).toContain('Switzerland');
   });
 });

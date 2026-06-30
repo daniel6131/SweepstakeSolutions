@@ -14,7 +14,7 @@ import {
   filterFixtures,
   type FixtureFilterState,
 } from '@/lib/fixture-filters';
-import type { ProjectedKnockoutBracket } from '@/lib/knockout';
+import type { KnockoutMatch, ProjectedKnockoutBracket } from '@/lib/knockout';
 import { getDayKey, getFixtureDisplayParts, getFixtureSortTimestamp } from '@/lib/match-time';
 import { getLenis } from '@/lib/use-smooth-scroll';
 import { useLiveClock } from '@/lib/use-live-clock';
@@ -67,6 +67,34 @@ function groupByDay(list: Fixture[], timeZone: string | null): DayGroup[] {
       });
       return acc;
     }, []);
+}
+
+/**
+ * The earliest upcoming knockout day, as a contiguous bucket of ready (both
+ * teams known) live-or-scheduled matches pulled from the bracket. Drives the
+ * "Up next" lead once the group stage is over, so the Fixtures view points at
+ * the next knockout games rather than stalling on the last group match. Returns
+ * null before any knockout fixture is drawn.
+ */
+function nextKnockoutDay(
+  bracket: ProjectedKnockoutBracket,
+  timeZone: string | null
+): { dateLabel: string; matches: KnockoutMatch[]; live: boolean } | null {
+  const upcoming = bracket.rounds
+    .flatMap((round) => round.matches)
+    .filter((match) => match.isReady && match.utcDate && match.status !== 'finished')
+    .sort((a, b) => Date.parse(a.utcDate) - Date.parse(b.utcDate));
+  if (upcoming.length === 0) return null;
+
+  const firstDayKey = getFixtureDisplayParts(upcoming[0], timeZone).dayKey;
+  const matches = upcoming.filter(
+    (match) => getFixtureDisplayParts(match, timeZone).dayKey === firstDayKey
+  );
+  return {
+    dateLabel: getFixtureDisplayParts(upcoming[0], timeZone).dateLabel,
+    matches,
+    live: matches.some((match) => match.status === 'live'),
+  };
 }
 
 function scrollToFixtureDay(id: string, opts?: { immediate?: boolean; updateHash?: boolean }) {
@@ -197,8 +225,26 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
 
   const knockoutBracket = useMemo(() => (view === 'knockout' ? bracket : null), [bracket, view]);
 
+  // Once every group fixture is decided, the group stage is done and the "Up
+  // next" lead should point at the next knockout games instead of the last
+  // (finished) group day. Static data has no status (treated as not finished),
+  // so groupStageOngoing stays true and the knockout lead is suppressed there.
+  const groupStageOngoing = useMemo(
+    () => fixtures.some((f) => f.status !== 'finished'),
+    [fixtures]
+  );
+  const knockoutLead = useMemo(() => nextKnockoutDay(bracket, timeZone), [bracket, timeZone]);
+  const showKnockoutLead = !groupStageOngoing && knockoutLead != null;
+  const knockoutHasLive = useMemo(
+    () => bracket.rounds.some((round) => round.matches.some((match) => match.status === 'live')),
+    [bracket]
+  );
+
   // Tick the clock only while something is live (cheap: one timer, minute-grain).
-  const hasLive = useMemo(() => fixtures.some((f) => f.status === 'live'), [fixtures]);
+  const hasLive = useMemo(
+    () => fixtures.some((f) => f.status === 'live') || knockoutHasLive,
+    [fixtures, knockoutHasLive]
+  );
   const nowMs = useLiveClock(hasLive);
 
   const liveEdgeIndex = useMemo(
@@ -220,7 +266,7 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
     : undefined;
   const featuredIsFirst = groupedFixtures[0]?.dayKey === featuredDayKey;
   const featuredHasLive = featuredDay?.fixtures.some((f) => f.status === 'live') ?? false;
-  const showTodayLead = Boolean(featuredDay) && !featuredIsFirst;
+  const showTodayLead = !showKnockoutLead && Boolean(featuredDay) && !featuredIsFirst;
   const todayOverline = featuredHasLive ? 'Live now' : todayIndex >= 0 ? 'Today' : 'Up next';
 
   // Scroll-spy: highlight the day occupying the top third of the viewport, so the
@@ -448,6 +494,22 @@ export function FixturesTab({ fixtures, bracket, groups, participants, theme }: 
             resultCount={filteredFixtures.length}
             theme={theme}
           />
+
+          {/* The knockout "Up next" lead is driven by the bracket, not the group
+              filters, so it sits ABOVE the empty-state branch: a group filter that
+              empties the group feed must never hide the next knockout games. */}
+          {showKnockoutLead && knockoutLead && (
+            <FixturesTodayLead
+              knockoutMatches={knockoutLead.matches}
+              dateLabel={knockoutLead.dateLabel}
+              overline={knockoutLead.live ? 'Live now' : 'Up next'}
+              live={knockoutLead.live}
+              ownerByTeam={ownerByTeam}
+              theme={theme}
+              timeZone={timeZone}
+              nowMs={nowMs}
+            />
+          )}
 
           {groupedFixtures.length === 0 ? (
             <div
