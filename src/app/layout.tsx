@@ -13,8 +13,12 @@ export const metadata: Metadata = {
   },
   description:
     'Track your sweepstake standings for the 2026 FIFA World Cup across the USA, Mexico & Canada.',
+  // One canonical URL for the single indexable page, so the ?tab= variants don't
+  // read as duplicate content.
+  alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
+    url: '/',
     title: 'World Cup Sweepstake 2026',
     description:
       'Track your sweepstake standings for the 2026 FIFA World Cup across the USA, Mexico & Canada.',
