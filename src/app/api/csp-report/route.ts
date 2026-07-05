@@ -13,11 +13,15 @@ import { NextResponse } from 'next/server';
 
 const MAX_REPORT_BYTES = 8192;
 
+function sanitizeForSingleLineLog(input: string): string {
+  return input.replace(/[\x00-\x1F\x7F]+/g, ' ').trim();
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.text();
     if (body && body.length <= MAX_REPORT_BYTES) {
-      console.warn('[csp-report]', body);
+      console.warn('[csp-report]', sanitizeForSingleLineLog(body));
     }
   } catch {
     // Reporting must never fail the caller; swallow and acknowledge.
