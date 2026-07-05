@@ -33,7 +33,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ player: string 
   // these renders aren't cheap, so rate-limit them and bail on unknown names
   // before we touch the snapshot or load fonts
   const limit = await rateLimit(`share:${clientIp(req)}`, 60, 60);
-  if (!limit.ok) return new Response('Too many requests', { status: 429 });
+  if (!limit.ok)
+    return new Response('Too many requests', {
+      status: 429,
+      headers: { 'Retry-After': String(limit.retryAfter) },
+    });
   if (!VALID_PLAYER_NAMES.has(name.toLowerCase())) {
     return new Response('Player not found', { status: 404 });
   }

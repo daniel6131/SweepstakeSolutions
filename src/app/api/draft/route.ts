@@ -66,7 +66,10 @@ export async function POST(request: Request) {
   // even an authed session shouldn't be able to sit there hammering reset
   const limit = await rateLimit(`draft:${clientIp(request)}`, 30, 60);
   if (!limit.ok) {
-    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+    );
   }
 
   let body: unknown;

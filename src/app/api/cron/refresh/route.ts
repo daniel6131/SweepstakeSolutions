@@ -16,6 +16,8 @@ import { refreshSnapshot } from '@/lib/refresh-snapshot';
  * the public.
  */
 export const dynamic = 'force-dynamic';
+// A refresh is one ~5s upstream fetch plus compute; cap the cron invocation.
+export const maxDuration = 15;
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;

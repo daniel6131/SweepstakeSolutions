@@ -25,7 +25,7 @@
     `/api/standings` debug routes were removed because they bypassed the refresh
     lock and could exhaust the free-tier budget
 
-## Free-tier refresh policy
+## Refresh policy
 
 - Active World Cup match windows: `60s`
 - Non-match periods: prefer `300s` or slower if you change cadence later
@@ -108,16 +108,31 @@ Expected output includes:
     redeploy; to force the static path deliberately, unset `KV_REST_API_URL` and redeploy
   - the draft is the irreplaceable state: restore it with
     `npm run draft:backup -- restore --write` (see `scripts/draft-backup.mjs`)
-- Free-tier score delay:
+- Upstream score delay:
   - source is still football-data.org
   - scores may lag real events
 
-## Recovery objectives (informal)
+## Ownership and first response
 
-- RTO (time to restore service): about 30 minutes, bounded by a Vercel redeploy.
-- Live-score RPO: about 0; scores recompute from upstream on the next refresh.
-- Draft RPO: the last `lockDraft()` backup (`draft:locked:latest`), which is the
-  only state that cannot be recomputed.
+- Owner: the repo maintainer (single-maintainer project); fallback contact: <add a name here>.
+- Severity levels and response times: see [docs/incident-severity.md](./incident-severity.md).
+  Service targets: see [docs/slo.md](./slo.md). Detection: the `/api/health` probe plus the
+  `RATE_LIMIT_429` and `[error-boundary]` log signals.
+- Mitigate before root-causing:
+  - Bad deploy: use Vercel instant rollback first, then investigate.
+  - Draft data problem: do NOT run `reset`. Snapshot `draft:state` first, then restore from
+    `draft:locked:latest`.
+  - Upstream outage: no action needed, the app auto-degrades; confirm the 429 cooloff and wait.
+
+## Recovery objectives
+
+| Service            | RTO                            | RPO                                                | Store       | Review cadence |
+| ------------------ | ------------------------------ | -------------------------------------------------- | ----------- | -------------- |
+| Site / live scores | about 30 min (Vercel redeploy) | about 0 (recomputed from upstream on next refresh) | KV snapshot | Per season     |
+| Draft assignments  | about 30 min                   | Last `lockDraft()` backup (`draft:locked:latest`)  | KV draft    | Per season     |
+
+The draft backup is the only state that cannot be recomputed; run a restore drill against a
+scratch key before the tournament (see the backup script) and record the date here.
 
 ## Operational rule
 

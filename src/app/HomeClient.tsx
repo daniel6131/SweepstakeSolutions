@@ -272,7 +272,8 @@ export default function HomeClient({ data: initialData }: Props) {
         {/* Content — slides over hero with solid background */}
         <main
           id="main-content"
-          className="content-surface relative z-20"
+          tabIndex={-1}
+          className="content-surface relative z-20 outline-none"
           style={{ background: 'var(--color-bg)' }}>
           {/* Soft edge gradient that bleeds up into the hero */}
           <div

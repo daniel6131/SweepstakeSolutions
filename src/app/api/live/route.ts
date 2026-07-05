@@ -13,6 +13,9 @@ import { getSnapshotForRead } from '@/lib/refresh-snapshot';
  * isn't blocked.
  */
 export const dynamic = 'force-dynamic';
+// Bound the function: a refresh is one ~5s upstream fetch plus compute, well
+// inside this ceiling, so a pathological stall is capped rather than open-ended.
+export const maxDuration = 15;
 
 export async function GET() {
   const { snapshot, background } = await getSnapshotForRead();

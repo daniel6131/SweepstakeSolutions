@@ -102,6 +102,11 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // jittered backoff between retries; no wait under test so the suite stays fast
 const retryDelay = () => (process.env.NODE_ENV === 'test' ? 0 : 150 + Math.random() * 350);
 
+// Wall-clock deadline for a single upstream attempt. Kept well below the 15s
+// snapshot LOCK_TTL so a hung football-data connection aborts and fails fast
+// into the retry/degrade path instead of holding the refresh lock open.
+const FETCH_TIMEOUT_MS = 5000;
+
 async function apiFetch<T>(endpoint: string): Promise<T> {
   const token = process.env.FOOTBALL_DATA_API_KEY;
   if (!token) {
@@ -127,6 +132,8 @@ async function apiFetch<T>(endpoint: string): Promise<T> {
         // No Data Cache: the snapshot refresh is already lock-gated, so each
         // refresh should pull live data rather than a revalidation-cached copy.
         cache: 'no-store',
+        // Fail fast on a stalled connection so we degrade rather than hang.
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
     } catch (err) {
       // transport error (network/DNS): one retry, then give up

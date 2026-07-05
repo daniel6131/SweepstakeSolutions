@@ -9,14 +9,20 @@
 
 const isKVEnabled = (): boolean => Boolean(process.env.KV_REST_API_URL);
 
-export type RateLimitResult = { ok: boolean; remaining: number; limit: number };
+export type RateLimitResult = {
+  ok: boolean;
+  remaining: number;
+  limit: number;
+  /** Seconds a throttled caller should wait before retrying (the window). */
+  retryAfter: number;
+};
 
 export async function rateLimit(
   key: string,
   limit: number,
   windowSeconds: number
 ): Promise<RateLimitResult> {
-  if (!isKVEnabled()) return { ok: true, remaining: limit, limit };
+  if (!isKVEnabled()) return { ok: true, remaining: limit, limit, retryAfter: windowSeconds };
 
   try {
     const { kv } = await import('@vercel/kv');
@@ -24,9 +30,15 @@ export async function rateLimit(
     const count = await kv.incr(bucketKey);
     // first hit in the window starts the TTL so the bucket expires on its own
     if (count === 1) await kv.expire(bucketKey, windowSeconds);
-    return { ok: count <= limit, remaining: Math.max(0, limit - count), limit };
+    return {
+      ok: count <= limit,
+      remaining: Math.max(0, limit - count),
+      limit,
+      retryAfter: windowSeconds,
+    };
   } catch {
-    return { ok: true, remaining: limit, limit }; // fail open, see above
+    // fail open, see above
+    return { ok: true, remaining: limit, limit, retryAfter: windowSeconds };
   }
 }
 

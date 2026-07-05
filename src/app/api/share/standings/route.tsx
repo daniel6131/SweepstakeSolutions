@@ -24,7 +24,11 @@ function flagUrlFor(team: string): string {
 export async function GET(req: Request) {
   // rate-limit the render (fails open if KV is down)
   const limit = await rateLimit(`share:${clientIp(req)}`, 60, 60);
-  if (!limit.ok) return new Response('Too many requests', { status: 429 });
+  if (!limit.ok)
+    return new Response('Too many requests', {
+      status: 429,
+      headers: { 'Retry-After': String(limit.retryAfter) },
+    });
 
   const url = new URL(req.url);
   const origin = url.origin;

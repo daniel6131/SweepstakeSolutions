@@ -23,6 +23,12 @@ const CSP = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
+  // Report violations so a CSP regression (or an injection attempt) is visible
+  // in the logs instead of failing silently. report-to is the modern channel
+  // (paired with the Reporting-Endpoints header below); report-uri is the legacy
+  // fallback for browsers that don't support it yet. Reporting only, no enforcement change.
+  'report-to csp-endpoint',
+  'report-uri /api/csp-report',
   ...(isProd ? ['upgrade-insecure-requests'] : []),
 ].join('; ');
 
@@ -32,6 +38,7 @@ const SECURITY_HEADERS: Record<string, string> = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+  'Reporting-Endpoints': 'csp-endpoint="/api/csp-report"',
   'Content-Security-Policy': CSP,
 };
 

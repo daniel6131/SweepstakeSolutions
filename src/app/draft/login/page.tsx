@@ -47,6 +47,9 @@ export default async function DraftLoginPage({ searchParams }: Props) {
               type="password"
               required
               autoComplete="current-password"
+              aria-invalid={params.error ? true : undefined}
+              aria-describedby={params.error ? 'password-error' : undefined}
+              autoFocus={Boolean(params.error)}
               className="w-full rounded-2xl border px-4 py-3 outline-none transition-colors"
               style={{
                 background: 'rgba(3,13,16,0.8)',
@@ -57,7 +60,7 @@ export default async function DraftLoginPage({ searchParams }: Props) {
           </label>
 
           {params.error ? (
-            <p role="alert" className="text-sm font-medium text-[#ff8e8e]">
+            <p id="password-error" role="alert" className="text-sm font-medium text-[#ff8e8e]">
               Incorrect password. Please try again.
             </p>
           ) : null}
